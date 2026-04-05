@@ -38,7 +38,7 @@ CheckAgent is being built in public. Here's where we're headed.
 ### Milestone 3: Safety Testing + CI/CD
 - [x] Safety marker with OWASP LLM Top 10 taxonomy
 - [x] Built-in evaluators: prompt injection, PII leakage, system prompt leak, tool boundary, refusal compliance
-- [x] Attack probe library — injection probes (35 templates, direct + indirect)
+- [x] Attack probe library — 68 probe templates (injection, jailbreak, PII, scope)
 - [ ] GitHub Action with quality gates and PR comments
 - [ ] Compliance report generation
 - [ ] PyPI v0.3.0
