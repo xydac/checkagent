@@ -29,10 +29,10 @@ CheckAgent is being built in public. Here's where we're headed.
 
 ### Milestone 2: Evaluation Metrics
 - [x] Task completion, tool correctness, step efficiency metrics
-- [ ] Golden dataset loader with schema validation
-- [ ] Aggregate scoring and regression detection
+- [x] Golden dataset loader with schema validation
+- [x] Aggregate scoring and regression detection
 - [ ] Token tracking and cost reporting
-- [ ] Custom evaluator plugin interface
+- [x] Custom evaluator plugin interface
 - [ ] PyPI v0.2.0
 
 ### Milestone 3: Safety Testing + CI/CD
