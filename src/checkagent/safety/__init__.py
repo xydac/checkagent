@@ -1,12 +1,14 @@
-"""Safety testing for AI agents — taxonomy, evaluators, and detection.
+"""Safety testing for AI agents — taxonomy, evaluators, detection, and probes.
 
 Implements F11.1 (safety taxonomy), F11.2 (built-in evaluators),
-and F11.5 (custom evaluator base class) from the PRD.
+F11.3 (attack probe library), and F11.5 (custom evaluator base class).
 """
 
 from checkagent.safety.evaluator import SafetyEvaluator, SafetyFinding, SafetyResult
 from checkagent.safety.injection import PromptInjectionDetector
 from checkagent.safety.pii import PIILeakageScanner
+from checkagent.safety.probes import Probe, ProbeSet
+from checkagent.safety.probes import injection as probes_injection
 from checkagent.safety.refusal import RefusalComplianceChecker
 from checkagent.safety.system_prompt import SystemPromptLeakDetector
 from checkagent.safety.taxonomy import (
@@ -18,9 +20,14 @@ from checkagent.safety.taxonomy import (
 )
 from checkagent.safety.tool_boundary import ToolBoundary, ToolCallBoundaryValidator
 
+# Namespace for ``from checkagent.safety import probes``
+from checkagent.safety import probes  # noqa: E402
+
 __all__ = [
     "OWASP_MAPPING",
     "PIILeakageScanner",
+    "Probe",
+    "ProbeSet",
     "PromptInjectionDetector",
     "RefusalComplianceChecker",
     "SEVERITY_ORDER",
@@ -32,5 +39,7 @@ __all__ = [
     "SystemPromptLeakDetector",
     "ToolBoundary",
     "ToolCallBoundaryValidator",
+    "probes",
+    "probes_injection",
     "severity_meets_threshold",
 ]
