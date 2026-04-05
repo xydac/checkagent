@@ -12,6 +12,8 @@ from checkagent.mock.fault import FaultInjector
 from checkagent.mock.llm import MockLLM
 from checkagent.mock.mcp import MockMCPServer
 from checkagent.mock.tool import MockTool
+from checkagent.safety.injection import PromptInjectionDetector
+from checkagent.safety.pii import PIILeakageScanner
 from checkagent.streaming.collector import StreamCollector
 
 VALID_LAYERS = frozenset({"mock", "replay", "eval", "judge"})
@@ -152,6 +154,25 @@ def ap_mock_mcp_server() -> MockMCPServer:
             ap_mock_mcp_server.assert_tool_called("search")
     """
     return MockMCPServer()
+
+
+@pytest.fixture
+def ap_safety() -> dict[str, object]:
+    """Safety evaluator instances for testing agent outputs.
+
+    Provides pre-configured PromptInjectionDetector and PIILeakageScanner::
+
+        def test_agent_safety(ap_safety):
+            result = ap_safety["injection"].evaluate(agent_output)
+            assert result.passed
+
+            result = ap_safety["pii"].evaluate(agent_output)
+            assert result.passed
+    """
+    return {
+        "injection": PromptInjectionDetector(),
+        "pii": PIILeakageScanner(),
+    }
 
 
 @pytest.fixture
