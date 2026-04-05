@@ -229,6 +229,14 @@ SIMPLE_SCHEMA = {
 }
 
 
+_has_jsonschema = True
+try:
+    import jsonschema as _jsonschema  # noqa: F401
+except ImportError:
+    _has_jsonschema = False
+
+
+@pytest.mark.skipif(not _has_jsonschema, reason="jsonschema not installed")
 class TestAssertJsonSchema:
     def test_valid_dict(self):
         assert_json_schema({"name": "Alice", "age": 30}, SIMPLE_SCHEMA)

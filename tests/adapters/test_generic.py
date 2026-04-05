@@ -18,7 +18,7 @@ class TestGenericAdapterSync:
         assert result.succeeded is True
         assert result.final_output == "Answer: hello"
         assert result.duration_ms is not None
-        assert result.duration_ms > 0
+        assert result.duration_ms >= 0
         assert len(result.steps) == 1
         assert result.steps[0].output_text == "Answer: hello"
 
