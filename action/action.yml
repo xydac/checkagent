@@ -1,0 +1,158 @@
+name: "CheckAgent Test"
+description: "Run CheckAgent agent tests with quality gates, cost reporting, and PR comments"
+author: "CheckAgent"
+
+branding:
+  icon: "check-circle"
+  color: "green"
+
+inputs:
+  working-directory:
+    description: "Directory containing the test project"
+    required: false
+    default: "."
+  config:
+    description: "Path to checkagent.yml config file"
+    required: false
+    default: ""
+  pytest-args:
+    description: "Additional arguments to pass to pytest"
+    required: false
+    default: ""
+  layer:
+    description: "Testing layer to run (mock, replay, eval, judge, or all)"
+    required: false
+    default: "all"
+  post-comment:
+    description: "Post results as a PR comment (true/false)"
+    required: false
+    default: "true"
+  fail-on-block:
+    description: "Fail the action if any quality gate is blocked (true/false)"
+    required: false
+    default: "true"
+  python-version:
+    description: "Python version to use"
+    required: false
+    default: "3.11"
+
+outputs:
+  passed:
+    description: "Whether all quality gates passed (true/false)"
+  total-tests:
+    description: "Total number of tests run"
+  pass-rate:
+    description: "Test pass rate (0.0-1.0)"
+  total-cost:
+    description: "Total estimated cost in USD"
+  report-path:
+    description: "Path to the generated HTML report"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install CheckAgent
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        pip install checkagent
+
+    - name: Run tests
+      id: run-tests
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        set +e
+
+        PYTEST_ARGS="-m agent_test --tb=short -q"
+
+        if [ "${{ inputs.layer }}" != "all" ]; then
+          PYTEST_ARGS="$PYTEST_ARGS -m ${{ inputs.layer }}"
+        fi
+
+        if [ -n "${{ inputs.config }}" ]; then
+          export CHECKAGENT_CONFIG="${{ inputs.config }}"
+        fi
+
+        JUNIT_PATH="${{ runner.temp }}/checkagent-results.xml"
+        PYTEST_ARGS="$PYTEST_ARGS --junitxml=$JUNIT_PATH ${{ inputs.pytest-args }}"
+
+        python -m pytest $PYTEST_ARGS 2>&1 | tee "${{ runner.temp }}/checkagent-output.txt"
+        TEST_EXIT_CODE=${PIPESTATUS[0]}
+
+        echo "exit-code=$TEST_EXIT_CODE" >> "$GITHUB_OUTPUT"
+        echo "junit-path=$JUNIT_PATH" >> "$GITHUB_OUTPUT"
+
+    - name: Evaluate quality gates
+      id: evaluate
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        python -m checkagent.ci.entrypoint \
+          --junit "${{ steps.run-tests.outputs.junit-path }}" \
+          --output-dir "${{ runner.temp }}/checkagent-report" \
+          --format markdown \
+          2>&1 || true
+
+        if [ -f "${{ runner.temp }}/checkagent-report/summary.md" ]; then
+          echo "report-generated=true" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Post PR comment
+      if: inputs.post-comment == 'true' && github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const summaryPath = '${{ runner.temp }}/checkagent-report/summary.md';
+
+          if (!fs.existsSync(summaryPath)) {
+            core.warning('No CheckAgent summary found to post');
+            return;
+          }
+
+          const body = fs.readFileSync(summaryPath, 'utf8');
+          const { owner, repo } = context.repo;
+          const issue_number = context.payload.pull_request.number;
+
+          // Find existing CheckAgent comment to update
+          const comments = await github.rest.issues.listComments({
+            owner, repo, issue_number,
+          });
+          const existing = comments.data.find(c =>
+            c.body.includes('CheckAgent Test Report') &&
+            c.user.type === 'Bot'
+          );
+
+          if (existing) {
+            await github.rest.issues.updateComment({
+              owner, repo, comment_id: existing.id, body,
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner, repo, issue_number, body,
+            });
+          }
+
+    - name: Upload report artifact
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: checkagent-report
+        path: ${{ runner.temp }}/checkagent-report/
+        if-no-files-found: ignore
+
+    - name: Check gate results
+      if: inputs.fail-on-block == 'true'
+      shell: bash
+      run: |
+        EXIT_CODE="${{ steps.run-tests.outputs.exit-code }}"
+        if [ "$EXIT_CODE" != "0" ]; then
+          echo "::error::CheckAgent tests failed or quality gates blocked (exit code: $EXIT_CODE)"
+          exit 1
+        fi
