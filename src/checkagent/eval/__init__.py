@@ -7,6 +7,12 @@ from checkagent.eval.assertions import (
     assert_output_schema,
     assert_tool_called,
 )
+from checkagent.eval.metrics import (
+    step_efficiency,
+    task_completion,
+    tool_correctness,
+    trajectory_match,
+)
 
 __all__ = [
     "StructuredAssertionError",
@@ -14,4 +20,8 @@ __all__ = [
     "assert_output_matches",
     "assert_output_schema",
     "assert_tool_called",
+    "step_efficiency",
+    "task_completion",
+    "tool_correctness",
+    "trajectory_match",
 ]
