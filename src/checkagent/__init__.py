@@ -2,6 +2,7 @@
 
 __version__ = "0.0.1a1"
 
+from checkagent.core.config import CheckAgentConfig, load_config
 from checkagent.core.types import (
     AgentInput,
     AgentRun,
@@ -16,9 +17,11 @@ __all__ = [
     "__version__",
     "AgentInput",
     "AgentRun",
+    "CheckAgentConfig",
     "Score",
     "Step",
     "StreamEvent",
     "StreamEventType",
     "ToolCall",
+    "load_config",
 ]

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Sequence
+from pathlib import Path
 
 import pytest
+
+from checkagent.core.config import CheckAgentConfig, load_config
 
 VALID_LAYERS = frozenset({"mock", "replay", "eval", "judge"})
 
@@ -18,10 +20,16 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         default=None,
         help="Only run agent tests for the specified layer (mock, replay, eval, judge).",
     )
+    group.addoption(
+        "--checkagent-config",
+        action="store",
+        default=None,
+        help="Path to checkagent.yml config file (auto-discovered if not set).",
+    )
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Register custom markers."""
+    """Register custom markers and load CheckAgent configuration."""
     config.addinivalue_line(
         "markers",
         "agent_test(layer): mark a test as an agent test with layer specification",
@@ -34,6 +42,23 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "cassette(path): specify a cassette file for record-replay testing",
     )
+
+    # Load configuration
+    config_path_str = config.getoption("--checkagent-config", default=None)
+    config_path = Path(config_path_str) if config_path_str else None
+    ca_config = load_config(config_path)
+    config.stash[_config_key] = ca_config
+
+
+# Stash key for the CheckAgent config object
+config_key = pytest.StashKey[CheckAgentConfig]()
+_config_key = config_key  # internal alias
+
+
+@pytest.fixture
+def ap_config(request: pytest.FixtureRequest) -> CheckAgentConfig:
+    """Access the loaded CheckAgent configuration."""
+    return request.config.stash[_config_key]
 
 
 def pytest_collection_modifyitems(

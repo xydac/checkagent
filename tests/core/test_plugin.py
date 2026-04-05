@@ -4,7 +4,8 @@ pytest_plugins = ["pytester"]
 
 import pytest
 
-from checkagent.core.plugin import VALID_LAYERS, _marker_matches_layer
+from checkagent.core.config import CheckAgentConfig
+from checkagent.core.plugin import VALID_LAYERS, _config_key, _marker_matches_layer
 
 
 def test_plugin_loads(pytestconfig):
@@ -121,3 +122,41 @@ class TestLayerFiltering:
         """)
         result = pytester.runpytest("-v")
         result.assert_outcomes(passed=3)
+
+
+class TestConfigIntegration:
+    """Config is loaded and accessible via the plugin."""
+
+    def test_config_loaded_in_stash(self, pytestconfig):
+        """The plugin stores CheckAgentConfig in the pytest stash."""
+        cfg = pytestconfig.stash[_config_key]
+        assert isinstance(cfg, CheckAgentConfig)
+
+    def test_ap_config_fixture(self, ap_config):
+        """The ap_config fixture returns the loaded config."""
+        assert isinstance(ap_config, CheckAgentConfig)
+        assert ap_config.version == 1
+
+    def test_custom_config_file(self, pytester):
+        """--checkagent-config loads a specific file."""
+        pytester.makefile(
+            ".yml",
+            custom_config="""\
+version: 1
+defaults:
+  layer: eval
+  timeout: 99
+""",
+        )
+        pytester.makepyfile("""
+            from checkagent.core.config import CheckAgentConfig
+            from checkagent.core.plugin import _config_key
+
+            def test_config_loaded(pytestconfig):
+                cfg = pytestconfig.stash[_config_key]
+                assert isinstance(cfg, CheckAgentConfig)
+                assert cfg.defaults.layer == "eval"
+                assert cfg.defaults.timeout == 99
+        """)
+        result = pytester.runpytest("--checkagent-config=custom_config.yml", "-v")
+        result.assert_outcomes(passed=1)
