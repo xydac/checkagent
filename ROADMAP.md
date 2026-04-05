@@ -5,9 +5,9 @@ CheckAgent is being built in public. Here's where we're headed.
 ## Phase 1: Ship Something People Love
 
 ### Milestone 0: Foundation + Demo (In Progress)
-- [ ] Core types (`AgentRun`, `Step`, `ToolCall`, `AgentInput`, `StreamEvent`, `Score`)
-- [ ] `AgentAdapter` protocol (async-first)
-- [ ] `GenericAdapter` for any Python callable
+- [x] Core types (`AgentRun`, `Step`, `ToolCall`, `AgentInput`, `StreamEvent`, `Score`)
+- [x] `AgentAdapter` protocol (async-first)
+- [x] `GenericAdapter` for any Python callable
 - [ ] pytest plugin with `@pytest.mark.agent_test` marker
 - [ ] `checkagent init` CLI
 - [ ] `checkagent demo` — zero-config, no API keys, < 30 seconds
