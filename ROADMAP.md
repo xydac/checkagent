@@ -20,7 +20,7 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] `MockTool` with schema validation and call recording
 - [x] Fault injection (`ap_fault`): timeouts, rate limits, malformed responses
 - [x] Structured output assertions (Pydantic, JSON Schema)
-- [ ] Multi-turn conversation fixture (`ap_conversation`)
+- [x] Multi-turn conversation fixture (`ap_conversation`)
 - [ ] MCP-aware mock server
 - [ ] PyPI v0.1.0 — **public alpha**
 
