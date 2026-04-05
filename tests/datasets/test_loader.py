@@ -3,6 +3,7 @@
 import json
 
 import pytest
+from pydantic import ValidationError
 
 from checkagent.datasets.loader import load_cases, load_dataset, parametrize_cases
 from checkagent.datasets.schema import GoldenDataset, TestCase
@@ -100,7 +101,7 @@ class TestLoadDataset:
     def test_validation_error_propagates(self, tmp_path):
         path = tmp_path / "bad.json"
         path.write_text(json.dumps([{"id": "t1"}]))  # missing 'input'
-        with pytest.raises(Exception):  # ValidationError
+        with pytest.raises(ValidationError):
             load_dataset(path)
 
     def test_duplicate_ids_in_file(self, tmp_path):
@@ -117,7 +118,6 @@ class TestLoadDataset:
         path = tmp_path / "data.yaml"
         path.write_text("- id: t1\n  input: hi\n")
         # Temporarily make yaml import fail
-        import importlib
 
         import checkagent.datasets.loader as loader_mod
 

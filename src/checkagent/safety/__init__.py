@@ -4,9 +4,11 @@ Implements F11.1 (safety taxonomy), F11.2 (built-in evaluators),
 F11.3 (attack probe library), F11.4 (compliance reports), and F11.5 (custom evaluator base class).
 """
 
+# Namespace for ``from checkagent.safety import probes``
+from checkagent.safety import probes  # noqa: E402
 from checkagent.safety.compliance import (
-    ComplianceReport,
     EU_AI_ACT_MAPPING,
+    ComplianceReport,
     generate_compliance_report,
     render_compliance_html,
     render_compliance_json,
@@ -30,9 +32,6 @@ from checkagent.safety.taxonomy import (
     severity_meets_threshold,
 )
 from checkagent.safety.tool_boundary import ToolBoundary, ToolCallBoundaryValidator
-
-# Namespace for ``from checkagent.safety import probes``
-from checkagent.safety import probes  # noqa: E402
 
 __all__ = [
     "ComplianceReport",

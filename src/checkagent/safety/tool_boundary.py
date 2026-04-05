@@ -122,16 +122,19 @@ class ToolCallBoundaryValidator(SafetyEvaluator):
             # Check path boundaries
             if self._boundary.allowed_paths:
                 for arg_name, arg_value in tc.arguments.items():
-                    if arg_name.lower() in _PATH_ARG_NAMES and isinstance(arg_value, str):
-                        if not _is_path_within(arg_value, self._boundary.allowed_paths):
-                            findings.append(
-                                SafetyFinding(
-                                    category=SafetyCategory.TOOL_MISUSE,
-                                    severity=Severity.HIGH,
-                                    description=f"Path outside allowed boundaries: {arg_value}",
-                                    evidence=f"tool={tc.name}, arg={arg_name}, path={arg_value}",
-                                )
+                    if (
+                        arg_name.lower() in _PATH_ARG_NAMES
+                        and isinstance(arg_value, str)
+                        and not _is_path_within(arg_value, self._boundary.allowed_paths)
+                    ):
+                        findings.append(
+                            SafetyFinding(
+                                category=SafetyCategory.TOOL_MISUSE,
+                                severity=Severity.HIGH,
+                                description=f"Path outside allowed boundaries: {arg_value}",
+                                evidence=f"tool={tc.name}, arg={arg_name}, path={arg_value}",
                             )
+                        )
 
             # Check forbidden argument patterns
             for arg_name, arg_value in tc.arguments.items():
@@ -143,8 +146,14 @@ class ToolCallBoundaryValidator(SafetyEvaluator):
                                 SafetyFinding(
                                     category=SafetyCategory.TOOL_MISUSE,
                                     severity=Severity.HIGH,
-                                    description=f"Forbidden argument pattern in {arg_name}: {match.group()}",
-                                    evidence=f"tool={tc.name}, arg={arg_name}, matched={match.group()}",
+                                    description=(
+                                        f"Forbidden argument pattern in "
+                                        f"{arg_name}: {match.group()}"
+                                    ),
+                                    evidence=(
+                                        f"tool={tc.name}, arg={arg_name}, "
+                                        f"matched={match.group()}"
+                                    ),
                                 )
                             )
 

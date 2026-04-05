@@ -15,7 +15,6 @@ from typing import Any
 from checkagent.core.config import BudgetConfig, ProviderPricing
 from checkagent.core.types import AgentRun, Step
 
-
 # ---------------------------------------------------------------------------
 # Built-in pricing table (per 1M tokens, USD)
 # Updated as of 2025-05 — users can override via checkagent.yml providers
@@ -45,7 +44,10 @@ BUILTIN_PRICING: dict[str, ProviderPricing] = {
 }
 
 
-def get_pricing(model: str, overrides: dict[str, ProviderPricing] | None = None) -> ProviderPricing | None:
+def get_pricing(
+    model: str,
+    overrides: dict[str, ProviderPricing] | None = None,
+) -> ProviderPricing | None:
     """Look up pricing for a model, checking overrides first then built-ins."""
     if overrides and model in overrides:
         return overrides[model]

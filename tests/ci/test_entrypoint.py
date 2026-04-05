@@ -8,7 +8,6 @@ import pytest
 
 from checkagent.ci.entrypoint import main, parse_junit_xml
 
-
 SAMPLE_JUNIT = """\
 <?xml version="1.0" encoding="utf-8"?>
 <testsuites>

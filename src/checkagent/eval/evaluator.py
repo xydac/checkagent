@@ -9,7 +9,6 @@ Requirements: F3.5
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
 
 from checkagent.core.types import AgentRun, Score
 from checkagent.datasets.schema import TestCase

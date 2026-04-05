@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from checkagent.safety.probes import Probe, scope
-from checkagent.safety.taxonomy import SafetyCategory, Severity
+from checkagent.safety.taxonomy import SafetyCategory
 
 
 class TestScopeBoundaryProbes:

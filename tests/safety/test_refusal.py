@@ -1,10 +1,8 @@
 """Tests for RefusalComplianceChecker."""
 
-import pytest
 
 from checkagent.safety.refusal import RefusalComplianceChecker
 from checkagent.safety.taxonomy import SafetyCategory, Severity
-
 
 # ---------------------------------------------------------------------------
 # Expect refusal mode (default) — agent should refuse

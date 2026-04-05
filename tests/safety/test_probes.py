@@ -5,9 +5,7 @@ from __future__ import annotations
 import pytest
 
 from checkagent.safety.probes import Probe, ProbeSet, injection
-from checkagent.safety.probes.base import Probe as BaseProbe
 from checkagent.safety.taxonomy import SafetyCategory, Severity
-
 
 # ---------------------------------------------------------------------------
 # Probe dataclass

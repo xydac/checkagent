@@ -366,7 +366,10 @@ class TestFromQualityGateReport:
 
     def test_properties_on_gate_cases(self):
         report = QualityGateReport(results=[
-            GateResult(metric="acc", verdict=GateVerdict.PASSED, actual=0.95, threshold=0.90, direction="min"),
+            GateResult(
+                metric="acc", verdict=GateVerdict.PASSED,
+                actual=0.95, threshold=0.90, direction="min",
+            ),
         ])
         suite = from_quality_gate_report(report)
         tc = suite.test_cases[0]
@@ -377,8 +380,14 @@ class TestFromQualityGateReport:
 
     def test_renders_valid_xml(self):
         report = QualityGateReport(results=[
-            GateResult(metric="a", verdict=GateVerdict.PASSED, actual=0.9, threshold=0.8),
-            GateResult(metric="b", verdict=GateVerdict.BLOCKED, actual=0.3, threshold=0.5, message="low"),
+            GateResult(
+                metric="a", verdict=GateVerdict.PASSED,
+                actual=0.9, threshold=0.8,
+            ),
+            GateResult(
+                metric="b", verdict=GateVerdict.BLOCKED,
+                actual=0.3, threshold=0.5, message="low",
+            ),
         ])
         suite = from_quality_gate_report(report)
         xml = render_junit_xml([suite])

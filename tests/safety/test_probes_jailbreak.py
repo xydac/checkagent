@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from checkagent.safety.probes import Probe, jailbreak
-from checkagent.safety.taxonomy import SafetyCategory, Severity
-
+from checkagent.safety.taxonomy import SafetyCategory
 
 # ---------------------------------------------------------------------------
 # Encoding probes

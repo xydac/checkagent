@@ -25,10 +25,7 @@ def parse_junit_xml(path: Path) -> RunSummary:
     root = tree.getroot()
 
     # Handle both <testsuites> wrapper and bare <testsuite>
-    if root.tag == "testsuites":
-        suites = list(root)
-    else:
-        suites = [root]
+    suites = list(root) if root.tag == "testsuites" else [root]
 
     total = 0
     failures = 0

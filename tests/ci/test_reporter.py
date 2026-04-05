@@ -105,7 +105,12 @@ class TestGeneratePRComment:
             total_input_tokens=1000,
             total_output_tokens=500,
             total_cost=0.1234,
-            per_model={"gpt-4o": ModelCost(model="gpt-4o", input_tokens=1000, output_tokens=500, cost=0.1234)},
+            per_model={
+                "gpt-4o": ModelCost(
+                    model="gpt-4o", input_tokens=1000,
+                    output_tokens=500, cost=0.1234,
+                ),
+            },
         )
         comment = generate_pr_comment(cost_report=cost)
         assert "### Cost Summary" in comment

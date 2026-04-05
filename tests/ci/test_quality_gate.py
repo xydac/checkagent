@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from checkagent.ci.quality_gate import (
     GateResult,
     GateVerdict,

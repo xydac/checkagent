@@ -8,7 +8,6 @@ from checkagent.eval.aggregate import (
     compute_step_stats,
     detect_regressions,
 )
-from checkagent.eval.evaluator import Evaluator, EvaluatorRegistry
 from checkagent.eval.assertions import (
     StructuredAssertionError,
     assert_json_schema,
@@ -16,6 +15,7 @@ from checkagent.eval.assertions import (
     assert_output_schema,
     assert_tool_called,
 )
+from checkagent.eval.evaluator import Evaluator, EvaluatorRegistry
 from checkagent.eval.metrics import (
     step_efficiency,
     task_completion,

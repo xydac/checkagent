@@ -30,7 +30,7 @@ def _load_raw(path: Path) -> dict[str, Any] | list[Any]:
             raise ImportError(
                 "PyYAML is required to load YAML datasets. "
                 "Install it with: pip install pyyaml"
-            )
+            ) from None
         with open(path) as f:
             return yaml.safe_load(f)
 

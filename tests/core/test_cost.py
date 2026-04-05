@@ -8,7 +8,6 @@ from checkagent.core.config import BudgetConfig, ProviderPricing
 from checkagent.core.cost import (
     BUILTIN_PRICING,
     BudgetExceededError,
-    CostBreakdown,
     CostReport,
     CostTracker,
     ModelCost,
@@ -17,7 +16,6 @@ from checkagent.core.cost import (
     get_pricing,
 )
 from checkagent.core.types import AgentInput, AgentRun, Step
-
 
 # ---------------------------------------------------------------------------
 # Helpers

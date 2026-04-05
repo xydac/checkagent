@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
-import pytest
-
 from checkagent.safety.compliance import (
     EU_AI_ACT_MAPPING,
     CategorySummary,
@@ -18,7 +16,6 @@ from checkagent.safety.compliance import (
 )
 from checkagent.safety.evaluator import SafetyFinding, SafetyResult
 from checkagent.safety.taxonomy import SafetyCategory, Severity
-
 
 # ---------------------------------------------------------------------------
 # Helpers

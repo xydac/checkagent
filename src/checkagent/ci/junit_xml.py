@@ -10,7 +10,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from xml.etree.ElementTree import Element, SubElement, tostring
-from xml.sax.saxutils import escape
+
+from checkagent.ci.quality_gate import QualityGateReport
+from checkagent.ci.reporter import RunSummary
 
 
 @dataclass
@@ -186,7 +188,7 @@ def _render_test_case(parent: Element, tc: JUnitTestCase) -> None:
 
 
 def from_run_summary(
-    summary: "RunSummary",
+    summary: RunSummary,
     *,
     suite_name: str = "checkagent",
     test_details: list[dict[str, str]] | None = None,
@@ -204,7 +206,6 @@ def from_run_summary(
     If test_details is not provided, synthetic test cases are created
     from the summary counts.
     """
-    from checkagent.ci.reporter import RunSummary as _RS  # noqa: F811
 
     cases: list[JUnitTestCase] = []
 
@@ -239,7 +240,11 @@ def from_run_summary(
                 time_s=avg_time,
             ))
         for i in range(summary.failed):
-            name = summary.regressions[i] if i < len(summary.regressions) else f"test_failed_{i + 1}"
+            name = (
+                summary.regressions[i]
+                if i < len(summary.regressions)
+                else f"test_failed_{i + 1}"
+            )
             cases.append(JUnitTestCase(
                 name=name,
                 classname=suite_name,
@@ -265,7 +270,7 @@ def from_run_summary(
 
 
 def from_quality_gate_report(
-    report: "QualityGateReport",
+    report: QualityGateReport,
     *,
     suite_name: str = "checkagent.quality_gates",
 ) -> JUnitTestSuite:
