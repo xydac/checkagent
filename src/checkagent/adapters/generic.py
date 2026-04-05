@@ -31,8 +31,13 @@ class GenericAdapter:
             for p in inspect.signature(fn).parameters.values()
         )
 
-    async def run(self, input: AgentInput) -> AgentRun:
-        """Execute the wrapped callable and return an AgentRun trace."""
+    async def run(self, input: AgentInput | str) -> AgentRun:
+        """Execute the wrapped callable and return an AgentRun trace.
+
+        Accepts either an AgentInput or a plain string (converted automatically).
+        """
+        if isinstance(input, str):
+            input = AgentInput(query=input)
         start = time.monotonic()
         kwargs = input.context if self._accepts_kwargs else {}
 
