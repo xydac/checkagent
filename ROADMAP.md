@@ -36,8 +36,8 @@ CheckAgent is being built in public. Here's where we're headed.
 - [ ] PyPI v0.2.0
 
 ### Milestone 3: Safety Testing + CI/CD
-- [ ] Safety marker with OWASP LLM Top 10 taxonomy
-- [ ] Built-in evaluators: prompt injection, PII leakage, tool misuse
+- [x] Safety marker with OWASP LLM Top 10 taxonomy
+- [~] Built-in evaluators: prompt injection, PII leakage, system prompt leak (tool misuse TODO)
 - [ ] Attack probe library (50+ templates)
 - [ ] GitHub Action with quality gates and PR comments
 - [ ] Compliance report generation
