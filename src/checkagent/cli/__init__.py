@@ -1,0 +1,22 @@
+"""CheckAgent CLI — command-line interface for the testing framework."""
+
+import click
+
+from checkagent import __version__
+
+
+@click.group(invoke_without_command=True)
+@click.version_option(version=__version__, prog_name="checkagent")
+@click.pass_context
+def main(ctx: click.Context) -> None:
+    """The open-source testing framework for AI agents."""
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
+
+
+# Import subcommands to register them with the group
+from checkagent.cli.init import init_cmd  # noqa: E402
+from checkagent.cli.run import run_cmd  # noqa: E402
+
+main.add_command(init_cmd)
+main.add_command(run_cmd)
