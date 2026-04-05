@@ -2,6 +2,7 @@
 
 __version__ = "0.0.1a1"
 
+from checkagent.conversation.session import Conversation, Turn
 from checkagent.core.config import CheckAgentConfig, load_config
 from checkagent.eval.assertions import (
     StructuredAssertionError,
@@ -28,6 +29,7 @@ __all__ = [
     "AgentInput",
     "AgentRun",
     "CheckAgentConfig",
+    "Conversation",
     "FaultInjector",
     "MatchMode",
     "MockLLM",
@@ -38,6 +40,7 @@ __all__ = [
     "StreamEventType",
     "StructuredAssertionError",
     "ToolCall",
+    "Turn",
     "assert_json_schema",
     "assert_output_matches",
     "assert_output_schema",

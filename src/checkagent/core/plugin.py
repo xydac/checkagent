@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from checkagent.conversation.session import Conversation
 from checkagent.core.config import CheckAgentConfig, load_config
 from checkagent.mock.fault import FaultInjector
 from checkagent.mock.llm import MockLLM
@@ -98,6 +99,25 @@ def ap_fault() -> FaultInjector:
             # ... run agent and assert graceful degradation
     """
     return FaultInjector()
+
+
+@pytest.fixture
+def ap_conversation() -> Conversation:
+    """A conversation factory fixture for multi-turn testing.
+
+    Returns a ``Conversation`` constructor. Pass your agent function
+    to create a session::
+
+        async def test_multi_turn(ap_conversation):
+            conv = ap_conversation(my_agent_fn)
+            r1 = await conv.say("Hello")
+            r2 = await conv.say("What did I just say?")
+            assert conv.total_turns == 2
+
+    The agent function must accept an ``AgentInput`` and return
+    an ``AgentRun``.
+    """
+    return Conversation
 
 
 @pytest.fixture
