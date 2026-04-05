@@ -1,0 +1,71 @@
+# Roadmap
+
+CheckAgent is being built in public. Here's where we're headed.
+
+## Phase 1: Ship Something People Love
+
+### Milestone 0: Foundation + Demo (In Progress)
+- [ ] Core types (`AgentRun`, `Step`, `ToolCall`, `AgentInput`, `StreamEvent`, `Score`)
+- [ ] `AgentAdapter` protocol (async-first)
+- [ ] `GenericAdapter` for any Python callable
+- [ ] pytest plugin with `@pytest.mark.agent_test` marker
+- [ ] `checkagent init` CLI
+- [ ] `checkagent demo` — zero-config, no API keys, < 30 seconds
+- [ ] `checkagent run` — thin pytest wrapper
+- [ ] CI on Linux, macOS, Windows
+- [ ] PyPI v0.0.1-alpha
+
+### Milestone 1: Mock Layer + Fault Injection
+- [ ] `MockLLM` with pattern-based responses and streaming
+- [ ] `MockTool` with schema validation and call recording
+- [ ] Fault injection (`ap_fault`): timeouts, rate limits, malformed responses
+- [ ] Structured output assertions (Pydantic, JSON Schema)
+- [ ] Multi-turn conversation fixture (`ap_conversation`)
+- [ ] MCP-aware mock server
+- [ ] PyPI v0.1.0 — **public alpha**
+
+## Phase 2: Make It Useful for Real Agents
+
+### Milestone 2: Evaluation Metrics
+- [ ] Task completion, tool correctness, step efficiency metrics
+- [ ] Golden dataset loader with schema validation
+- [ ] Aggregate scoring and regression detection
+- [ ] Token tracking and cost reporting
+- [ ] Custom evaluator plugin interface
+- [ ] PyPI v0.2.0
+
+### Milestone 3: Safety Testing + CI/CD
+- [ ] Safety marker with OWASP LLM Top 10 taxonomy
+- [ ] Built-in evaluators: prompt injection, PII leakage, tool misuse
+- [ ] Attack probe library (50+ templates)
+- [ ] GitHub Action with quality gates and PR comments
+- [ ] Compliance report generation
+- [ ] PyPI v0.3.0
+
+## Phase 3: Make It Complete
+
+### Milestone 4: Record-and-Replay
+- [ ] Versioned JSON cassettes with stream support
+- [ ] Replay engine with configurable matching
+- [ ] Cassette migration tooling
+- [ ] PyPI v0.4.0
+
+### Milestone 5: LLM-as-Judge
+- [ ] Rubric-based evaluation
+- [ ] Statistical assertions (PASS/FAIL/INCONCLUSIVE)
+- [ ] Multi-judge consensus
+- [ ] PyPI v0.5.0
+
+### Milestone 6: Framework Adapters + Production Loop
+- [ ] LangChain, OpenAI Agents SDK, CrewAI, PydanticAI, Anthropic adapters
+- [ ] Production trace import (Langfuse, Phoenix, OpenTelemetry)
+- [ ] PyPI v1.0.0
+
+### Milestone 7: Multi-Agent + Ecosystem
+- [ ] Multi-agent trace capture and handoff testing
+- [ ] Credit assignment heuristics
+- [ ] PyPI v1.1.0
+
+---
+
+Want to help? Check out [CONTRIBUTING.md](CONTRIBUTING.md) and look for issues labeled `good first issue`.
