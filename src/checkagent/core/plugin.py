@@ -8,6 +8,7 @@ import pytest
 
 from checkagent.core.config import CheckAgentConfig, load_config
 from checkagent.mock.llm import MockLLM
+from checkagent.mock.tool import MockTool
 
 VALID_LAYERS = frozenset({"mock", "replay", "eval", "judge"})
 
@@ -68,6 +69,20 @@ def ap_mock_llm() -> MockLLM:
             assert ap_mock_llm.call_count == 1
     """
     return MockLLM()
+
+
+@pytest.fixture
+def ap_mock_tool() -> MockTool:
+    """A fresh MockTool instance for each test.
+
+    Register tools and their responses in the test body::
+
+        def test_agent(ap_mock_tool):
+            ap_mock_tool.register("get_weather", response={"temp": 72})
+            result = await my_agent(ap_mock_tool).run("weather in NYC?")
+            ap_mock_tool.assert_tool_called("get_weather")
+    """
+    return MockTool()
 
 
 @pytest.fixture

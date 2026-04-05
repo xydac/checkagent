@@ -7,6 +7,7 @@ import pytest
 from checkagent.core.config import CheckAgentConfig
 from checkagent.core.plugin import VALID_LAYERS, _config_key, _marker_matches_layer
 from checkagent.mock.llm import MockLLM
+from checkagent.mock.tool import MockTool
 
 
 def test_plugin_loads(pytestconfig):
@@ -154,6 +155,25 @@ class TestMockLLMFixture:
         ap_mock_llm.add_rule("hello", "world")
         result = await ap_mock_llm.complete("hello")
         assert result == "world"
+
+
+class TestMockToolFixture:
+    """The ap_mock_tool fixture provides a fresh MockTool per test."""
+
+    def test_ap_mock_tool_returns_mock_tool(self, ap_mock_tool):
+        assert isinstance(ap_mock_tool, MockTool)
+
+    def test_ap_mock_tool_is_fresh(self, ap_mock_tool):
+        """Each test gets a clean MockTool with no tools or calls."""
+        assert ap_mock_tool.call_count == 0
+        assert ap_mock_tool.registered_tools == []
+
+    @pytest.mark.asyncio
+    async def test_ap_mock_tool_works_in_async_test(self, ap_mock_tool):
+        ap_mock_tool.register("greet", response="hello")
+        result = await ap_mock_tool.call("greet")
+        assert result == "hello"
+        ap_mock_tool.assert_tool_called("greet")
 
 
 class TestCustomConfigFile:
