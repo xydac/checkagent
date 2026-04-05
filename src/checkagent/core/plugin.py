@@ -11,6 +11,7 @@ from checkagent.core.config import CheckAgentConfig, load_config
 from checkagent.mock.fault import FaultInjector
 from checkagent.mock.llm import MockLLM
 from checkagent.mock.tool import MockTool
+from checkagent.streaming.collector import StreamCollector
 
 VALID_LAYERS = frozenset({"mock", "replay", "eval", "judge"})
 
@@ -118,6 +119,21 @@ def ap_conversation() -> Conversation:
     an ``AgentRun``.
     """
     return Conversation
+
+
+@pytest.fixture
+def ap_stream_collector() -> StreamCollector:
+    """A fresh StreamCollector instance for each test.
+
+    Collects streaming events and provides assertion helpers::
+
+        async def test_streaming(ap_mock_llm, ap_stream_collector):
+            ap_mock_llm.stream_response("hello", ["Hi ", "there!"])
+            await ap_stream_collector.collect_from(ap_mock_llm.stream("hello"))
+            assert ap_stream_collector.aggregated_text == "Hi there!"
+            assert ap_stream_collector.total_chunks == 2
+    """
+    return StreamCollector()
 
 
 @pytest.fixture

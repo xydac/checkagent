@@ -2,17 +2,22 @@
 
 Supports exact, substring, and regex pattern matching, sequential
 responses, default fallbacks, and full call recording for assertions.
+Streaming mode returns async iterators of StreamEvent chunks (F1.6, F13.2).
 
-Implements F1.1 from the PRD.
+Implements F1.1, F1.6, F13.2 from the PRD.
 """
 
 from __future__ import annotations
 
+import asyncio
 import re
+from collections.abc import AsyncIterator
 from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field
+
+from checkagent.core.types import StreamEvent, StreamEventType
 
 
 class MatchMode(str, Enum):
@@ -55,6 +60,32 @@ class ResponseRule(BaseModel):
         return self.response
 
 
+class StreamConfig(BaseModel):
+    """Configuration for streaming a response as chunks."""
+
+    chunks: list[str]
+    delay_ms: float = 0
+    model: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class StreamRule(BaseModel):
+    """A pattern → stream configuration mapping."""
+
+    pattern: str
+    stream_config: StreamConfig
+    match_mode: MatchMode = MatchMode.SUBSTRING
+
+    def matches(self, text: str) -> bool:
+        if self.match_mode == MatchMode.EXACT:
+            return text == self.pattern
+        elif self.match_mode == MatchMode.SUBSTRING:
+            return self.pattern in text
+        elif self.match_mode == MatchMode.REGEX:
+            return bool(re.search(self.pattern, text))
+        return False
+
+
 class LLMCall(BaseModel):
     """A recorded LLM call for assertion/inspection."""
 
@@ -63,6 +94,7 @@ class LLMCall(BaseModel):
     model: str | None = None
     rule_pattern: str | None = None
     was_default: bool = False
+    streamed: bool = False
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -98,6 +130,7 @@ class MockLLM:
         self.default_response = default_response
         self.default_model = default_model
         self._rules: list[ResponseRule] = []
+        self._stream_rules: list[StreamRule] = []
         self._calls: list[LLMCall] = []
 
     def add_rule(
@@ -120,6 +153,113 @@ class MockLLM:
             )
         )
         return self
+
+    def stream_response(
+        self,
+        pattern: str,
+        chunks: list[str],
+        *,
+        delay_ms: float = 0,
+        match_mode: MatchMode = MatchMode.SUBSTRING,
+        model: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> MockLLM:
+        """Configure a streaming response for a pattern. Returns self for chaining.
+
+        When ``stream()`` is called with text matching *pattern*, an async
+        iterator yields ``StreamEvent(TEXT_DELTA)`` for each chunk, wrapped
+        by ``RUN_START`` / ``RUN_END`` events.
+
+        ::
+
+            llm.stream_response("weather", ["It's ", "sunny ", "today!"], delay_ms=10)
+            async for event in llm.stream("What's the weather?"):
+                print(event)
+        """
+        self._stream_rules.append(
+            StreamRule(
+                pattern=pattern,
+                stream_config=StreamConfig(
+                    chunks=chunks,
+                    delay_ms=delay_ms,
+                    model=model,
+                    metadata=metadata or {},
+                ),
+                match_mode=match_mode,
+            )
+        )
+        return self
+
+    def _find_stream_rule(self, text: str) -> StreamRule | None:
+        for rule in self._stream_rules:
+            if rule.matches(text):
+                return rule
+        return None
+
+    def stream(self, text: str) -> _StreamIterator:
+        """Stream a mock response as an async iterator of StreamEvent chunks.
+
+        Looks up stream rules first. If no stream rule matches, falls back
+        to the regular response rules (or default) and yields the full
+        response as a single TEXT_DELTA chunk.
+
+        This is a synchronous method that returns an async iterator — no
+        ``await`` needed::
+
+            async for event in llm.stream("hello"):
+                ...
+        """
+        stream_rule = self._find_stream_rule(text)
+
+        if stream_rule is not None:
+            config = stream_rule.stream_config
+            model = config.model or self.default_model
+            full_text = "".join(config.chunks)
+
+            self._calls.append(
+                LLMCall(
+                    input_text=text,
+                    response_text=full_text,
+                    model=model,
+                    rule_pattern=stream_rule.pattern,
+                    was_default=False,
+                    streamed=True,
+                    metadata=config.metadata,
+                )
+            )
+
+            return _StreamIterator(config.chunks, config.delay_ms)
+
+        # No stream rule — fall back to regular rules / default
+        rule = self._find_rule(text)
+        if rule is not None:
+            response_text = rule.get_response()
+            model = rule.model or self.default_model
+            self._calls.append(
+                LLMCall(
+                    input_text=text,
+                    response_text=response_text,
+                    model=model,
+                    rule_pattern=rule.pattern,
+                    was_default=False,
+                    streamed=True,
+                    metadata=rule.metadata,
+                )
+            )
+        else:
+            response_text = self.default_response
+            model = self.default_model
+            self._calls.append(
+                LLMCall(
+                    input_text=text,
+                    response_text=response_text,
+                    model=model,
+                    was_default=True,
+                    streamed=True,
+                )
+            )
+
+        return _StreamIterator([response_text], 0)
 
     def _find_rule(self, text: str) -> ResponseRule | None:
         """Find the first matching rule for the given text."""
@@ -221,3 +361,38 @@ class MockLLM:
     def reset_calls(self) -> None:
         """Clear recorded calls but keep rule sequence counters."""
         self._calls.clear()
+
+
+class _StreamIterator:
+    """Async iterator that yields StreamEvent chunks with optional delay."""
+
+    def __init__(self, chunks: list[str], delay_ms: float) -> None:
+        self._chunks = chunks
+        self._delay_ms = delay_ms
+        self._index = 0
+        self._started = False
+        self._finished = False
+
+    def __aiter__(self) -> _StreamIterator:
+        return self
+
+    async def __anext__(self) -> StreamEvent:
+        if not self._started:
+            self._started = True
+            return StreamEvent(event_type=StreamEventType.RUN_START)
+
+        if self._index < len(self._chunks):
+            if self._delay_ms > 0 and self._index > 0:
+                await asyncio.sleep(self._delay_ms / 1000)
+            chunk = self._chunks[self._index]
+            self._index += 1
+            return StreamEvent(
+                event_type=StreamEventType.TEXT_DELTA,
+                data=chunk,
+            )
+
+        if not self._finished:
+            self._finished = True
+            return StreamEvent(event_type=StreamEventType.RUN_END)
+
+        raise StopAsyncIteration

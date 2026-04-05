@@ -19,7 +19,7 @@ from checkagent.mock.fault import (
     ToolSlowError,
     ToolTimeoutError,
 )
-from checkagent.mock.llm import LLMCall, MatchMode, MockLLM, ResponseRule
+from checkagent.mock.llm import LLMCall, MatchMode, MockLLM, ResponseRule, StreamConfig
 from checkagent.mock.tool import (
     MockTool,
     MockToolError,
@@ -47,6 +47,7 @@ __all__ = [
     "MockTool",
     "MockToolError",
     "ResponseRule",
+    "StreamConfig",
     "ToolCallRecord",
     "ToolEmptyResponseError",
     "ToolExecutionError",

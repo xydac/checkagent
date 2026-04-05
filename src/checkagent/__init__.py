@@ -14,6 +14,7 @@ from checkagent.eval.assertions import (
 from checkagent.mock.fault import FaultInjector
 from checkagent.mock.llm import MatchMode, MockLLM
 from checkagent.mock.tool import MockTool
+from checkagent.streaming.collector import StreamCollector
 from checkagent.core.types import (
     AgentInput,
     AgentRun,
@@ -36,6 +37,7 @@ __all__ = [
     "MockTool",
     "Score",
     "Step",
+    "StreamCollector",
     "StreamEvent",
     "StreamEventType",
     "StructuredAssertionError",
