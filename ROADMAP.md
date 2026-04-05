@@ -18,7 +18,7 @@ CheckAgent is being built in public. Here's where we're headed.
 ### Milestone 1: Mock Layer + Fault Injection
 - [x] `MockLLM` with pattern-based responses (streaming TBD)
 - [x] `MockTool` with schema validation and call recording
-- [ ] Fault injection (`ap_fault`): timeouts, rate limits, malformed responses
+- [x] Fault injection (`ap_fault`): timeouts, rate limits, malformed responses
 - [ ] Structured output assertions (Pydantic, JSON Schema)
 - [ ] Multi-turn conversation fixture (`ap_conversation`)
 - [ ] MCP-aware mock server
