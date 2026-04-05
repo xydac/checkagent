@@ -3,6 +3,13 @@
 __version__ = "0.0.1a1"
 
 from checkagent.core.config import CheckAgentConfig, load_config
+from checkagent.eval.assertions import (
+    StructuredAssertionError,
+    assert_json_schema,
+    assert_output_matches,
+    assert_output_schema,
+    assert_tool_called,
+)
 from checkagent.mock.fault import FaultInjector
 from checkagent.mock.llm import MatchMode, MockLLM
 from checkagent.mock.tool import MockTool
@@ -29,6 +36,11 @@ __all__ = [
     "Step",
     "StreamEvent",
     "StreamEventType",
+    "StructuredAssertionError",
     "ToolCall",
+    "assert_json_schema",
+    "assert_output_matches",
+    "assert_output_schema",
+    "assert_tool_called",
     "load_config",
 ]
