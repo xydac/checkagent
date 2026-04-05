@@ -15,9 +15,15 @@ Usage::
 
 from checkagent.safety.probes.base import Probe, ProbeSet
 from checkagent.safety.probes import injection
+from checkagent.safety.probes import jailbreak
+from checkagent.safety.probes import pii
+from checkagent.safety.probes import scope
 
 __all__ = [
     "Probe",
     "ProbeSet",
     "injection",
+    "jailbreak",
+    "pii",
+    "scope",
 ]

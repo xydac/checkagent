@@ -9,6 +9,9 @@ from checkagent.safety.injection import PromptInjectionDetector
 from checkagent.safety.pii import PIILeakageScanner
 from checkagent.safety.probes import Probe, ProbeSet
 from checkagent.safety.probes import injection as probes_injection
+from checkagent.safety.probes import jailbreak as probes_jailbreak
+from checkagent.safety.probes import pii as probes_pii
+from checkagent.safety.probes import scope as probes_scope
 from checkagent.safety.refusal import RefusalComplianceChecker
 from checkagent.safety.system_prompt import SystemPromptLeakDetector
 from checkagent.safety.taxonomy import (
@@ -41,5 +44,8 @@ __all__ = [
     "ToolCallBoundaryValidator",
     "probes",
     "probes_injection",
+    "probes_jailbreak",
+    "probes_pii",
+    "probes_scope",
     "severity_meets_threshold",
 ]
