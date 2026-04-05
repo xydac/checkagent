@@ -7,6 +7,7 @@ and F11.5 (custom evaluator base class) from the PRD.
 from checkagent.safety.evaluator import SafetyEvaluator, SafetyFinding, SafetyResult
 from checkagent.safety.injection import PromptInjectionDetector
 from checkagent.safety.pii import PIILeakageScanner
+from checkagent.safety.system_prompt import SystemPromptLeakDetector
 from checkagent.safety.taxonomy import (
     OWASP_MAPPING,
     SEVERITY_ORDER,
@@ -25,5 +26,6 @@ __all__ = [
     "SafetyFinding",
     "SafetyResult",
     "Severity",
+    "SystemPromptLeakDetector",
     "severity_meets_threshold",
 ]
