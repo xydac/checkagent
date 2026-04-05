@@ -47,8 +47,8 @@ CheckAgent is being built in public. Here's where we're headed.
 ## Phase 3: Make It Complete
 
 ### Milestone 4: Record-and-Replay
-- [ ] Versioned JSON cassettes with stream support
-- [ ] Replay engine with configurable matching
+- [x] Versioned JSON cassettes with stream support
+- [x] Replay engine with configurable matching
 - [ ] Cassette migration tooling
 - [ ] PyPI v0.4.0
 
