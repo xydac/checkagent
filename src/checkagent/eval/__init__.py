@@ -1,5 +1,13 @@
 """Eval layer — evaluation metrics and assertions for AI agents (Layer 3)."""
 
+from checkagent.eval.aggregate import (
+    AggregateResult,
+    RunSummary,
+    StepStats,
+    aggregate_scores,
+    compute_step_stats,
+    detect_regressions,
+)
 from checkagent.eval.assertions import (
     StructuredAssertionError,
     assert_json_schema,
@@ -15,11 +23,17 @@ from checkagent.eval.metrics import (
 )
 
 __all__ = [
+    "AggregateResult",
+    "RunSummary",
+    "StepStats",
     "StructuredAssertionError",
+    "aggregate_scores",
     "assert_json_schema",
     "assert_output_matches",
     "assert_output_schema",
     "assert_tool_called",
+    "compute_step_stats",
+    "detect_regressions",
     "step_efficiency",
     "task_completion",
     "tool_correctness",
