@@ -31,7 +31,7 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] Task completion, tool correctness, step efficiency metrics
 - [x] Golden dataset loader with schema validation
 - [x] Aggregate scoring and regression detection
-- [ ] Token tracking and cost reporting
+- [x] Token tracking and cost reporting
 - [x] Custom evaluator plugin interface
 - [ ] PyPI v0.2.0
 
