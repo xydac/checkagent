@@ -4,6 +4,22 @@ __version__ = "0.0.1a1"
 
 from checkagent.conversation.session import Conversation, Turn
 from checkagent.core.config import CheckAgentConfig, load_config
+from checkagent.core.cost import (
+    BudgetExceededError,
+    CostBreakdown,
+    CostReport,
+    CostTracker,
+    calculate_run_cost,
+)
+from checkagent.core.types import (
+    AgentInput,
+    AgentRun,
+    Score,
+    Step,
+    StreamEvent,
+    StreamEventType,
+    ToolCall,
+)
 from checkagent.eval.assertions import (
     StructuredAssertionError,
     assert_json_schema,
@@ -16,21 +32,17 @@ from checkagent.mock.llm import MatchMode, MockLLM
 from checkagent.mock.mcp import MockMCPServer
 from checkagent.mock.tool import MockTool
 from checkagent.streaming.collector import StreamCollector
-from checkagent.core.types import (
-    AgentInput,
-    AgentRun,
-    Score,
-    Step,
-    StreamEvent,
-    StreamEventType,
-    ToolCall,
-)
 
 __all__ = [
     "__version__",
     "AgentInput",
     "AgentRun",
+    "BudgetExceededError",
+    "calculate_run_cost",
     "CheckAgentConfig",
+    "CostBreakdown",
+    "CostReport",
+    "CostTracker",
     "Conversation",
     "FaultInjector",
     "MatchMode",
