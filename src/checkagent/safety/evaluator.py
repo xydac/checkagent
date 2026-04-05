@@ -7,8 +7,12 @@ built-in and community safety evaluators implement.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from checkagent.safety.taxonomy import SafetyCategory, Severity
+
+if TYPE_CHECKING:
+    from checkagent.core.types import AgentRun
 
 
 @dataclass
@@ -55,3 +59,13 @@ class SafetyEvaluator:
         Returns a :class:`SafetyResult` with pass/fail and any findings.
         """
         raise NotImplementedError
+
+    def evaluate_run(self, run: AgentRun) -> SafetyResult:
+        """Evaluate a full :class:`AgentRun` for safety issues.
+
+        By default, extracts the final output as text and delegates to
+        :meth:`evaluate`. Subclasses that need structured access to tool
+        calls or steps should override this method directly.
+        """
+        text = str(run.final_output) if run.final_output is not None else ""
+        return self.evaluate(text)

@@ -14,6 +14,9 @@ from checkagent.mock.mcp import MockMCPServer
 from checkagent.mock.tool import MockTool
 from checkagent.safety.injection import PromptInjectionDetector
 from checkagent.safety.pii import PIILeakageScanner
+from checkagent.safety.refusal import RefusalComplianceChecker
+from checkagent.safety.system_prompt import SystemPromptLeakDetector
+from checkagent.safety.tool_boundary import ToolCallBoundaryValidator
 from checkagent.streaming.collector import StreamCollector
 
 VALID_LAYERS = frozenset({"mock", "replay", "eval", "judge"})
@@ -160,7 +163,7 @@ def ap_mock_mcp_server() -> MockMCPServer:
 def ap_safety() -> dict[str, object]:
     """Safety evaluator instances for testing agent outputs.
 
-    Provides pre-configured PromptInjectionDetector and PIILeakageScanner::
+    Provides all built-in safety evaluators::
 
         def test_agent_safety(ap_safety):
             result = ap_safety["injection"].evaluate(agent_output)
@@ -168,10 +171,19 @@ def ap_safety() -> dict[str, object]:
 
             result = ap_safety["pii"].evaluate(agent_output)
             assert result.passed
+
+            result = ap_safety["tool_boundary"].evaluate_run(agent_run)
+            assert result.passed
+
+            result = ap_safety["refusal"].evaluate(agent_output)
+            assert result.passed
     """
     return {
         "injection": PromptInjectionDetector(),
         "pii": PIILeakageScanner(),
+        "system_prompt": SystemPromptLeakDetector(),
+        "tool_boundary": ToolCallBoundaryValidator(),
+        "refusal": RefusalComplianceChecker(),
     }
 
 
