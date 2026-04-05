@@ -40,7 +40,7 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] Built-in evaluators: prompt injection, PII leakage, system prompt leak, tool boundary, refusal compliance
 - [x] Attack probe library — 68 probe templates (injection, jailbreak, PII, scope)
 - [x] GitHub Action with quality gates and PR comments
-- [ ] Compliance report generation
+- [x] Compliance report generation
 - [ ] PyPI v0.3.0
 
 ## Phase 3: Make It Complete
