@@ -9,9 +9,9 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] `AgentAdapter` protocol (async-first)
 - [x] `GenericAdapter` for any Python callable
 - [x] pytest plugin with `@pytest.mark.agent_test` marker
-- [ ] `checkagent init` CLI
-- [ ] `checkagent demo` — zero-config, no API keys, < 30 seconds
-- [ ] `checkagent run` — thin pytest wrapper
+- [x] `checkagent init` CLI
+- [x] `checkagent demo` — zero-config, no API keys, < 30 seconds
+- [x] `checkagent run` — thin pytest wrapper
 - [ ] CI on Linux, macOS, Windows
 - [ ] PyPI v0.0.1-alpha
 
