@@ -6,6 +6,7 @@ import pytest
 
 from checkagent.core.config import CheckAgentConfig
 from checkagent.core.plugin import VALID_LAYERS, _config_key, _marker_matches_layer
+from checkagent.mock.fault import FaultInjector
 from checkagent.mock.llm import MockLLM
 from checkagent.mock.tool import MockTool
 
@@ -174,6 +175,28 @@ class TestMockToolFixture:
         result = await ap_mock_tool.call("greet")
         assert result == "hello"
         ap_mock_tool.assert_tool_called("greet")
+
+
+class TestFaultInjectorFixture:
+    """The ap_fault fixture provides a fresh FaultInjector per test."""
+
+    def test_ap_fault_returns_fault_injector(self, ap_fault):
+        assert isinstance(ap_fault, FaultInjector)
+
+    def test_ap_fault_is_fresh(self, ap_fault):
+        """Each test gets a clean FaultInjector with no faults or records."""
+        assert ap_fault.trigger_count == 0
+        assert ap_fault.records == []
+        assert not ap_fault.has_llm_faults()
+
+    @pytest.mark.asyncio
+    async def test_ap_fault_works_in_async_test(self, ap_fault):
+        from checkagent.mock.fault import ToolTimeoutError
+
+        ap_fault.on_tool("search").timeout(5)
+        with pytest.raises(ToolTimeoutError):
+            await ap_fault.check_tool_async("search")
+        assert ap_fault.trigger_count == 1
 
 
 class TestCustomConfigFile:

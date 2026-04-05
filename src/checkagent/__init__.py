@@ -3,6 +3,7 @@
 __version__ = "0.0.1a1"
 
 from checkagent.core.config import CheckAgentConfig, load_config
+from checkagent.mock.fault import FaultInjector
 from checkagent.mock.llm import MatchMode, MockLLM
 from checkagent.mock.tool import MockTool
 from checkagent.core.types import (
@@ -20,6 +21,7 @@ __all__ = [
     "AgentInput",
     "AgentRun",
     "CheckAgentConfig",
+    "FaultInjector",
     "MatchMode",
     "MockLLM",
     "MockTool",

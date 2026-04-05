@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from checkagent.core.config import CheckAgentConfig, load_config
+from checkagent.mock.fault import FaultInjector
 from checkagent.mock.llm import MockLLM
 from checkagent.mock.tool import MockTool
 
@@ -83,6 +84,20 @@ def ap_mock_tool() -> MockTool:
             ap_mock_tool.assert_tool_called("get_weather")
     """
     return MockTool()
+
+
+@pytest.fixture
+def ap_fault() -> FaultInjector:
+    """A fresh FaultInjector instance for each test.
+
+    Configure faults using the fluent API::
+
+        def test_resilience(ap_fault):
+            ap_fault.on_tool("search").timeout(5)
+            ap_fault.on_llm().rate_limit(after_n=3)
+            # ... run agent and assert graceful degradation
+    """
+    return FaultInjector()
 
 
 @pytest.fixture

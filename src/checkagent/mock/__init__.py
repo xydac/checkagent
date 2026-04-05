@@ -1,5 +1,24 @@
 """Mock layer — deterministic unit testing for AI agents (Layer 1)."""
 
+from checkagent.mock.fault import (
+    FaultInjectionError,
+    FaultInjector,
+    FaultRecord,
+    FaultType,
+    LLMContentFilterError,
+    LLMContextOverflowError,
+    LLMFaultError,
+    LLMPartialResponseError,
+    LLMRateLimitError,
+    LLMServerError,
+    ToolEmptyResponseError,
+    ToolFaultError,
+    ToolIntermittentError,
+    ToolMalformedResponseError,
+    ToolRateLimitError,
+    ToolSlowError,
+    ToolTimeoutError,
+)
 from checkagent.mock.llm import LLMCall, MatchMode, MockLLM, ResponseRule
 from checkagent.mock.tool import (
     MockTool,
@@ -12,15 +31,32 @@ from checkagent.mock.tool import (
 )
 
 __all__ = [
+    "FaultInjectionError",
+    "FaultInjector",
+    "FaultRecord",
+    "FaultType",
     "LLMCall",
+    "LLMContentFilterError",
+    "LLMContextOverflowError",
+    "LLMFaultError",
+    "LLMPartialResponseError",
+    "LLMRateLimitError",
+    "LLMServerError",
     "MatchMode",
     "MockLLM",
     "MockTool",
     "MockToolError",
     "ResponseRule",
     "ToolCallRecord",
+    "ToolEmptyResponseError",
     "ToolExecutionError",
+    "ToolFaultError",
+    "ToolIntermittentError",
+    "ToolMalformedResponseError",
     "ToolNotFoundError",
+    "ToolRateLimitError",
     "ToolSchema",
+    "ToolSlowError",
+    "ToolTimeoutError",
     "ToolValidationError",
 ]
