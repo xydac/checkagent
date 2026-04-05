@@ -22,7 +22,7 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] Structured output assertions (Pydantic, JSON Schema)
 - [x] Multi-turn conversation fixture (`ap_conversation`)
 - [x] Streaming support: `StreamCollector`, `ap_stream_collector`, stream event assertions
-- [ ] MCP-aware mock server
+- [x] MCP-aware mock server
 - [ ] PyPI v0.1.0 — **public alpha**
 
 ## Phase 2: Make It Useful for Real Agents
