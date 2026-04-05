@@ -10,6 +10,7 @@ from checkagent.conversation.session import Conversation
 from checkagent.core.config import CheckAgentConfig, load_config
 from checkagent.mock.fault import FaultInjector
 from checkagent.mock.llm import MockLLM
+from checkagent.mock.mcp import MockMCPServer
 from checkagent.mock.tool import MockTool
 from checkagent.streaming.collector import StreamCollector
 
@@ -134,6 +135,23 @@ def ap_stream_collector() -> StreamCollector:
             assert ap_stream_collector.total_chunks == 2
     """
     return StreamCollector()
+
+
+@pytest.fixture
+def ap_mock_mcp_server() -> MockMCPServer:
+    """A fresh MockMCPServer instance for each test.
+
+    Simulates an MCP server for testing MCP-aware agents::
+
+        async def test_mcp_agent(ap_mock_mcp_server):
+            ap_mock_mcp_server.register_tool("search", response={"results": []})
+            resp = await ap_mock_mcp_server.handle_message({
+                "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                "params": {"name": "search", "arguments": {"q": "test"}},
+            })
+            ap_mock_mcp_server.assert_tool_called("search")
+    """
+    return MockMCPServer()
 
 
 @pytest.fixture

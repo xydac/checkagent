@@ -13,6 +13,7 @@ from checkagent.eval.assertions import (
 )
 from checkagent.mock.fault import FaultInjector
 from checkagent.mock.llm import MatchMode, MockLLM
+from checkagent.mock.mcp import MockMCPServer
 from checkagent.mock.tool import MockTool
 from checkagent.streaming.collector import StreamCollector
 from checkagent.core.types import (
@@ -34,6 +35,7 @@ __all__ = [
     "FaultInjector",
     "MatchMode",
     "MockLLM",
+    "MockMCPServer",
     "MockTool",
     "Score",
     "Step",

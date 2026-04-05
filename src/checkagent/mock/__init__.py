@@ -20,6 +20,7 @@ from checkagent.mock.fault import (
     ToolTimeoutError,
 )
 from checkagent.mock.llm import LLMCall, MatchMode, MockLLM, ResponseRule, StreamConfig
+from checkagent.mock.mcp import MCPCallRecord, MCPToolDef, MockMCPServer
 from checkagent.mock.tool import (
     MockTool,
     MockToolError,
@@ -42,8 +43,11 @@ __all__ = [
     "LLMPartialResponseError",
     "LLMRateLimitError",
     "LLMServerError",
+    "MCPCallRecord",
+    "MCPToolDef",
     "MatchMode",
     "MockLLM",
+    "MockMCPServer",
     "MockTool",
     "MockToolError",
     "ResponseRule",
