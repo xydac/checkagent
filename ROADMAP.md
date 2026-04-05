@@ -16,11 +16,12 @@ CheckAgent is being built in public. Here's where we're headed.
 - [ ] PyPI v0.0.1-alpha
 
 ### Milestone 1: Mock Layer + Fault Injection
-- [x] `MockLLM` with pattern-based responses (streaming TBD)
+- [x] `MockLLM` with pattern-based responses and streaming mode
 - [x] `MockTool` with schema validation and call recording
 - [x] Fault injection (`ap_fault`): timeouts, rate limits, malformed responses
 - [x] Structured output assertions (Pydantic, JSON Schema)
 - [x] Multi-turn conversation fixture (`ap_conversation`)
+- [x] Streaming support: `StreamCollector`, `ap_stream_collector`, stream event assertions
 - [ ] MCP-aware mock server
 - [ ] PyPI v0.1.0 — **public alpha**
 
