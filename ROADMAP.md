@@ -13,7 +13,7 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] `checkagent demo` — zero-config, no API keys, < 30 seconds
 - [x] `checkagent run` — thin pytest wrapper
 - [x] CI on Linux, macOS, Windows
-- [ ] PyPI v0.0.1-alpha
+- [x] PyPI v0.0.1-alpha (version set, publish workflow ready)
 
 ### Milestone 1: Mock Layer + Fault Injection
 - [x] `MockLLM` with pattern-based responses and streaming mode
