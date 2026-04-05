@@ -3,6 +3,7 @@
 __version__ = "0.0.1a1"
 
 from checkagent.core.config import CheckAgentConfig, load_config
+from checkagent.mock.llm import MatchMode, MockLLM
 from checkagent.core.types import (
     AgentInput,
     AgentRun,
@@ -18,6 +19,8 @@ __all__ = [
     "AgentInput",
     "AgentRun",
     "CheckAgentConfig",
+    "MatchMode",
+    "MockLLM",
     "Score",
     "Step",
     "StreamEvent",

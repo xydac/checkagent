@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from checkagent.core.config import CheckAgentConfig, load_config
+from checkagent.mock.llm import MockLLM
 
 VALID_LAYERS = frozenset({"mock", "replay", "eval", "judge"})
 
@@ -53,6 +54,20 @@ def pytest_configure(config: pytest.Config) -> None:
 # Stash key for the CheckAgent config object
 config_key = pytest.StashKey[CheckAgentConfig]()
 _config_key = config_key  # internal alias
+
+
+@pytest.fixture
+def ap_mock_llm() -> MockLLM:
+    """A fresh MockLLM instance for each test.
+
+    Configure with rules in the test body::
+
+        def test_agent(ap_mock_llm):
+            ap_mock_llm.add_rule("weather", "It's sunny")
+            result = await my_agent(ap_mock_llm).run("weather?")
+            assert ap_mock_llm.call_count == 1
+    """
+    return MockLLM()
 
 
 @pytest.fixture

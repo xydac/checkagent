@@ -6,6 +6,7 @@ import pytest
 
 from checkagent.core.config import CheckAgentConfig
 from checkagent.core.plugin import VALID_LAYERS, _config_key, _marker_matches_layer
+from checkagent.mock.llm import MockLLM
 
 
 def test_plugin_loads(pytestconfig):
@@ -137,6 +138,25 @@ class TestConfigIntegration:
         assert isinstance(ap_config, CheckAgentConfig)
         assert ap_config.version == 1
 
+class TestMockLLMFixture:
+    """The ap_mock_llm fixture provides a fresh MockLLM per test."""
+
+    def test_ap_mock_llm_returns_mock_llm(self, ap_mock_llm):
+        assert isinstance(ap_mock_llm, MockLLM)
+
+    def test_ap_mock_llm_is_fresh(self, ap_mock_llm):
+        """Each test gets a clean MockLLM with no rules or calls."""
+        assert ap_mock_llm.call_count == 0
+        assert len(ap_mock_llm._rules) == 0
+
+    @pytest.mark.asyncio
+    async def test_ap_mock_llm_works_in_async_test(self, ap_mock_llm):
+        ap_mock_llm.add_rule("hello", "world")
+        result = await ap_mock_llm.complete("hello")
+        assert result == "world"
+
+
+class TestCustomConfigFile:
     def test_custom_config_file(self, pytester):
         """--checkagent-config loads a specific file."""
         pytester.makefile(
