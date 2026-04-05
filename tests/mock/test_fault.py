@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import time
 
 import pytest
 
 from checkagent.mock.fault import (
-    FaultInjector,
     FaultInjectionError,
-    FaultRecord,
+    FaultInjector,
     FaultType,
     LLMContentFilterError,
     LLMContextOverflowError,
@@ -26,7 +24,6 @@ from checkagent.mock.fault import (
     ToolSlowError,
     ToolTimeoutError,
 )
-
 
 # --- Fluent API ---
 

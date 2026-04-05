@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from checkagent.conversation.session import Conversation, Turn
+from checkagent.conversation.session import Conversation
 from checkagent.core.types import AgentInput, AgentRun, Step, ToolCall
-
 
 # --- Helpers ---
 

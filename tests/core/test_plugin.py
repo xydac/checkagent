@@ -36,7 +36,7 @@ def test_cassette_marker_registered(pytestconfig):
 
 
 def test_valid_layers():
-    assert VALID_LAYERS == {"mock", "replay", "eval", "judge"}
+    assert {"mock", "replay", "eval", "judge"} == VALID_LAYERS
 
 
 class TestMarkerMatchesLayer:

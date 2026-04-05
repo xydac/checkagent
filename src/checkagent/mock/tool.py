@@ -9,7 +9,6 @@ Implements F1.2 from the PRD.
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from pydantic import BaseModel, Field

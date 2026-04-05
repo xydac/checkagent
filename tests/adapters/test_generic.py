@@ -2,8 +2,6 @@
 
 import asyncio
 
-import pytest
-
 from checkagent.adapters.generic import GenericAdapter, wrap
 from checkagent.core.adapter import AgentAdapter
 from checkagent.core.types import AgentInput, StreamEventType

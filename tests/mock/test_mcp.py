@@ -6,8 +6,7 @@ import json
 
 import pytest
 
-from checkagent.mock.mcp import MCPCallRecord, MCPToolDef, MockMCPServer
-
+from checkagent.mock.mcp import MockMCPServer
 
 # ---------------------------------------------------------------------------
 # Initialization

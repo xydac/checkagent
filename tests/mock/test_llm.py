@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from checkagent.mock.llm import LLMCall, MatchMode, MockLLM, ResponseRule
-
+from checkagent.mock.llm import MatchMode, MockLLM, ResponseRule
 
 # --- ResponseRule tests ---
 

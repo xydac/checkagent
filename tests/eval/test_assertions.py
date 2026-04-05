@@ -14,7 +14,6 @@ from checkagent.eval.assertions import (
     assert_tool_called,
 )
 
-
 # -- Test models --
 
 

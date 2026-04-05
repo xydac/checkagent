@@ -1,6 +1,6 @@
 """Tests for checkagent.core.adapter — the AgentAdapter protocol."""
 
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from checkagent.core.adapter import AgentAdapter
 from checkagent.core.types import AgentInput, AgentRun, StreamEvent, StreamEventType

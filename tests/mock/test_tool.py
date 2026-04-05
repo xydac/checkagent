@@ -7,13 +7,11 @@ import pytest
 from checkagent.mock.tool import (
     MockTool,
     MockToolError,
-    ToolCallRecord,
     ToolExecutionError,
     ToolNotFoundError,
     ToolSchema,
     ToolValidationError,
 )
-
 
 # --- ToolSchema validation ---
 

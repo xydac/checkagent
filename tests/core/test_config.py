@@ -8,19 +8,14 @@ import pytest
 import yaml
 
 from checkagent.core.config import (
-    BudgetConfig,
     CassettesConfig,
     CheckAgentConfig,
     DefaultsConfig,
-    PluginsConfig,
-    ProviderConfig,
-    ProviderPricing,
     QualityGateEntry,
     SafetyConfig,
     find_config,
     load_config,
 )
-
 
 # ---------------------------------------------------------------------------
 # Default values

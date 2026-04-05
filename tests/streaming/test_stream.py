@@ -6,15 +6,11 @@ F13.2 (streaming mock LLM), and F13.3 (stream event assertions).
 
 from __future__ import annotations
 
-import asyncio
 import time
 
-import pytest
-
 from checkagent.core.types import StreamEvent, StreamEventType
-from checkagent.mock.llm import MockLLM, MatchMode
+from checkagent.mock.llm import MatchMode, MockLLM
 from checkagent.streaming.collector import StreamCollector
-
 
 # ── MockLLM.stream() basics ──────────────────────────────────────────
 
