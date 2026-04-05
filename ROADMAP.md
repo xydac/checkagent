@@ -8,7 +8,7 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] Core types (`AgentRun`, `Step`, `ToolCall`, `AgentInput`, `StreamEvent`, `Score`)
 - [x] `AgentAdapter` protocol (async-first)
 - [x] `GenericAdapter` for any Python callable
-- [ ] pytest plugin with `@pytest.mark.agent_test` marker
+- [x] pytest plugin with `@pytest.mark.agent_test` marker
 - [ ] `checkagent init` CLI
 - [ ] `checkagent demo` — zero-config, no API keys, < 30 seconds
 - [ ] `checkagent run` — thin pytest wrapper
