@@ -8,7 +8,8 @@ Implements F10.1, F10.3, F10.4 from the PRD.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Awaitable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from checkagent.core.types import AgentInput, AgentRun, ToolCall
 
@@ -219,10 +220,7 @@ class Conversation:
         later_lower = later_output.lower()
         if earlier_input.lower() in later_lower:
             return True
-        if earlier_output is not None and earlier_output.lower() in later_lower:
-            return True
-
-        return False
+        return earlier_output is not None and earlier_output.lower() in later_lower
 
     def reset(self) -> None:
         """Clear all turns and start fresh."""

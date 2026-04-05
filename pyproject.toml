@@ -78,6 +78,13 @@ line-length = 99
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "A", "SIM"]
+ignore = [
+    "A001",  # variable shadowing builtin (input)
+    "A002",  # argument shadowing builtin (input) — deliberate API choice
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["E402"]  # imports after path manipulation
 
 [tool.mypy]
 python_version = "3.10"

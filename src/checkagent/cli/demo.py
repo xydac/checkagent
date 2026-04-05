@@ -27,8 +27,11 @@ async def calculator_agent(prompt: str) -> dict:
     prompt = prompt.strip()
 
     # Try to find a math expression
-    match = re.match(r"^(?:what is |calculate |compute )?(-?\\d+(?:\\.\\d+)?)\\s*([+\\-*/])\\s*(-?\\d+(?:\\.\\d+)?)$",
-                     prompt, re.IGNORECASE)
+    pattern = (
+        r"^(?:what is |calculate |compute )?"
+        r"(-?\\d+(?:\\.\\d+)?)\\s*([+\\-*/])\\s*(-?\\d+(?:\\.\\d+)?)$"
+    )
+    match = re.match(pattern, prompt, re.IGNORECASE)
 
     if match:
         a, op, b = float(match.group(1)), match.group(2), float(match.group(3))

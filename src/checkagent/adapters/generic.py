@@ -10,7 +10,8 @@ import asyncio
 import functools
 import inspect
 import time
-from typing import Any, AsyncIterator, Callable, overload
+from collections.abc import AsyncIterator, Callable
+from typing import Any, overload
 
 from checkagent.core.types import AgentInput, AgentRun, Step, StreamEvent, StreamEventType
 
@@ -91,7 +92,9 @@ def wrap(fn: Callable[..., Any]) -> GenericAdapter: ...
 def wrap() -> Callable[[Callable[..., Any]], GenericAdapter]: ...
 
 
-def wrap(fn: Callable[..., Any] | None = None) -> GenericAdapter | Callable[[Callable[..., Any]], GenericAdapter]:
+def wrap(
+    fn: Callable[..., Any] | None = None,
+) -> GenericAdapter | Callable[[Callable[..., Any]], GenericAdapter]:
     """Wrap a callable as a GenericAdapter. Usable as decorator or function.
 
     @wrap

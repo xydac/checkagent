@@ -20,7 +20,9 @@ class MCPToolDef(BaseModel):
 
     name: str
     description: str = ""
-    input_schema: dict[str, Any] = Field(default_factory=lambda: {"type": "object", "properties": {}})
+    input_schema: dict[str, Any] = Field(
+        default_factory=lambda: {"type": "object", "properties": {}}
+    )
 
 
 class MCPCallRecord(BaseModel):

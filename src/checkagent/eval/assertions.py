@@ -9,8 +9,9 @@ Requirements: F1.8, F12.1-F12.5
 
 from __future__ import annotations
 
+import contextlib
 import json
-from typing import Any, Type, TypeVar
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
@@ -76,7 +77,7 @@ def _format_deep_diff(expected: Any, actual: Any) -> str:
 
 def assert_output_schema(
     result: AgentRun | Any,
-    model: Type[T],
+    model: type[T],
     *,
     strict: bool = False,
 ) -> T:
@@ -104,13 +105,13 @@ def assert_output_schema(
             # Try JSON parsing first
             try:
                 data = json.loads(output)
-            except (json.JSONDecodeError, TypeError):
+            except (json.JSONDecodeError, TypeError) as err:
                 raise StructuredAssertionError(
                     f"Output is a string that is not valid JSON.\n"
                     f"  output: {output!r}\n"
                     f"  expected: {model.__name__}",
                     details={"output": output, "model": model.__name__},
-                )
+                ) from err
         elif isinstance(output, dict):
             data = output
         elif isinstance(output, BaseModel):
@@ -162,10 +163,8 @@ def assert_output_matches(
     output = _extract_output(result)
 
     if isinstance(output, str):
-        try:
+        with contextlib.suppress(json.JSONDecodeError, TypeError):
             output = json.loads(output)
-        except (json.JSONDecodeError, TypeError):
-            pass
 
     if isinstance(output, BaseModel):
         output = output.model_dump()
@@ -207,7 +206,7 @@ def _match_dict(actual: dict, pattern: dict, path: str) -> None:
 
     if mismatches:
         raise StructuredAssertionError(
-            f"Output does not match pattern:\n" + "\n".join(mismatches),
+            "Output does not match pattern:\n" + "\n".join(mismatches),
             details={"path": path, "pattern": pattern, "actual": actual},
         )
 
@@ -228,11 +227,11 @@ def assert_json_schema(
     """
     try:
         import jsonschema
-    except ImportError:
+    except ImportError as err:
         raise ImportError(
             "jsonschema is required for assert_json_schema. "
             "Install it with: pip install jsonschema"
-        )
+        ) from err
 
     if isinstance(output, str):
         try:
