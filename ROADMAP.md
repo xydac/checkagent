@@ -55,7 +55,7 @@ CheckAgent is being built in public. Here's where we're headed.
 ### Milestone 5: LLM-as-Judge
 - [x] Rubric-based evaluation
 - [x] Statistical assertions (PASS/FAIL/INCONCLUSIVE)
-- [ ] Multi-judge consensus
+- [x] Multi-judge consensus
 - [ ] PyPI v0.5.0
 
 ### Milestone 6: Framework Adapters + Production Loop
