@@ -107,23 +107,39 @@ class LangChainAdapter:
     input_key : str
         Key used to pass the query into the runnable's invoke dict.
         Defaults to ``"input"``.
+    extra_inputs : dict[str, Any] | None
+        Additional variables to include in every invocation dict. Useful for
+        multi-variable prompt templates (e.g. RAG chains needing ``context``).
+        Per-run values from ``AgentInput.context`` override these defaults.
     """
 
-    def __init__(self, runnable: Any, *, input_key: str = "input") -> None:
+    def __init__(
+        self,
+        runnable: Any,
+        *,
+        input_key: str = "input",
+        extra_inputs: dict[str, Any] | None = None,
+    ) -> None:
         _ensure_langchain()
         self._runnable = runnable
         self._input_key = input_key
+        self._extra_inputs: dict[str, Any] = extra_inputs or {}
+
+    def _build_invoke_input(self, input: AgentInput) -> dict[str, Any] | str:
+        """Build the invocation dict, merging extra_inputs and context."""
+        if self._input_key == "__raw__":
+            return input.query
+        # Merge order: extra_inputs (defaults) < context (per-run) < input_key
+        merged = {**self._extra_inputs, **input.context}
+        merged[self._input_key] = input.query
+        return merged
 
     async def run(self, input: AgentInput | str) -> AgentRun:
         """Execute the runnable and return an AgentRun trace."""
         if isinstance(input, str):
             input = AgentInput(query=input)
 
-        invoke_input: dict[str, Any] | str
-        if self._input_key == "__raw__":
-            invoke_input = input.query
-        else:
-            invoke_input = {self._input_key: input.query, **input.context}
+        invoke_input = self._build_invoke_input(input)
 
         start = time.perf_counter()
         try:
@@ -174,11 +190,7 @@ class LangChainAdapter:
         if isinstance(input, str):
             input = AgentInput(query=input)
 
-        invoke_input: dict[str, Any] | str
-        if self._input_key == "__raw__":
-            invoke_input = input.query
-        else:
-            invoke_input = {self._input_key: input.query, **input.context}
+        invoke_input = self._build_invoke_input(input)
 
         yield StreamEvent(event_type=StreamEventType.RUN_START)
 

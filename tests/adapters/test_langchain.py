@@ -100,6 +100,70 @@ class TestLangChainAdapterRun:
             "user_id": "123",
         })
 
+    async def test_extra_inputs_constructor(self):
+        """F-084: extra_inputs provides default variables for multi-variable chains."""
+        from checkagent.adapters.langchain import LangChainAdapter
+
+        runnable = _make_runnable("answer")
+        adapter = LangChainAdapter(
+            runnable, extra_inputs={"context": "some docs", "language": "en"}
+        )
+
+        result = await adapter.run("what is X?")
+
+        assert result.succeeded
+        runnable.ainvoke.assert_awaited_once_with({
+            "input": "what is X?",
+            "context": "some docs",
+            "language": "en",
+        })
+
+    async def test_extra_inputs_with_context_override(self):
+        """F-084: per-run context overrides constructor extra_inputs."""
+        from checkagent.adapters.langchain import LangChainAdapter
+
+        runnable = _make_runnable("answer")
+        adapter = LangChainAdapter(
+            runnable, extra_inputs={"context": "default docs", "language": "en"}
+        )
+
+        inp = AgentInput(query="q", context={"context": "custom docs"})
+        result = await adapter.run(inp)
+
+        assert result.succeeded
+        runnable.ainvoke.assert_awaited_once_with({
+            "input": "q",
+            "context": "custom docs",  # overridden by context
+            "language": "en",           # kept from extra_inputs
+        })
+
+    async def test_extra_inputs_with_custom_input_key(self):
+        """F-084: extra_inputs works with custom input_key."""
+        from checkagent.adapters.langchain import LangChainAdapter
+
+        runnable = _make_runnable("ok")
+        adapter = LangChainAdapter(
+            runnable, input_key="question", extra_inputs={"context": "docs"}
+        )
+
+        await adapter.run("what?")
+        runnable.ainvoke.assert_awaited_once_with({
+            "question": "what?",
+            "context": "docs",
+        })
+
+    async def test_extra_inputs_ignored_for_raw(self):
+        """extra_inputs are ignored when input_key='__raw__'."""
+        from checkagent.adapters.langchain import LangChainAdapter
+
+        runnable = _make_runnable("ok")
+        adapter = LangChainAdapter(
+            runnable, input_key="__raw__", extra_inputs={"context": "docs"}
+        )
+
+        await adapter.run("plain")
+        runnable.ainvoke.assert_awaited_once_with("plain")
+
     async def test_custom_input_key(self):
         from checkagent.adapters.langchain import LangChainAdapter
 
@@ -293,6 +357,23 @@ class TestLangChainAdapterStream:
         # Check text delta data
         text_events = [e for e in events if e.event_type == StreamEventType.TEXT_DELTA]
         assert text_events[0].data == "Hello"
+
+    async def test_stream_with_extra_inputs(self):
+        """F-084: extra_inputs are passed through in streaming mode."""
+        from checkagent.adapters.langchain import LangChainAdapter
+
+        runnable = _make_runnable("output", has_astream_events=False)
+        adapter = LangChainAdapter(
+            runnable, extra_inputs={"context": "docs"}
+        )
+
+        events = []
+        async for event in adapter.run_stream("query"):
+            events.append(event)
+
+        types = [e.event_type for e in events]
+        assert types[0] == StreamEventType.RUN_START
+        assert types[-1] == StreamEventType.RUN_END
 
     async def test_stream_error_handling(self):
         from checkagent.adapters.langchain import LangChainAdapter
