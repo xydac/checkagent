@@ -49,7 +49,7 @@ CheckAgent is being built in public. Here's where we're headed.
 ### Milestone 4: Record-and-Replay
 - [x] Versioned JSON cassettes with stream support
 - [x] Replay engine with configurable matching
-- [ ] Cassette migration tooling
+- [x] Cassette migration tooling
 - [ ] PyPI v0.4.0
 
 ### Milestone 5: LLM-as-Judge
