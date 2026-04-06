@@ -190,13 +190,16 @@ class TestToolIntermittent:
 class TestToolSlow:
     """Test slow tool fault."""
 
-    def test_slow_sync_raises(self):
-        """Sync check_tool raises ToolSlowError (can't do real delay)."""
+    def test_slow_sync_delays(self):
+        """Sync check_tool delays with time.sleep (no exception)."""
+        import time
+
         fault = FaultInjector()
-        fault.on_tool("api").slow(latency_ms=200)
-        with pytest.raises(ToolSlowError) as exc_info:
-            fault.check_tool("api")
-        assert exc_info.value.latency_ms == 200
+        fault.on_tool("api").slow(latency_ms=50)
+        start = time.monotonic()
+        fault.check_tool("api")  # should not raise
+        elapsed = time.monotonic() - start
+        assert elapsed >= 0.04  # at least ~40ms (with tolerance)
 
     @pytest.mark.asyncio
     async def test_slow_async_delays(self):
@@ -573,19 +576,24 @@ class TestLLMIntermittent:
 class TestLLMSlow:
     """Test LLM slow fault — latency simulation."""
 
-    def test_slow_sync_raises(self):
-        """Sync check_llm raises LLMSlowError (no real delay)."""
-        fault = FaultInjector()
-        fault.on_llm().slow(latency_ms=200)
-        with pytest.raises(LLMSlowError, match="200"):
-            fault.check_llm()
+    def test_slow_sync_delays(self):
+        """Sync check_llm delays with time.sleep (no exception)."""
+        import time
 
-    def test_slow_sync_error_has_latency(self):
         fault = FaultInjector()
-        fault.on_llm().slow(latency_ms=500)
-        with pytest.raises(LLMSlowError) as exc_info:
-            fault.check_llm()
-        assert exc_info.value.latency_ms == 500
+        fault.on_llm().slow(latency_ms=50)
+        start = time.monotonic()
+        fault.check_llm()  # should not raise
+        elapsed = time.monotonic() - start
+        assert elapsed >= 0.04  # at least ~40ms (with tolerance)
+
+    def test_slow_sync_records(self):
+        """Sync slow fault records as triggered."""
+        fault = FaultInjector()
+        fault.on_llm().slow(latency_ms=10)
+        fault.check_llm()
+        assert fault.trigger_count == 1
+        assert fault.records[0].fault_type == FaultType.SLOW
 
     async def test_slow_async_delays(self):
         """Async check_llm_async performs real delay without raising."""
@@ -617,12 +625,15 @@ class TestLLMSlow:
         assert result is fault
 
     def test_slow_default_latency(self):
-        """Default latency is 100ms."""
+        """Default latency is 100ms — verify via timing."""
+        import time
+
         fault = FaultInjector()
         fault.on_llm().slow()
-        with pytest.raises(LLMSlowError) as exc_info:
-            fault.check_llm()
-        assert exc_info.value.latency_ms == 100.0
+        start = time.monotonic()
+        fault.check_llm()
+        elapsed = time.monotonic() - start
+        assert elapsed >= 0.08  # default 100ms with tolerance
 
 
 # --- LLM check_llm_async ---

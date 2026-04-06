@@ -14,7 +14,6 @@ from checkagent.mock.fault import (
     LLMIntermittentError,
     LLMRateLimitError,
     LLMServerError,
-    LLMSlowError,
     ToolEmptyResponseError,
     ToolIntermittentError,
     ToolMalformedResponseError,
@@ -372,22 +371,33 @@ class TestMockLLMIntermittentSlowIntegration:
         assert result == "Hi!"
         assert elapsed_ms >= 40  # timing slack
 
-    def test_slow_on_complete_sync_raises(self):
-        """Sync complete_sync raises LLMSlowError (no real delay)."""
+    def test_slow_on_complete_sync_delays(self):
+        """Sync complete_sync delays with time.sleep (no exception)."""
+        import time
+
         llm = MockLLM()
         fault = FaultInjector()
         llm.attach_faults(fault)
-        fault.on_llm().slow(latency_ms=200)
+        llm.on_input(contains="hello").respond("Hi!")
+        fault.on_llm().slow(latency_ms=50)
 
-        with pytest.raises(LLMSlowError, match="200"):
-            llm.complete_sync("hello")
+        start = time.monotonic()
+        result = llm.complete_sync("hello")
+        elapsed_ms = (time.monotonic() - start) * 1000
+        assert result == "Hi!"
+        assert elapsed_ms >= 40  # timing slack
 
-    def test_slow_on_stream_sync_raises(self):
-        """stream() is sync, so slow fault raises LLMSlowError."""
+    def test_slow_on_stream_sync_delays(self):
+        """stream() is sync — slow fault delays with time.sleep."""
+        import time
+
         llm = MockLLM()
         fault = FaultInjector()
         llm.attach_faults(fault)
-        fault.on_llm().slow(latency_ms=100)
+        llm.on_input(contains="hello").respond("Hi!")
+        fault.on_llm().slow(latency_ms=50)
 
-        with pytest.raises(LLMSlowError):
-            llm.stream("hello")
+        start = time.monotonic()
+        llm.stream("hello")
+        elapsed_ms = (time.monotonic() - start) * 1000
+        assert elapsed_ms >= 40  # timing slack

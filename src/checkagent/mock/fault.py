@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import random
+import time
 from enum import Enum
 from typing import Any
 
@@ -383,8 +384,9 @@ class FaultInjector:
         elif config.fault_type == FaultType.INTERMITTENT:
             raise ToolIntermittentError(tool_name)
         elif config.fault_type == FaultType.SLOW:
-            # Sync version can't do real delay — raise immediately
-            raise ToolSlowError(tool_name, config.latency_ms)
+            # Sync latency simulation — block the thread like a real slow call
+            time.sleep(config.latency_ms / 1000.0)
+            return
         elif config.fault_type == FaultType.EMPTY:
             raise ToolEmptyResponseError(tool_name)
 
@@ -413,7 +415,9 @@ class FaultInjector:
         elif config.fault_type == FaultType.INTERMITTENT:
             raise LLMIntermittentError()
         elif config.fault_type == FaultType.SLOW:
-            raise LLMSlowError(config.latency_ms)
+            # Sync latency simulation — block the thread like a real slow call
+            time.sleep(config.latency_ms / 1000.0)
+            return
 
     async def _raise_llm_fault_async(self, config: FaultConfig) -> None:
         """Async version — supports actual delay for slow faults."""
