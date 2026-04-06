@@ -108,13 +108,16 @@ class Cassette(BaseModel):
     # --- Serialization ---
 
     def to_json(self, indent: int = 2) -> str:
-        """Serialize to JSON string."""
-        return json.dumps(self.model_dump(), indent=indent, default=str)
+        """Serialize to JSON string.
+
+        Uses Pydantic's Rust-accelerated model_dump_json for speed.
+        """
+        return self.model_dump_json(indent=indent)
 
     @classmethod
     def from_json(cls, data: str) -> Cassette:
         """Deserialize from JSON string."""
-        return cls.model_validate(json.loads(data))
+        return cls.model_validate_json(data)
 
     # --- File I/O ---
 

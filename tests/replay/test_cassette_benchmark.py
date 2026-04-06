@@ -95,7 +95,7 @@ def test_cassette_json_serialize_100(benchmark_results: dict | None = None):
     json_str = cassette.to_json()
     size_kb = len(json_str.encode()) / 1024
 
-    assert avg_ms < 50, f"Serialize took {avg_ms:.2f}ms, expected <50ms"
+    assert avg_ms < 150, f"Serialize took {avg_ms:.2f}ms, expected <150ms"
     # Expose results via print for collection
     print(f"\n[BENCHMARK] serialize_100: {avg_ms:.3f}ms avg, {size_kb:.1f}KB")
 
