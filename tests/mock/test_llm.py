@@ -183,7 +183,8 @@ class TestMockLLMRecording:
         llm = MockLLM()
         await llm.complete("hello world")
         assert llm.was_called_with("hello world")
-        assert not llm.was_called_with("hello")
+        assert llm.was_called_with("hello")  # substring match
+        assert not llm.was_called_with("goodbye")
 
     @pytest.mark.asyncio
     async def test_get_calls_matching(self):

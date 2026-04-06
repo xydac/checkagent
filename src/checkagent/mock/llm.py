@@ -533,8 +533,8 @@ class MockLLM:
         return [c for c in self._calls if pattern in c.input_text]
 
     def was_called_with(self, text: str) -> bool:
-        """Check if any call had the exact input_text."""
-        return any(c.input_text == text for c in self._calls)
+        """Check if any call's input_text contains *text* (substring match)."""
+        return any(text in c.input_text for c in self._calls)
 
     def reset(self) -> None:
         """Clear all recorded calls and reset rule sequence counters."""
