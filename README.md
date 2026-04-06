@@ -70,10 +70,15 @@ class BookingResult(BaseModel):
 
 @pytest.mark.agent_test(layer="mock")
 async def test_booking_agent(booking_agent, ap_mock_llm, ap_mock_tool):
+    # Mock the LLM response for the booking request
     ap_mock_llm.on_input(contains="book a meeting").respond(
-        tool_call("check_calendar", {"date": "2026-04-10", "time": "14:00"})
+        "I'll book a meeting for April 10 at 2pm. Checking the calendar now."
     )
+    # Mock the tool that the agent calls
     ap_mock_tool.on_call("check_calendar").respond({"available": True})
+    ap_mock_tool.on_call("create_event").respond(
+        {"confirmed": True, "event_id": "evt-123"}
+    )
 
     result = await booking_agent.run("Book a meeting for April 10 at 2pm")
 
@@ -86,18 +91,19 @@ async def test_booking_agent(booking_agent, ap_mock_llm, ap_mock_tool):
 
 | Feature | Status |
 |---------|--------|
-| Mock LLM & tool providers | Planned |
-| Streaming mock support | Planned |
-| Fault injection (timeouts, rate limits) | Planned |
-| Structured output assertions | Planned |
-| Multi-turn conversation testing | Planned |
-| Record-and-replay cassettes | Planned |
-| Evaluation metrics (task completion, tool correctness) | Planned |
-| Safety testing (prompt injection, PII leakage) | Planned |
-| LLM-as-judge with statistical assertions | Planned |
-| CI/CD quality gates (GitHub Action) | Planned |
-| Production trace import | Planned |
-| Cost tracking & budget limits | Planned |
+| Mock LLM & tool providers | ✅ Implemented |
+| Streaming mock support | ✅ Implemented |
+| Fault injection (timeouts, rate limits) | ✅ Implemented |
+| Structured output assertions | ✅ Implemented |
+| Multi-turn conversation testing | ✅ Implemented |
+| Record-and-replay cassettes | ✅ Implemented |
+| Evaluation metrics (task completion, tool correctness) | ✅ Implemented |
+| Safety testing (prompt injection, PII leakage) | ✅ Implemented |
+| LLM-as-judge with statistical assertions | ✅ Implemented |
+| CI/CD quality gates (GitHub Action) | ✅ Implemented |
+| Production trace import | ✅ Implemented |
+| Cost tracking & budget limits | ✅ Implemented |
+| Multi-agent trace & credit assignment | ✅ Implemented |
 
 ## Roadmap
 

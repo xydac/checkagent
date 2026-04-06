@@ -377,6 +377,101 @@ class TestMultiAgentTraceId:
         assert trace.trace_id is None
 
 
+class TestGetChildrenWarning:
+    """F-073: get_children() should warn when passed an agent_id instead of run_id."""
+
+    def test_warns_when_agent_id_passed(self):
+        """Passing an agent_id to get_children() emits a helpful warning."""
+        import warnings
+
+        trace = MultiAgentTrace()
+        trace.add_run(
+            _make_run(agent_id="orchestrator", run_id="run-001")
+        ).add_run(
+            _make_run(
+                agent_id="worker", run_id="run-002", parent_run_id="run-001"
+            )
+        )
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = trace.get_children("orchestrator")
+
+        assert result == []
+        assert len(w) == 1
+        assert "agent_id" in str(w[0].message)
+        assert "get_runs_by_agent" in str(w[0].message)
+        assert "orchestrator" in str(w[0].message)
+
+    def test_no_warning_when_run_id_passed(self):
+        """Passing a valid run_id does not emit a warning."""
+        import warnings
+
+        trace = MultiAgentTrace()
+        trace.add_run(
+            _make_run(agent_id="orchestrator", run_id="run-001")
+        ).add_run(
+            _make_run(
+                agent_id="worker", run_id="run-002", parent_run_id="run-001"
+            )
+        )
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = trace.get_children("run-001")
+
+        assert len(result) == 1
+        assert result[0].agent_id == "worker"
+        assert len(w) == 0
+
+    def test_no_warning_for_unknown_id(self):
+        """Passing an ID that matches neither agent_id nor run_id does not warn."""
+        import warnings
+
+        trace = MultiAgentTrace()
+        trace.add_run(_make_run(agent_id="orchestrator", run_id="run-001"))
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = trace.get_children("nonexistent")
+
+        assert result == []
+        assert len(w) == 0
+
+    def test_no_warning_when_id_is_both_agent_and_run_id(self):
+        """If the ID matches both agent_id and run_id, don't warn (ambiguous but valid)."""
+        import warnings
+
+        trace = MultiAgentTrace()
+        # Edge case: agent_id == run_id
+        trace.add_run(_make_run(agent_id="shared-id", run_id="shared-id"))
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = trace.get_children("shared-id")
+
+        assert result == []
+        assert len(w) == 0
+
+    def test_warning_includes_available_run_ids(self):
+        """The warning message lists available run_ids for discoverability."""
+        import warnings
+
+        trace = MultiAgentTrace()
+        trace.add_run(
+            _make_run(agent_id="orch", run_id="run-001")
+        ).add_run(
+            _make_run(agent_id="worker", run_id="run-002", parent_run_id="run-001")
+        )
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            trace.get_children("orch")
+
+        assert "run-001" in str(w[0].message)
+        assert "run-002" in str(w[0].message)
+
+
 class TestMultiagentNamespace:
     def test_handoff_type_importable_from_multiagent(self):
         """F-071: HandoffType should be accessible from checkagent.multiagent."""

@@ -7,6 +7,8 @@ agent coordination patterns.
 
 from __future__ import annotations
 
+import warnings
+
 from pydantic import BaseModel, Field
 
 from checkagent.core.types import AgentRun, HandoffType
@@ -67,8 +69,28 @@ class MultiAgentTrace(BaseModel):
         return [r for r in self.runs if r.agent_id == agent_id]
 
     def get_children(self, run_id: str) -> list[AgentRun]:
-        """Get child runs spawned by a given run."""
-        return [r for r in self.runs if r.parent_run_id == run_id]
+        """Get child runs spawned by a given run.
+
+        Note: this method matches against ``parent_run_id``, so the argument
+        must be a *run* ID (``AgentRun.run_id``), not an *agent* ID.  If you
+        need to look up runs by agent, use :meth:`get_runs_by_agent`.
+        """
+        children = [r for r in self.runs if r.parent_run_id == run_id]
+        if not children:
+            # Check if the caller accidentally passed an agent_id
+            run_ids = {r.run_id for r in self.runs if r.run_id}
+            agent_ids = {r.agent_id for r in self.runs if r.agent_id}
+            if run_id in agent_ids and run_id not in run_ids:
+                warnings.warn(
+                    f"get_children() received '{run_id}' which matches an "
+                    f"agent_id, not a run_id. This method filters by "
+                    f"parent_run_id. Did you mean "
+                    f"get_runs_by_agent('{run_id}')? "
+                    f"Available run_ids: {sorted(run_ids)}",
+                    UserWarning,
+                    stacklevel=2,
+                )
+        return children
 
     def get_handoffs_from(self, agent_id: str) -> list[Handoff]:
         """Get all handoffs originating from an agent."""
