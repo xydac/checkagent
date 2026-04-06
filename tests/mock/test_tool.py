@@ -361,8 +361,10 @@ class TestAssertionHelpers:
     async def test_assert_tool_called_passes(self):
         tool = MockTool()
         tool.register("a", response=1)
-        await tool.call("a")
-        tool.assert_tool_called("a")  # should not raise
+        await tool.call("a", arguments={"x": 42})
+        record = tool.assert_tool_called("a")  # should not raise
+        assert record.tool_name == "a"
+        assert record.arguments == {"x": 42}
 
     @pytest.mark.asyncio
     async def test_assert_tool_called_fails_descriptively(self):

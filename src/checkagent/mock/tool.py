@@ -327,9 +327,10 @@ class MockTool:
         *,
         times: int | None = None,
         with_args: dict[str, Any] | None = None,
-    ) -> None:
+    ) -> ToolCallRecord:
         """Assert that a tool was called, optionally checking count and arguments.
 
+        Returns the first matching :class:`ToolCallRecord`.
         Raises AssertionError with a descriptive message on failure.
         """
         matching = self.get_calls_for(tool_name)
@@ -353,6 +354,7 @@ class MockTool:
                         f"{key}={expected_value!r}. "
                         f"Actual values for '{key}': {actual_values}"
                     )
+        return matching[0]
 
     def assert_tool_not_called(self, tool_name: str) -> None:
         """Assert that a tool was never called.
