@@ -125,7 +125,7 @@ class LangChainAdapter:
         else:
             invoke_input = {self._input_key: input.query, **input.context}
 
-        start = time.monotonic()
+        start = time.perf_counter()
         try:
             if hasattr(self._runnable, "ainvoke"):
                 raw = await self._runnable.ainvoke(invoke_input)
@@ -139,14 +139,14 @@ class LangChainAdapter:
                     None, functools.partial(self._runnable.invoke, invoke_input)
                 )
         except Exception as exc:
-            elapsed = (time.monotonic() - start) * 1000
+            elapsed = (time.perf_counter() - start) * 1000
             return AgentRun(
                 input=input,
                 error=f"{type(exc).__name__}: {exc}",
                 duration_ms=elapsed,
             )
 
-        elapsed = (time.monotonic() - start) * 1000
+        elapsed = (time.perf_counter() - start) * 1000
         text = _extract_text(raw)
         tool_calls = _extract_tool_calls(raw)
         tokens = _extract_token_usage(raw)

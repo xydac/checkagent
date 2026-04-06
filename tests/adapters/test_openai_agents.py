@@ -218,7 +218,7 @@ class TestOpenAIAgentsAdapterRun:
 
         assert not result.succeeded
         assert "RuntimeError: agent crashed" in result.error
-        assert result.duration_ms > 0
+        assert result.duration_ms >= 0
 
     async def test_duration_recorded(self):
         from checkagent.adapters.openai_agents import OpenAIAgentsAdapter

@@ -150,18 +150,18 @@ class OpenAIAgentsAdapter:
 
         from agents import Runner
 
-        start = time.monotonic()
+        start = time.perf_counter()
         try:
             result = await Runner.run(self._agent, input=input.query)
         except Exception as exc:
-            elapsed = (time.monotonic() - start) * 1000
+            elapsed = (time.perf_counter() - start) * 1000
             return AgentRun(
                 input=input,
                 error=f"{type(exc).__name__}: {exc}",
                 duration_ms=elapsed,
             )
 
-        elapsed = (time.monotonic() - start) * 1000
+        elapsed = (time.perf_counter() - start) * 1000
         steps = _extract_steps(result)
         tokens = _get_token_usage(result)
         final = _get_final_output(result)

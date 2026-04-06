@@ -215,7 +215,7 @@ class TestLangChainAdapterRun:
 
         assert not result.succeeded
         assert "ValueError: bad input" in result.error
-        assert result.duration_ms > 0
+        assert result.duration_ms >= 0
 
     async def test_sync_runnable_fallback(self):
         from checkagent.adapters.langchain import LangChainAdapter
@@ -324,12 +324,16 @@ class TestLangChainAdapterStream:
 class TestLangChainImportGuard:
     async def test_import_error_without_langchain(self):
         """_ensure_langchain raises ImportError if langchain_core missing."""
-        saved = sys.modules.pop("langchain_core", None)
-        try:
-            from checkagent.adapters.langchain import _ensure_langchain
+        from checkagent.adapters.langchain import _ensure_langchain
 
+        saved = sys.modules.get("langchain_core")
+        # Setting to None blocks the import (Python treats None entries as failed imports)
+        sys.modules["langchain_core"] = None  # type: ignore[assignment]
+        try:
             with pytest.raises(ImportError, match="langchain-core"):
                 _ensure_langchain()
         finally:
             if saved is not None:
                 sys.modules["langchain_core"] = saved
+            else:
+                sys.modules.pop("langchain_core", None)

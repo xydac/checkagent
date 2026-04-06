@@ -39,7 +39,7 @@ class GenericAdapter:
         """
         if isinstance(input, str):
             input = AgentInput(query=input)
-        start = time.monotonic()
+        start = time.perf_counter()
         kwargs = input.context if self._accepts_kwargs else {}
 
         try:
@@ -51,14 +51,14 @@ class GenericAdapter:
                     None, functools.partial(self._fn, input.query, **kwargs)
                 )
         except Exception as exc:
-            elapsed = (time.monotonic() - start) * 1000
+            elapsed = (time.perf_counter() - start) * 1000
             return AgentRun(
                 input=input,
                 error=f"{type(exc).__name__}: {exc}",
                 duration_ms=elapsed,
             )
 
-        elapsed = (time.monotonic() - start) * 1000
+        elapsed = (time.perf_counter() - start) * 1000
         return AgentRun(
             input=input,
             steps=[Step(step_index=0, input_text=input.query, output_text=str(result))],
