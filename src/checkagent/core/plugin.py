@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from checkagent.conversation.session import Conversation
 from checkagent.core.config import CheckAgentConfig, load_config
+from checkagent.judge.judge import RubricJudge
+from checkagent.judge.types import Rubric
 from checkagent.mock.fault import FaultInjector
 from checkagent.mock.llm import MockLLM
 from checkagent.mock.mcp import MockMCPServer
@@ -185,6 +189,34 @@ def ap_safety() -> dict[str, object]:
         "tool_boundary": ToolCallBoundaryValidator(),
         "refusal": RefusalComplianceChecker(),
     }
+
+
+@pytest.fixture
+def ap_judge() -> Callable[..., RubricJudge]:
+    """Factory fixture for creating RubricJudge instances.
+
+    Returns a factory that creates judges from a rubric and LLM callable::
+
+        async def test_judge(ap_judge):
+            rubric = Rubric(name="quality", criteria=[...])
+            judge = ap_judge(rubric, my_llm_callable)
+            score = await judge.evaluate(run)
+            assert score.overall >= 0.7
+
+    The factory accepts:
+        rubric: Rubric — the evaluation rubric
+        llm: async (system, user) -> str — LLM callable
+        model_name: str — optional model identifier
+    """
+
+    def _factory(
+        rubric: Rubric,
+        llm: Callable[..., Any],
+        model_name: str = "",
+    ) -> RubricJudge:
+        return RubricJudge(rubric=rubric, llm=llm, model_name=model_name)
+
+    return _factory
 
 
 @pytest.fixture

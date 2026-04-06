@@ -132,3 +132,26 @@ class JudgeVerdict(BaseModel):
     @property
     def passed(self) -> bool:
         return self.verdict == Verdict.PASS
+
+
+class ConsensusVerdict(BaseModel):
+    """Aggregated verdict from multiple judges (F4.4).
+
+    Runs multiple judges on the same agent run and computes a
+    majority-vote consensus. Disagreements are flagged when judges
+    produce different verdicts.
+    """
+
+    verdict: Verdict
+    judge_verdicts: dict[str, JudgeVerdict] = Field(default_factory=dict)
+    agreement_rate: float = Field(ge=0.0, le=1.0)
+    has_disagreement: bool = False
+    reasoning: str = ""
+
+    @property
+    def num_judges(self) -> int:
+        return len(self.judge_verdicts)
+
+    @property
+    def passed(self) -> bool:
+        return self.verdict == Verdict.PASS

@@ -3,8 +3,10 @@
 Rubric-based evaluation with statistical verdicts.
 """
 
+from checkagent.judge.consensus import multi_judge_evaluate
 from checkagent.judge.judge import Judge, RubricJudge
 from checkagent.judge.types import (
+    ConsensusVerdict,
     Criterion,
     CriterionScore,
     JudgeScore,
@@ -16,6 +18,7 @@ from checkagent.judge.types import (
 from checkagent.judge.verdict import compute_verdict
 
 __all__ = [
+    "ConsensusVerdict",
     "Criterion",
     "CriterionScore",
     "Judge",
@@ -26,4 +29,5 @@ __all__ = [
     "ScaleType",
     "Verdict",
     "compute_verdict",
+    "multi_judge_evaluate",
 ]
