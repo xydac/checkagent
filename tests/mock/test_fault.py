@@ -13,9 +13,11 @@ from checkagent.mock.fault import (
     LLMContentFilterError,
     LLMContextOverflowError,
     LLMFaultError,
+    LLMIntermittentError,
     LLMPartialResponseError,
     LLMRateLimitError,
     LLMServerError,
+    LLMSlowError,
     ToolEmptyResponseError,
     ToolFaultError,
     ToolIntermittentError,
@@ -499,3 +501,151 @@ class TestMultipleFaults:
         # First fault triggers
         with pytest.raises(LLMContextOverflowError):
             fault.check_llm()
+
+
+# --- LLM Intermittent Faults ---
+
+
+class TestLLMIntermittent:
+    """Test LLM intermittent fault — probabilistic failures."""
+
+    def test_intermittent_with_seed_deterministic(self):
+        """Seeded intermittent fault produces reproducible results."""
+        fault = FaultInjector()
+        fault.on_llm().intermittent(fail_rate=0.5, seed=42)
+        results = []
+        for _ in range(10):
+            try:
+                fault.check_llm()
+                results.append("ok")
+            except LLMIntermittentError:
+                results.append("fail")
+        # Same seed → same sequence
+        fault2 = FaultInjector()
+        fault2.on_llm().intermittent(fail_rate=0.5, seed=42)
+        results2 = []
+        for _ in range(10):
+            try:
+                fault2.check_llm()
+                results2.append("ok")
+            except LLMIntermittentError:
+                results2.append("fail")
+        assert results == results2
+
+    def test_intermittent_always_fails(self):
+        """fail_rate=1.0 always triggers."""
+        fault = FaultInjector()
+        fault.on_llm().intermittent(fail_rate=1.0, seed=0)
+        with pytest.raises(LLMIntermittentError, match="Intermittent LLM failure"):
+            fault.check_llm()
+
+    def test_intermittent_never_fails(self):
+        """fail_rate=0.0 never triggers."""
+        fault = FaultInjector()
+        fault.on_llm().intermittent(fail_rate=0.0, seed=0)
+        for _ in range(20):
+            fault.check_llm()  # should never raise
+
+    def test_intermittent_records_triggered(self):
+        """Records reflect triggered vs non-triggered intermittent faults."""
+        fault = FaultInjector()
+        fault.on_llm().intermittent(fail_rate=1.0, seed=0)
+        with pytest.raises(LLMIntermittentError):
+            fault.check_llm()
+        assert fault.trigger_count == 1
+        assert fault.records[0].fault_type == FaultType.INTERMITTENT
+        assert fault.records[0].target == "llm"
+
+    def test_intermittent_inherits_from_llm_fault_error(self):
+        assert issubclass(LLMIntermittentError, LLMFaultError)
+        assert issubclass(LLMIntermittentError, FaultInjectionError)
+
+    def test_intermittent_chaining(self):
+        """intermittent() returns FaultInjector for chaining."""
+        fault = FaultInjector()
+        result = fault.on_llm().intermittent(fail_rate=0.5, seed=1)
+        assert result is fault
+
+
+# --- LLM Slow Faults ---
+
+
+class TestLLMSlow:
+    """Test LLM slow fault — latency simulation."""
+
+    def test_slow_sync_raises(self):
+        """Sync check_llm raises LLMSlowError (no real delay)."""
+        fault = FaultInjector()
+        fault.on_llm().slow(latency_ms=200)
+        with pytest.raises(LLMSlowError, match="200"):
+            fault.check_llm()
+
+    def test_slow_sync_error_has_latency(self):
+        fault = FaultInjector()
+        fault.on_llm().slow(latency_ms=500)
+        with pytest.raises(LLMSlowError) as exc_info:
+            fault.check_llm()
+        assert exc_info.value.latency_ms == 500
+
+    async def test_slow_async_delays(self):
+        """Async check_llm_async performs real delay without raising."""
+        fault = FaultInjector()
+        fault.on_llm().slow(latency_ms=50)
+        import time
+
+        start = time.monotonic()
+        await fault.check_llm_async()  # should delay, not raise
+        elapsed_ms = (time.monotonic() - start) * 1000
+        assert elapsed_ms >= 40  # allow some timing slack
+
+    async def test_slow_async_records(self):
+        """Async slow fault records as triggered."""
+        fault = FaultInjector()
+        fault.on_llm().slow(latency_ms=10)
+        await fault.check_llm_async()
+        assert fault.trigger_count == 1
+        assert fault.records[0].fault_type == FaultType.SLOW
+
+    def test_slow_inherits_from_llm_fault_error(self):
+        assert issubclass(LLMSlowError, LLMFaultError)
+        assert issubclass(LLMSlowError, FaultInjectionError)
+
+    def test_slow_chaining(self):
+        """slow() returns FaultInjector for chaining."""
+        fault = FaultInjector()
+        result = fault.on_llm().slow(latency_ms=100)
+        assert result is fault
+
+    def test_slow_default_latency(self):
+        """Default latency is 100ms."""
+        fault = FaultInjector()
+        fault.on_llm().slow()
+        with pytest.raises(LLMSlowError) as exc_info:
+            fault.check_llm()
+        assert exc_info.value.latency_ms == 100.0
+
+
+# --- LLM check_llm_async ---
+
+
+class TestCheckLLMAsync:
+    """Test async LLM fault checking."""
+
+    async def test_async_context_overflow(self):
+        """Async check raises same exceptions as sync."""
+        fault = FaultInjector()
+        fault.on_llm().context_overflow()
+        with pytest.raises(LLMContextOverflowError):
+            await fault.check_llm_async()
+
+    async def test_async_intermittent(self):
+        """Async intermittent fault works."""
+        fault = FaultInjector()
+        fault.on_llm().intermittent(fail_rate=1.0, seed=0)
+        with pytest.raises(LLMIntermittentError):
+            await fault.check_llm_async()
+
+    async def test_async_no_fault_no_error(self):
+        """No faults configured → no error in async mode."""
+        fault = FaultInjector()
+        await fault.check_llm_async()  # should not raise

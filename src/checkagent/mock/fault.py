@@ -182,6 +182,38 @@ class LLMFaultBuilder:
         )
         return self._injector
 
+    def intermittent(
+        self, fail_rate: float = 0.5, *, seed: int | None = None
+    ) -> FaultInjector:
+        """Random LLM failures at configured probability.
+
+        Args:
+            fail_rate: Probability of failure per call (0.0-1.0).
+            seed: Optional seed for reproducible fault sequences.
+        """
+        self._injector._add_fault(
+            "llm",
+            FaultConfig(
+                fault_type=FaultType.INTERMITTENT, fail_rate=fail_rate, seed=seed
+            ),
+        )
+        return self._injector
+
+    def slow(self, latency_ms: float = 100.0) -> FaultInjector:
+        """Adds artificial latency to LLM responses.
+
+        In async mode (check_llm_async), performs a real asyncio.sleep delay.
+        In sync mode (check_llm), raises LLMSlowError immediately.
+
+        Args:
+            latency_ms: Simulated latency in milliseconds.
+        """
+        self._injector._add_fault(
+            "llm",
+            FaultConfig(fault_type=FaultType.SLOW, latency_ms=latency_ms),
+        )
+        return self._injector
+
 
 class FaultInjector:
     """Injects configurable faults into tool calls and LLM requests.
@@ -301,6 +333,30 @@ class FaultInjector:
                     )
                 )
 
+    async def check_llm_async(self) -> None:
+        """Async version of check_llm — supports slow fault with real delay."""
+        for state in self._llm_faults:
+            state.call_count += 1
+            if self._should_trigger(state):
+                self._records.append(
+                    FaultRecord(
+                        target="llm",
+                        fault_type=state.config.fault_type,
+                        triggered=True,
+                        call_index=state.call_count,
+                    )
+                )
+                await self._raise_llm_fault_async(state.config)
+            else:
+                self._records.append(
+                    FaultRecord(
+                        target="llm",
+                        fault_type=state.config.fault_type,
+                        triggered=False,
+                        call_index=state.call_count,
+                    )
+                )
+
     def _should_trigger(self, state: _FaultState) -> bool:
         """Determine if a fault should trigger on this call."""
         config = state.config
@@ -354,6 +410,18 @@ class FaultInjector:
             raise LLMServerError(config.error_message)
         elif config.fault_type == FaultType.CONTENT_FILTER:
             raise LLMContentFilterError(config.error_message)
+        elif config.fault_type == FaultType.INTERMITTENT:
+            raise LLMIntermittentError()
+        elif config.fault_type == FaultType.SLOW:
+            raise LLMSlowError(config.latency_ms)
+
+    async def _raise_llm_fault_async(self, config: FaultConfig) -> None:
+        """Async version — supports actual delay for slow faults."""
+        if config.fault_type == FaultType.SLOW:
+            await asyncio.sleep(config.latency_ms / 1000.0)
+            return  # slow doesn't raise — it just delays
+        # All other faults raise the same as sync
+        self._raise_llm_fault(config)
 
     # --- Inspection ---
 
@@ -516,3 +584,18 @@ class LLMContentFilterError(LLMFaultError):
 
     def __init__(self, message: str = "Content filtered") -> None:
         super().__init__(message)
+
+
+class LLMIntermittentError(LLMFaultError):
+    """Simulated intermittent LLM failure."""
+
+    def __init__(self) -> None:
+        super().__init__("Intermittent LLM failure")
+
+
+class LLMSlowError(LLMFaultError):
+    """Raised in sync mode when a slow LLM fault is configured (use async for real delay)."""
+
+    def __init__(self, latency_ms: float) -> None:
+        self.latency_ms = latency_ms
+        super().__init__(f"Slow LLM response ({latency_ms}ms) — use async for real delay")

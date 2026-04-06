@@ -451,7 +451,7 @@ class MockLLM:
         If a FaultInjector is attached, checks for LLM faults first.
         """
         if self._fault_injector is not None:
-            self._fault_injector.check_llm()
+            await self._fault_injector.check_llm_async()
         rule = self._find_rule(text)
 
         if rule is not None:
