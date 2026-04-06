@@ -97,7 +97,16 @@ class LLMCall(BaseModel):
     rule_pattern: str | None = None
     was_default: bool = False
     streamed: bool = False
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @property
+    def total_tokens(self) -> int | None:
+        """Total tokens (prompt + completion), or None if not tracked."""
+        if self.prompt_tokens is None and self.completion_tokens is None:
+            return None
+        return (self.prompt_tokens or 0) + (self.completion_tokens or 0)
 
 
 class _InputMatcher:
@@ -192,6 +201,8 @@ class MockLLM:
         self._stream_rules: list[StreamRule] = []
         self._calls: list[LLMCall] = []
         self._fault_injector: FaultInjector | None = None
+        self._usage: tuple[int, int] | None = None
+        self._auto_estimate_tokens: bool = False
 
     def attach_faults(self, injector: FaultInjector) -> MockLLM:
         """Wire a FaultInjector so LLM faults fire automatically on calls.
@@ -208,6 +219,54 @@ class MockLLM:
         """
         self._fault_injector = injector
         return self
+
+    def with_usage(
+        self,
+        *,
+        prompt_tokens: int | None = None,
+        completion_tokens: int | None = None,
+        auto_estimate: bool = False,
+    ) -> MockLLM:
+        """Configure simulated token usage on recorded calls.
+
+        When set, every ``LLMCall`` recorded by ``complete()``,
+        ``complete_sync()``, or ``stream()`` will include token counts.
+        This enables testing cost-tracking code paths with MockLLM.
+
+        Args:
+            prompt_tokens: Fixed prompt token count per call.
+            completion_tokens: Fixed completion token count per call.
+            auto_estimate: If True, estimate tokens from text length
+                (``len(text) // 4``) instead of using fixed values.
+
+        ::
+
+            llm = MockLLM().with_usage(prompt_tokens=100, completion_tokens=50)
+            await llm.complete("hello")
+            assert llm.last_call.prompt_tokens == 100
+
+            # Or auto-estimate from text length
+            llm = MockLLM().with_usage(auto_estimate=True)
+        """
+        if auto_estimate:
+            self._auto_estimate_tokens = True
+            self._usage = None
+        else:
+            self._auto_estimate_tokens = False
+            self._usage = (prompt_tokens or 0, completion_tokens or 0)
+        return self
+
+    def _make_call(self, **kwargs: Any) -> LLMCall:
+        """Create an LLMCall with token usage if configured."""
+        input_text = kwargs.get("input_text", "")
+        response_text = kwargs.get("response_text", "")
+        if self._auto_estimate_tokens:
+            kwargs.setdefault("prompt_tokens", len(input_text) // 4 + 1)
+            kwargs.setdefault("completion_tokens", len(response_text) // 4 + 1)
+        elif self._usage is not None:
+            kwargs.setdefault("prompt_tokens", self._usage[0])
+            kwargs.setdefault("completion_tokens", self._usage[1])
+        return LLMCall(**kwargs)
 
     def on_input(
         self,
@@ -329,7 +388,7 @@ class MockLLM:
             full_text = "".join(config.chunks)
 
             self._calls.append(
-                LLMCall(
+                self._make_call(
                     input_text=text,
                     response_text=full_text,
                     model=model,
@@ -348,7 +407,7 @@ class MockLLM:
             response_text = rule.get_response()
             model = rule.model or self.default_model
             self._calls.append(
-                LLMCall(
+                self._make_call(
                     input_text=text,
                     response_text=response_text,
                     model=model,
@@ -362,7 +421,7 @@ class MockLLM:
             response_text = self.default_response
             model = self.default_model
             self._calls.append(
-                LLMCall(
+                self._make_call(
                     input_text=text,
                     response_text=response_text,
                     model=model,
@@ -393,7 +452,7 @@ class MockLLM:
             response_text = rule.get_response()
             model = rule.model or self.default_model
             self._calls.append(
-                LLMCall(
+                self._make_call(
                     input_text=text,
                     response_text=response_text,
                     model=model,
@@ -406,7 +465,7 @@ class MockLLM:
 
         # No rule matched — use default
         self._calls.append(
-            LLMCall(
+            self._make_call(
                 input_text=text,
                 response_text=self.default_response,
                 model=self.default_model,
@@ -425,7 +484,7 @@ class MockLLM:
             response_text = rule.get_response()
             model = rule.model or self.default_model
             self._calls.append(
-                LLMCall(
+                self._make_call(
                     input_text=text,
                     response_text=response_text,
                     model=model,
@@ -437,7 +496,7 @@ class MockLLM:
             return response_text
 
         self._calls.append(
-            LLMCall(
+            self._make_call(
                 input_text=text,
                 response_text=self.default_response,
                 model=self.default_model,
