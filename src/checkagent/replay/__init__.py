@@ -14,6 +14,13 @@ from checkagent.replay.engine import (
     MatchStrategy,
     ReplayEngine,
 )
+from checkagent.replay.migration import (
+    MigrationResult,
+    migrate_cassette_data,
+    migrate_directory,
+    migrate_file,
+    register_migration,
+)
 from checkagent.replay.recorder import CassetteRecorder, TimedCall
 
 __all__ = [
@@ -24,9 +31,14 @@ __all__ = [
     "CassetteRecorder",
     "Interaction",
     "MatchStrategy",
+    "MigrationResult",
     "RecordedRequest",
     "RecordedResponse",
     "ReplayEngine",
     "TimedCall",
+    "migrate_cassette_data",
+    "migrate_directory",
+    "migrate_file",
     "redact_dict",
+    "register_migration",
 ]

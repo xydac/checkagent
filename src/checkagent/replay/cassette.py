@@ -130,7 +130,7 @@ class Cassette(BaseModel):
 
         Raises a warning if schema version is outdated.
         """
-        cassette = cls.from_json(path.read_text())
+        cassette = cls.from_json(path.read_text(encoding="utf-8"))
         if cassette.meta.schema_version < CASSETTE_SCHEMA_VERSION:
             import warnings
 
