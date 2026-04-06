@@ -3,7 +3,7 @@
 import pytest
 
 from checkagent.core.types import AgentInput, AgentRun, Score, Step, ToolCall
-from checkagent.datasets.schema import TestCase
+from checkagent.datasets.schema import EvalCase
 from checkagent.eval.evaluator import Evaluator, EvaluatorRegistry
 
 
@@ -12,7 +12,7 @@ class PoliteEvaluator(Evaluator):
 
     name = "politeness"
 
-    def score(self, run: AgentRun, expected: TestCase) -> Score:
+    def score(self, run: AgentRun, expected: EvalCase) -> Score:
         output = str(run.final_output or "").lower()
         polite = any(w in output for w in ["please", "thank", "sorry"])
         return Score(name=self.name, value=1.0 if polite else 0.0, threshold=0.5)
@@ -23,7 +23,7 @@ class ToolCountEvaluator(Evaluator):
 
     name = "tool_count"
 
-    def score(self, run: AgentRun, expected: TestCase) -> Score:
+    def score(self, run: AgentRun, expected: EvalCase) -> Score:
         n_tools = len(run.tool_calls)
         max_steps = expected.max_steps or 10
         value = min(1.0, max_steps / max(n_tools, 1))
@@ -46,10 +46,10 @@ def _make_run(output: str = "Thank you!", tool_names: list[str] | None = None) -
     )
 
 
-def _make_case(**kwargs) -> TestCase:
+def _make_case(**kwargs) -> EvalCase:
     defaults = {"id": "test-001", "input": "test query"}
     defaults.update(kwargs)
-    return TestCase(**defaults)
+    return EvalCase(**defaults)
 
 
 class TestEvaluator:

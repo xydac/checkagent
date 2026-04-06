@@ -11,7 +11,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from checkagent.core.types import AgentRun, Score
-from checkagent.datasets.schema import TestCase
+from checkagent.datasets.schema import EvalCase
 
 
 class Evaluator(ABC):
@@ -26,7 +26,7 @@ class Evaluator(ABC):
         class ResponseToneEvaluator(Evaluator):
             name = "response_tone"
 
-            def score(self, run: AgentRun, expected: TestCase) -> Score:
+            def score(self, run: AgentRun, expected: EvalCase) -> Score:
                 output = str(run.final_output or "")
                 is_polite = any(w in output.lower() for w in ["please", "thank"])
                 return Score(
@@ -39,7 +39,7 @@ class Evaluator(ABC):
     name: str = "unnamed_evaluator"
 
     @abstractmethod
-    def score(self, run: AgentRun, expected: TestCase) -> Score:
+    def score(self, run: AgentRun, expected: EvalCase) -> Score:
         """Evaluate an agent run against a test case.
 
         Args:
@@ -100,7 +100,7 @@ class EvaluatorRegistry:
         return count
 
     def score_all(
-        self, run: AgentRun, expected: TestCase
+        self, run: AgentRun, expected: EvalCase
     ) -> dict[str, Score]:
         """Run all registered evaluators against an agent run.
 

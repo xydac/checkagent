@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from checkagent.datasets.loader import load_cases, load_dataset, parametrize_cases
-from checkagent.datasets.schema import GoldenDataset, TestCase
+from checkagent.datasets.schema import EvalCase, GoldenDataset
 
 
 @pytest.fixture
@@ -152,7 +152,7 @@ class TestLoadCases:
     def test_load_all(self, json_bare_file):
         cases = load_cases(json_bare_file)
         assert len(cases) == 3
-        assert all(isinstance(c, TestCase) for c in cases)
+        assert all(isinstance(c, EvalCase) for c in cases)
 
     def test_filter_by_tag(self, json_bare_file):
         cases = load_cases(json_bare_file, tags=["greet"])
@@ -186,4 +186,4 @@ class TestParametrizeCases:
         _, argvalues = parametrize_cases(json_bare_file)
         for param in argvalues:
             # pytest.param wraps values in .values tuple
-            assert isinstance(param.values[0], TestCase)
+            assert isinstance(param.values[0], EvalCase)

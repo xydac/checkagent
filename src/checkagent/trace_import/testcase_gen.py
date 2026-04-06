@@ -1,6 +1,6 @@
 """Test case generator — convert AgentRun traces into golden dataset test cases.
 
-Takes imported production traces and generates TestCase entries suitable
+Takes imported production traces and generates EvalCase entries suitable
 for inclusion in a golden dataset for regression testing.
 
 Requirements: F6.2
@@ -13,7 +13,7 @@ import json
 from typing import Any
 
 from checkagent.core.types import AgentRun
-from checkagent.datasets.schema import GoldenDataset, TestCase
+from checkagent.datasets.schema import EvalCase, GoldenDataset
 from checkagent.trace_import.pii import PiiScrubber
 
 
@@ -35,7 +35,7 @@ def generate_test_cases(
         tags: Additional tags to add to all generated test cases.
 
     Returns:
-        A GoldenDataset containing one TestCase per run.
+        A GoldenDataset containing one EvalCase per run.
     """
     scrubber = pii_scrubber or PiiScrubber() if scrub_pii else None
     extra_tags = tags or []
@@ -61,8 +61,8 @@ def _run_to_test_case(
     *,
     scrubber: PiiScrubber | None,
     extra_tags: list[str],
-) -> TestCase:
-    """Convert a single AgentRun into a TestCase."""
+) -> EvalCase:
+    """Convert a single AgentRun into a EvalCase."""
     query = run.input.query
     if scrubber:
         query = scrubber.scrub_text(query)
@@ -110,7 +110,7 @@ def _run_to_test_case(
             scrubber.scrub_text(run.error) if scrubber else run.error
         )
 
-    return TestCase(
+    return EvalCase(
         id=case_id,
         input=query,
         expected_tools=expected_tools,

@@ -1,7 +1,7 @@
 """Golden dataset loader.
 
 Loads test cases from JSON and YAML files, validates them against
-the TestCase schema, and provides pytest parametrize integration.
+the EvalCase schema, and provides pytest parametrize integration.
 
 Requirements: F3.2, F3.3
 """
@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from checkagent.datasets.schema import GoldenDataset, TestCase
+from checkagent.datasets.schema import EvalCase, GoldenDataset
 
 
 def _load_raw(path: Path) -> dict[str, Any] | list[Any]:
@@ -81,17 +81,17 @@ def load_dataset(path: str | Path) -> GoldenDataset:
     return GoldenDataset.model_validate(normalized)
 
 
-def load_cases(path: str | Path, tags: list[str] | None = None) -> list[TestCase]:
+def load_cases(path: str | Path, tags: list[str] | None = None) -> list[EvalCase]:
     """Load test cases from a file, optionally filtered by tags.
 
-    Convenience function that returns just the list of TestCase objects.
+    Convenience function that returns just the list of EvalCase objects.
 
     Args:
         path: Path to a JSON or YAML file.
         tags: If provided, only return cases matching any of these tags.
 
     Returns:
-        List of validated TestCase instances.
+        List of validated EvalCase instances.
     """
     dataset = load_dataset(path)
     if tags:
@@ -116,7 +116,7 @@ def parametrize_cases(
 
     Returns:
         A tuple of (argname, argvalues) suitable for pytest.mark.parametrize.
-        Each argvalue is a TestCase with its id set as the pytest ID.
+        Each argvalue is an EvalCase with its id set as the pytest ID.
     """
     import pytest
 

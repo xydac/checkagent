@@ -1,6 +1,6 @@
-"""Golden dataset schema for test cases.
+"""Golden dataset schema for eval cases.
 
-Defines the TestCase model used by golden datasets for parametrized
+Defines the EvalCase model used by golden datasets for parametrized
 evaluation of agent runs.
 
 Requirements: F3.2
@@ -13,7 +13,7 @@ from typing import Any
 from pydantic import BaseModel, Field, model_validator
 
 
-class TestCase(BaseModel):
+class EvalCase(BaseModel):
     """A single test case in a golden dataset.
 
     Example YAML/JSON:
@@ -36,7 +36,7 @@ class TestCase(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def _validate_constraints(self) -> TestCase:
+    def _validate_constraints(self) -> EvalCase:
         if self.max_steps is not None and self.max_steps < 1:
             raise ValueError("max_steps must be >= 1")
         return self
@@ -51,7 +51,7 @@ class GoldenDataset(BaseModel):
     name: str = "unnamed"
     version: str = "1"
     description: str = ""
-    cases: list[TestCase]
+    cases: list[EvalCase]
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
@@ -62,12 +62,12 @@ class GoldenDataset(BaseModel):
             raise ValueError(f"Duplicate test case IDs: {set(dupes)}")
         return self
 
-    def filter_by_tags(self, *tags: str) -> list[TestCase]:
+    def filter_by_tags(self, *tags: str) -> list[EvalCase]:
         """Return cases matching any of the given tags."""
         tag_set = set(tags)
         return [c for c in self.cases if tag_set & set(c.tags)]
 
-    def get_case(self, case_id: str) -> TestCase | None:
+    def get_case(self, case_id: str) -> EvalCase | None:
         """Look up a single test case by ID."""
         for c in self.cases:
             if c.id == case_id:
