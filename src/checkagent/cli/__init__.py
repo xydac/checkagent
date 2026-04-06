@@ -16,11 +16,13 @@ def main(ctx: click.Context) -> None:
 
 # Import subcommands to register them with the group
 from checkagent.cli.demo import demo_cmd  # noqa: E402
+from checkagent.cli.import_trace import import_trace_cmd  # noqa: E402
 from checkagent.cli.init import init_cmd  # noqa: E402
 from checkagent.cli.migrate import migrate_cmd  # noqa: E402
 from checkagent.cli.run import run_cmd  # noqa: E402
 
 main.add_command(demo_cmd)
+main.add_command(import_trace_cmd)
 main.add_command(init_cmd)
 main.add_command(migrate_cmd)
 main.add_command(run_cmd)
