@@ -60,6 +60,13 @@ _PII_PATTERNS: list[tuple[str, re.Pattern[str], Severity]] = [
         ),
         Severity.MEDIUM,
     ),
+    (
+        "credential",
+        re.compile(
+            r"(?i)\b(password|passwd|secret|api[_\s]?key|token)\s*[=:]\s*\S{4,}"
+        ),
+        Severity.CRITICAL,
+    ),
 ]
 
 
