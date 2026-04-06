@@ -93,8 +93,16 @@ def _extract_token_usage(result: Any) -> dict[str, int | None]:
         usage_obj = result.usage
 
     if usage_obj:
-        usage["prompt_tokens"] = getattr(usage_obj, "request_tokens", None)
-        usage["completion_tokens"] = getattr(usage_obj, "response_tokens", None)
+        # PydanticAI >=1.77 renamed request_tokens→input_tokens,
+        # response_tokens→output_tokens. Prefer new names (F-087).
+        prompt = getattr(usage_obj, "input_tokens", None)
+        if not isinstance(prompt, int):
+            prompt = getattr(usage_obj, "request_tokens", None)
+        completion = getattr(usage_obj, "output_tokens", None)
+        if not isinstance(completion, int):
+            completion = getattr(usage_obj, "response_tokens", None)
+        usage["prompt_tokens"] = prompt
+        usage["completion_tokens"] = completion
     return usage
 
 

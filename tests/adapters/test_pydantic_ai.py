@@ -198,6 +198,23 @@ class TestPydanticAIAdapterRun:
         assert run.total_prompt_tokens == 200
         assert run.total_completion_tokens == 100
 
+    async def test_token_usage_new_attr_names(self):
+        """PydanticAI >=1.77 uses input_tokens/output_tokens (F-087)."""
+        from checkagent.adapters.pydantic_ai import PydanticAIAdapter
+
+        usage = MagicMock(spec=[])
+        usage.input_tokens = 300
+        usage.output_tokens = 150
+        result = _make_run_result(usage=usage)
+        agent = MagicMock()
+        agent.run = AsyncMock(return_value=result)
+
+        adapter = PydanticAIAdapter(agent)
+        run = await adapter.run("query")
+
+        assert run.total_prompt_tokens == 300
+        assert run.total_completion_tokens == 150
+
     async def test_error_handling(self):
         from checkagent.adapters.pydantic_ai import PydanticAIAdapter
 
