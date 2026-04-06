@@ -127,17 +127,61 @@ class MultiAgentTrace(BaseModel):
         """True if all runs completed without error."""
         return all(r.succeeded for r in self.runs)
 
+    def has_cycles(self) -> bool:
+        """Check whether the handoff graph contains any cycles.
+
+        Uses the handoff list to build a directed graph and detects cycles
+        via DFS.  Useful for validating multi-agent topologies before
+        calling :meth:`handoff_chain`.
+        """
+        # Build adjacency list
+        graph: dict[str, list[str]] = {}
+        for h in self.handoffs:
+            graph.setdefault(h.from_agent_id, []).append(h.to_agent_id)
+            graph.setdefault(h.to_agent_id, [])
+
+        _white, _gray, _black = 0, 1, 2
+        color: dict[str, int] = {node: _white for node in graph}
+
+        def _dfs(node: str) -> bool:
+            color[node] = _gray
+            for neighbour in graph[node]:
+                if color[neighbour] == _gray:
+                    return True
+                if color[neighbour] == _white and _dfs(neighbour):
+                    return True
+            color[node] = _black
+            return False
+
+        return any(
+            _dfs(node) for node, c in list(color.items()) if c == _white
+        )
+
     def handoff_chain(self) -> list[str]:
         """Return ordered list of agent IDs following the handoff chain.
 
         Follows handoffs from the first handoff's source through each
         subsequent target. Useful for asserting on delegation order.
+
+        Raises :class:`ValueError` if the handoff graph contains a cycle,
+        since a linear chain cannot represent cyclic delegation.  Use
+        :meth:`has_cycles` to check beforehand.
         """
         if not self.handoffs:
             return []
+
         chain = [self.handoffs[0].from_agent_id]
+        seen: set[str] = {chain[0]}
         for h in self.handoffs:
+            if h.to_agent_id in seen:
+                cycle_display = " → ".join(chain + [h.to_agent_id])
+                raise ValueError(
+                    f"Cycle detected in handoff chain: {cycle_display}. "
+                    f"Use has_cycles() to check before calling handoff_chain(), "
+                    f"or inspect trace.handoffs directly for cyclic topologies."
+                )
             chain.append(h.to_agent_id)
+            seen.add(h.to_agent_id)
         return chain
 
     def detect_handoffs(self) -> list[Handoff]:

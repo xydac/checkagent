@@ -1,5 +1,7 @@
 """Tests for multi-agent trace container and handoff analysis."""
 
+import pytest
+
 from checkagent.core.types import AgentInput, AgentRun, HandoffType, Step
 from checkagent.multiagent.trace import Handoff, MultiAgentTrace
 
@@ -167,6 +169,62 @@ class TestHandoffs:
     def test_handoff_chain_empty(self):
         trace = MultiAgentTrace()
         assert trace.handoff_chain() == []
+
+    def test_handoff_chain_raises_on_cycle(self):
+        trace = MultiAgentTrace()
+        trace.add_handoff(Handoff(from_agent_id="a", to_agent_id="b"))
+        trace.add_handoff(Handoff(from_agent_id="b", to_agent_id="c"))
+        trace.add_handoff(Handoff(from_agent_id="c", to_agent_id="a"))
+        with pytest.raises(ValueError, match="Cycle detected"):
+            trace.handoff_chain()
+
+    def test_handoff_chain_raises_on_two_node_cycle(self):
+        trace = MultiAgentTrace()
+        trace.add_handoff(Handoff(from_agent_id="a", to_agent_id="b"))
+        trace.add_handoff(Handoff(from_agent_id="b", to_agent_id="a"))
+        with pytest.raises(ValueError, match="Cycle detected"):
+            trace.handoff_chain()
+
+    def test_handoff_chain_cycle_error_shows_path(self):
+        trace = MultiAgentTrace()
+        trace.add_handoff(Handoff(from_agent_id="x", to_agent_id="y"))
+        trace.add_handoff(Handoff(from_agent_id="y", to_agent_id="z"))
+        trace.add_handoff(Handoff(from_agent_id="z", to_agent_id="x"))
+        with pytest.raises(ValueError, match=r"x → y → z → x"):
+            trace.handoff_chain()
+
+    def test_has_cycles_true(self):
+        trace = MultiAgentTrace()
+        trace.add_handoff(Handoff(from_agent_id="a", to_agent_id="b"))
+        trace.add_handoff(Handoff(from_agent_id="b", to_agent_id="a"))
+        assert trace.has_cycles() is True
+
+    def test_has_cycles_false(self):
+        trace = MultiAgentTrace()
+        trace.add_handoff(Handoff(from_agent_id="a", to_agent_id="b"))
+        trace.add_handoff(Handoff(from_agent_id="b", to_agent_id="c"))
+        assert trace.has_cycles() is False
+
+    def test_has_cycles_empty(self):
+        trace = MultiAgentTrace()
+        assert trace.has_cycles() is False
+
+    def test_has_cycles_three_node_cycle(self):
+        trace = MultiAgentTrace()
+        trace.add_handoff(Handoff(from_agent_id="a", to_agent_id="b"))
+        trace.add_handoff(Handoff(from_agent_id="b", to_agent_id="c"))
+        trace.add_handoff(Handoff(from_agent_id="c", to_agent_id="a"))
+        assert trace.has_cycles() is True
+
+    def test_has_cycles_self_loop(self):
+        trace = MultiAgentTrace()
+        trace.add_handoff(Handoff(from_agent_id="a", to_agent_id="a"))
+        assert trace.has_cycles() is True
+
+    def test_handoff_chain_single_handoff(self):
+        trace = MultiAgentTrace()
+        trace.add_handoff(Handoff(from_agent_id="a", to_agent_id="b"))
+        assert trace.handoff_chain() == ["a", "b"]
 
     def test_handoff_with_latency(self):
         h = Handoff(from_agent_id="a", to_agent_id="b", latency_ms=15.5)
