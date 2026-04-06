@@ -53,8 +53,8 @@ CheckAgent is being built in public. Here's where we're headed.
 - [ ] PyPI v0.4.0
 
 ### Milestone 5: LLM-as-Judge
-- [ ] Rubric-based evaluation
-- [ ] Statistical assertions (PASS/FAIL/INCONCLUSIVE)
+- [x] Rubric-based evaluation
+- [x] Statistical assertions (PASS/FAIL/INCONCLUSIVE)
 - [ ] Multi-judge consensus
 - [ ] PyPI v0.5.0
 
