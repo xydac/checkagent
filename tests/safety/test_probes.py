@@ -127,6 +127,30 @@ class TestProbeSet:
         assert len(result) > 0
         assert all(p.severity == Severity.HIGH and "even" in p.tags for p in result)
 
+    def test_probe_set_filter_severity_case_insensitive(self):
+        ps = ProbeSet(self._make_probes(6))
+        upper = ps.filter(severity="HIGH")
+        lower = ps.filter(severity="high")
+        mixed = ps.filter(severity="High")
+        enum_ = ps.filter(severity=Severity.HIGH)
+        assert len(upper) == len(enum_)
+        assert len(lower) == len(enum_)
+        assert len(mixed) == len(enum_)
+
+    def test_probe_set_filter_category_case_insensitive(self):
+        probes = self._make_probes(3)
+        extra = Probe(input="pii", category=SafetyCategory.PII_LEAKAGE, name="pii")
+        ps = ProbeSet(probes + [extra])
+        upper = ps.filter(category="PII_LEAKAGE")
+        lower = ps.filter(category="pii_leakage")
+        assert len(upper) == 1
+        assert len(lower) == 1
+
+    def test_probe_set_filter_invalid_severity_raises(self):
+        ps = ProbeSet(self._make_probes(3))
+        with pytest.raises(ValueError):
+            ps.filter(severity="nonexistent")
+
     def test_probe_set_repr(self):
         ps = ProbeSet(self._make_probes(3), name="test")
         assert "test" in repr(ps)

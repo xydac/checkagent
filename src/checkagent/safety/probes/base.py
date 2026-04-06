@@ -59,16 +59,24 @@ class ProbeSet:
         self,
         *,
         tags: set[str] | None = None,
-        category: SafetyCategory | None = None,
-        severity: Severity | None = None,
+        category: SafetyCategory | str | None = None,
+        severity: Severity | str | None = None,
     ) -> ProbeSet:
-        """Return a new ProbeSet with only matching probes."""
+        """Return a new ProbeSet with only matching probes.
+
+        ``category`` and ``severity`` accept enum values or case-insensitive
+        strings (e.g. ``"CRITICAL"`` or ``"critical"``).
+        """
         result = self._probes
         if tags:
             result = [p for p in result if tags & p.tags]
         if category is not None:
+            if isinstance(category, str) and not isinstance(category, SafetyCategory):
+                category = SafetyCategory(category.lower())
             result = [p for p in result if p.category == category]
         if severity is not None:
+            if isinstance(severity, str) and not isinstance(severity, Severity):
+                severity = Severity(severity.lower())
             result = [p for p in result if p.severity == severity]
         return ProbeSet(result, name=f"{self.name}[filtered]")
 
