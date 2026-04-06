@@ -68,6 +68,12 @@ class AgentRun(BaseModel):
     total_completion_tokens: int | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
+    # Multi-agent fields (optional — single-agent runs leave these as None)
+    run_id: str | None = None
+    agent_id: str | None = None
+    agent_name: str | None = None
+    parent_run_id: str | None = None
+
     @property
     def total_tokens(self) -> int | None:
         if self.total_prompt_tokens is not None and self.total_completion_tokens is not None:
@@ -90,6 +96,14 @@ class AgentRun(BaseModel):
         return [tc for tc in self.tool_calls if tc.name == name]
 
 
+class HandoffType(str, Enum):
+    """Types of agent-to-agent handoff."""
+
+    DELEGATION = "delegation"  # Parent spawns child, waits for result
+    RELAY = "relay"  # Agent passes control entirely to next agent
+    BROADCAST = "broadcast"  # Agent sends to multiple agents in parallel
+
+
 class StreamEventType(str, Enum):
     """Types of streaming events."""
 
@@ -102,6 +116,7 @@ class StreamEventType(str, Enum):
     STEP_END = "step_end"
     RUN_START = "run_start"
     RUN_END = "run_end"
+    HANDOFF = "handoff"
     ERROR = "error"
 
 

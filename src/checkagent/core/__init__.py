@@ -11,6 +11,7 @@ from checkagent.core.cost import (
 from checkagent.core.types import (
     AgentInput,
     AgentRun,
+    HandoffType,
     Score,
     Step,
     StreamEvent,
@@ -26,6 +27,7 @@ __all__ = [
     "CostBreakdown",
     "CostReport",
     "CostTracker",
+    "HandoffType",
     "Score",
     "Step",
     "StreamEvent",

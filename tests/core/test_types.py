@@ -139,7 +139,8 @@ class TestStreamEvent:
     def test_all_event_types_exist(self):
         expected = {
             "text_delta", "tool_call_start", "tool_call_delta", "tool_call_end",
-            "tool_result", "step_start", "step_end", "run_start", "run_end", "error",
+            "tool_result", "step_start", "step_end", "run_start", "run_end",
+            "handoff", "error",
         }
         actual = {e.value for e in StreamEventType}
         assert actual == expected
