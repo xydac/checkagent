@@ -372,6 +372,11 @@ class FaultInjector:
         """Number of times a fault was triggered."""
         return len(self.triggered_records)
 
+    @property
+    def triggered(self) -> bool:
+        """Whether any fault was triggered. Safe to use in ``if fi.triggered:``."""
+        return any(r.triggered for r in self._records)
+
     def was_triggered(self, target: str | None = None) -> bool:
         """Check if any fault was triggered, optionally for a specific target."""
         if target is None:

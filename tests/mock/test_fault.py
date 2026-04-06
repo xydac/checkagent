@@ -344,6 +344,17 @@ class TestRecords:
         assert fault.was_triggered("search")
         assert not fault.was_triggered("other")
 
+    def test_triggered_property(self):
+        """The `triggered` property is safe for bare `if fi.triggered:` usage."""
+        fault = FaultInjector()
+        fault.on_tool("search").timeout(5)
+        assert not fault.triggered
+        assert fault.triggered is False  # actually bool, not truthy method
+        with pytest.raises(ToolTimeoutError):
+            fault.check_tool("search")
+        assert fault.triggered
+        assert fault.triggered is True
+
     def test_triggered_records_filters(self):
         fault = FaultInjector()
         fault.on_tool("api").rate_limit(after_n=2)

@@ -158,3 +158,29 @@ class TestLLMCallTotalTokens:
             completion_tokens=50,
         )
         assert call.total_tokens == 150
+
+
+class TestWithUsageValidation:
+    """Tests for with_usage() argument validation (F-081)."""
+
+    def test_auto_estimate_with_prompt_tokens_raises(self):
+        with pytest.raises(ValueError, match="Cannot set both"):
+            MockLLM().with_usage(auto_estimate=True, prompt_tokens=100)
+
+    def test_auto_estimate_with_completion_tokens_raises(self):
+        with pytest.raises(ValueError, match="Cannot set both"):
+            MockLLM().with_usage(auto_estimate=True, completion_tokens=50)
+
+    def test_auto_estimate_with_both_tokens_raises(self):
+        with pytest.raises(ValueError, match="Cannot set both"):
+            MockLLM().with_usage(
+                auto_estimate=True, prompt_tokens=100, completion_tokens=50
+            )
+
+    def test_auto_estimate_alone_works(self):
+        llm = MockLLM().with_usage(auto_estimate=True)
+        assert llm._auto_estimate_tokens is True
+
+    def test_fixed_tokens_alone_works(self):
+        llm = MockLLM().with_usage(prompt_tokens=100, completion_tokens=50)
+        assert llm._usage == (100, 50)

@@ -237,7 +237,8 @@ class MockLLM:
             prompt_tokens: Fixed prompt token count per call.
             completion_tokens: Fixed completion token count per call.
             auto_estimate: If True, estimate tokens from text length
-                (``len(text) // 4``) instead of using fixed values.
+                (``len(text) // 4 + 1``) instead of using fixed values.
+                Cannot be combined with explicit token counts.
 
         ::
 
@@ -248,6 +249,11 @@ class MockLLM:
             # Or auto-estimate from text length
             llm = MockLLM().with_usage(auto_estimate=True)
         """
+        if auto_estimate and (prompt_tokens is not None or completion_tokens is not None):
+            raise ValueError(
+                "Cannot set both auto_estimate=True and explicit token counts. "
+                "Use auto_estimate=True alone, or set prompt_tokens/completion_tokens."
+            )
         if auto_estimate:
             self._auto_estimate_tokens = True
             self._usage = None
