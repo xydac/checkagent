@@ -70,6 +70,25 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] Credit assignment heuristics
 - [ ] PyPI v1.1.0
 
+## Phase 4: Launch Readiness
+
+### Milestone 8: Documentation Site (In Progress)
+- [ ] MkDocs Material setup with GitHub Pages deployment
+- [ ] Landing page (index.md) — what, why, install, 30-sec demo
+- [ ] Quickstart guide — pip install → first test → green in 5 min
+- [ ] Testing pyramid concept guide
+- [ ] Layer guides: Mock, Replay, Eval, Judge
+- [ ] Feature guides: Safety, Fault Injection, Multi-Turn, Streaming, CI/CD, Cost Tracking
+- [ ] CLI reference
+- [ ] Configuration reference (checkagent.yml)
+- [ ] API reference (auto-generated with mkdocstrings)
+
+### Milestone 9: PyPI + Launch
+- [ ] PyPI v0.1.0 publish
+- [ ] All README examples verified working
+- [ ] checkagent demo runs clean end-to-end
+- [ ] QA critical findings < 5 open
+
 ---
 
 Want to help? Check out [CONTRIBUTING.md](CONTRIBUTING.md) and look for issues labeled `good first issue`.
