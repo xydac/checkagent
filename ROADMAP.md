@@ -83,7 +83,13 @@ CheckAgent is being built in public. Here's where we're headed.
 - [ ] Configuration reference (checkagent.yml)
 - [ ] API reference (auto-generated with mkdocstrings)
 
-### Milestone 9: PyPI + Launch
+### Milestone 9: Local Dashboard
+- [ ] Test run history storage (`.checkagent/` directory with JSON results)
+- [ ] `checkagent dashboard` — local web UI showing test history, score trends, cost trends
+- [ ] Safety probe detection rate visualization
+- [ ] Publishable results export (charts/screenshots for paper and launch)
+
+### Milestone 10: PyPI + Launch
 - [ ] PyPI v0.1.0 publish
 - [ ] All README examples verified working
 - [ ] checkagent demo runs clean end-to-end
