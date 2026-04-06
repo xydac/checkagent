@@ -12,9 +12,12 @@ from __future__ import annotations
 import asyncio
 import re
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from checkagent.mock.fault import FaultInjector
 
 from checkagent.core.types import StreamEvent, StreamEventType
 
@@ -188,6 +191,23 @@ class MockLLM:
         self._rules: list[ResponseRule] = []
         self._stream_rules: list[StreamRule] = []
         self._calls: list[LLMCall] = []
+        self._fault_injector: FaultInjector | None = None
+
+    def attach_faults(self, injector: FaultInjector) -> MockLLM:
+        """Wire a FaultInjector so LLM faults fire automatically on calls.
+
+        When attached, ``complete()``, ``complete_sync()``, and ``stream()``
+        check the injector before responding — no manual ``check_llm()``
+        guards needed.
+
+        ::
+
+            llm.attach_faults(fault_injector)
+            fault_injector.on_llm().server_error()
+            await llm.complete("hello")  # raises LLMServerError automatically
+        """
+        self._fault_injector = injector
+        return self
 
     def on_input(
         self,
@@ -291,12 +311,16 @@ class MockLLM:
         to the regular response rules (or default) and yields the full
         response as a single TEXT_DELTA chunk.
 
+        If a FaultInjector is attached, checks for LLM faults first.
+
         This is a synchronous method that returns an async iterator — no
         ``await`` needed::
 
             async for event in llm.stream("hello"):
                 ...
         """
+        if self._fault_injector is not None:
+            self._fault_injector.check_llm()
         stream_rule = self._find_stream_rule(text)
 
         if stream_rule is not None:
@@ -357,7 +381,12 @@ class MockLLM:
         return None
 
     async def complete(self, text: str) -> str:
-        """Generate a mock completion for the given input text."""
+        """Generate a mock completion for the given input text.
+
+        If a FaultInjector is attached, checks for LLM faults first.
+        """
+        if self._fault_injector is not None:
+            self._fault_injector.check_llm()
         rule = self._find_rule(text)
 
         if rule is not None:
@@ -388,6 +417,8 @@ class MockLLM:
 
     def complete_sync(self, text: str) -> str:
         """Synchronous version of complete for non-async agents."""
+        if self._fault_injector is not None:
+            self._fault_injector.check_llm()
         rule = self._find_rule(text)
 
         if rule is not None:

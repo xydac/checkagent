@@ -9,9 +9,12 @@ Implements F1.2 from the PRD.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from checkagent.mock.fault import FaultInjector
 
 
 class ToolSchema(BaseModel):
@@ -169,6 +172,22 @@ class MockTool:
         self.default_response = default_response
         self._tools: dict[str, _RegisteredTool] = {}
         self._calls: list[ToolCallRecord] = []
+        self._fault_injector: FaultInjector | None = None
+
+    def attach_faults(self, injector: FaultInjector) -> MockTool:
+        """Wire a FaultInjector so faults fire automatically on tool calls.
+
+        When attached, ``call()`` and ``call_sync()`` check the injector
+        before executing — no manual ``check_tool()`` guards needed.
+
+        ::
+
+            tool.attach_faults(fault_injector)
+            fault_injector.on_tool("search").timeout(5)
+            await tool.call("search", {})  # raises ToolTimeoutError automatically
+        """
+        self._fault_injector = injector
+        return self
 
     def on_call(self, tool_name: str) -> _ToolCallMatcher:
         """Start a fluent tool registration by specifying the tool name.
@@ -208,11 +227,19 @@ class MockTool:
         return self
 
     async def call(self, name: str, arguments: dict[str, Any] | None = None) -> Any:
-        """Call a registered tool with the given arguments."""
+        """Call a registered tool with the given arguments.
+
+        If a FaultInjector is attached, checks for faults first (async,
+        supporting real delays for slow faults).
+        """
+        if self._fault_injector is not None:
+            await self._fault_injector.check_tool_async(name)
         return self._do_call(name, arguments or {})
 
     def call_sync(self, name: str, arguments: dict[str, Any] | None = None) -> Any:
         """Synchronous version of call for non-async agents."""
+        if self._fault_injector is not None:
+            self._fault_injector.check_tool(name)
         return self._do_call(name, arguments or {})
 
     def _do_call(self, name: str, arguments: dict[str, Any]) -> Any:
