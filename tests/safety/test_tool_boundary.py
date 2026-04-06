@@ -303,13 +303,15 @@ class TestEdgeCases:
         assert result.passed
         assert result.details["tool_calls_checked"] == 0
 
-    def test_text_evaluate_always_passes(self):
-        """Text-only evaluate is a no-op for tool boundary checks."""
+    def test_text_evaluate_raises_not_implemented(self):
+        """evaluate(text) raises because tool boundary needs structured data."""
+        import pytest
+
         validator = ToolCallBoundaryValidator(
             ToolBoundary(forbidden_tools={"everything"})
         )
-        result = validator.evaluate("some text")
-        assert result.passed
+        with pytest.raises(NotImplementedError, match="evaluate_run"):
+            validator.evaluate("some text")
 
     def test_category_is_tool_misuse(self):
         validator = ToolCallBoundaryValidator()

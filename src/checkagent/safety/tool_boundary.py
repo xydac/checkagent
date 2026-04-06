@@ -98,8 +98,14 @@ class ToolCallBoundaryValidator(SafetyEvaluator):
         return self._boundary
 
     def evaluate(self, text: str) -> SafetyResult:
-        """Text-only evaluation is not meaningful for tool boundary checks."""
-        return SafetyResult(passed=True, findings=[], evaluator=self.name)
+        """Raise because tool boundary checks require structured tool call data.
+
+        Use :meth:`evaluate_run` with an :class:`AgentRun` instead.
+        """
+        raise NotImplementedError(
+            "ToolCallBoundaryValidator requires an AgentRun with tool calls. "
+            "Use evaluate_run(run) instead of evaluate(text)."
+        )
 
     def evaluate_run(self, run: AgentRun) -> SafetyResult:
         """Check all tool calls in *run* against the configured boundary."""
