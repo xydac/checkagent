@@ -97,6 +97,59 @@ class LLMCall(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class _InputMatcher:
+    """Fluent builder returned by ``MockLLM.on_input()``.
+
+    Captures the matching criteria and provides ``.respond()`` to register
+    the rule back on the owning :class:`MockLLM`.
+
+    Usage::
+
+        llm.on_input(contains="book a meeting").respond("Meeting booked!")
+        llm.on_input(pattern=r"flight.*\\d+").respond("Flight confirmed")
+        llm.on_input(exact="hello").respond(["Hi!", "Hey!"])
+    """
+
+    def __init__(self, llm: MockLLM, match_mode: MatchMode, pattern: str) -> None:
+        self._llm = llm
+        self._match_mode = match_mode
+        self._pattern = pattern
+
+    def respond(
+        self,
+        response: str | list[str],
+        *,
+        model: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> MockLLM:
+        """Register the response rule and return the MockLLM for further chaining."""
+        return self._llm.add_rule(
+            self._pattern,
+            response,
+            match_mode=self._match_mode,
+            model=model,
+            metadata=metadata,
+        )
+
+    def stream(
+        self,
+        chunks: list[str],
+        *,
+        delay_ms: float = 0,
+        model: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> MockLLM:
+        """Register a streaming response rule and return the MockLLM."""
+        return self._llm.stream_response(
+            self._pattern,
+            chunks,
+            delay_ms=delay_ms,
+            match_mode=self._match_mode,
+            model=model,
+            metadata=metadata,
+        )
+
+
 class MockLLM:
     """A mock LLM provider that returns preconfigured responses.
 
@@ -104,19 +157,23 @@ class MockLLM:
     or returned from a default response. All calls are recorded for
     assertions in tests.
 
-    Usage::
+    Fluent API (recommended)::
 
         llm = MockLLM(default_response="I don't know")
-        llm.add_rule("weather", "It's sunny today")
-        llm.add_rule(r"book.*flight", "Flight booked!", match_mode=MatchMode.REGEX)
+        llm.on_input(contains="weather").respond("It's sunny today")
+        llm.on_input(pattern=r"book.*flight").respond("Flight booked!")
 
         response = await llm.complete("What's the weather?")
         assert response == "It's sunny today"
-        assert llm.call_count == 1
+
+    Classic API::
+
+        llm.add_rule("weather", "It's sunny today")
+        llm.add_rule(r"book.*flight", "Flight booked!", match_mode=MatchMode.REGEX)
 
     Sequential responses::
 
-        llm.add_rule("hello", ["Hi!", "Hey there!", "Greetings!"])
+        llm.on_input(contains="hello").respond(["Hi!", "Hey there!", "Greetings!"])
         # First call returns "Hi!", second returns "Hey there!", etc.
     """
 
@@ -131,6 +188,38 @@ class MockLLM:
         self._rules: list[ResponseRule] = []
         self._stream_rules: list[StreamRule] = []
         self._calls: list[LLMCall] = []
+
+    def on_input(
+        self,
+        *,
+        contains: str | None = None,
+        pattern: str | None = None,
+        exact: str | None = None,
+    ) -> _InputMatcher:
+        """Start a fluent rule definition by specifying how to match input.
+
+        Exactly one of ``contains``, ``pattern``, or ``exact`` must be given.
+
+        Returns an :class:`_InputMatcher` whose ``.respond()`` or ``.stream()``
+        method completes the rule.
+
+        ::
+
+            llm.on_input(contains="weather").respond("Sunny!")
+            llm.on_input(pattern=r"book.*\\d+").respond("Booked")
+            llm.on_input(exact="hello").respond("Hi")
+        """
+        specified = sum(x is not None for x in (contains, pattern, exact))
+        if specified != 1:
+            raise ValueError(
+                "Exactly one of 'contains', 'pattern', or 'exact' must be specified"
+            )
+        if contains is not None:
+            return _InputMatcher(self, MatchMode.SUBSTRING, contains)
+        if pattern is not None:
+            return _InputMatcher(self, MatchMode.REGEX, pattern)
+        # exact
+        return _InputMatcher(self, MatchMode.EXACT, exact)  # type: ignore[arg-type]
 
     def add_rule(
         self,

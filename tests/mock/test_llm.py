@@ -274,3 +274,92 @@ class TestMockLLMMetadata:
         llm = MockLLM()
         await llm.complete("anything")
         assert llm.last_call.metadata == {}
+
+
+# --- Fluent API: on_input().respond() ---
+
+
+class TestMockLLMFluentAPI:
+    @pytest.mark.asyncio
+    async def test_on_input_contains(self):
+        llm = MockLLM()
+        llm.on_input(contains="weather").respond("It's sunny")
+        result = await llm.complete("What's the weather?")
+        assert result == "It's sunny"
+
+    @pytest.mark.asyncio
+    async def test_on_input_exact(self):
+        llm = MockLLM()
+        llm.on_input(exact="hello").respond("Hi there!")
+        assert await llm.complete("hello") == "Hi there!"
+        # Should NOT match partial
+        assert await llm.complete("hello world") == "Mock response"
+
+    @pytest.mark.asyncio
+    async def test_on_input_pattern(self):
+        llm = MockLLM()
+        llm.on_input(pattern=r"book.*flight").respond("Flight booked!")
+        assert await llm.complete("book a flight to NYC") == "Flight booked!"
+        assert await llm.complete("booking hotel") == "Mock response"
+
+    @pytest.mark.asyncio
+    async def test_on_input_sequence_responses(self):
+        llm = MockLLM()
+        llm.on_input(contains="greet").respond(["Hi!", "Hey!", "Hello!"])
+        assert await llm.complete("greet me") == "Hi!"
+        assert await llm.complete("greet me") == "Hey!"
+        assert await llm.complete("greet me") == "Hello!"
+        assert await llm.complete("greet me") == "Hi!"  # cycles
+
+    @pytest.mark.asyncio
+    async def test_on_input_with_model(self):
+        llm = MockLLM()
+        llm.on_input(contains="test").respond("result", model="gpt-4")
+        await llm.complete("test input")
+        assert llm.last_call.model == "gpt-4"
+
+    @pytest.mark.asyncio
+    async def test_on_input_with_metadata(self):
+        llm = MockLLM()
+        llm.on_input(contains="test").respond("result", metadata={"latency": 50})
+        await llm.complete("test input")
+        assert llm.last_call.metadata == {"latency": 50}
+
+    def test_on_input_returns_llm_for_chaining(self):
+        llm = MockLLM()
+        result = llm.on_input(contains="a").respond("A")
+        assert result is llm
+
+    def test_on_input_chaining_multiple_rules(self):
+        llm = MockLLM()
+        llm.on_input(contains="a").respond("A").on_input(contains="b").respond("B")
+        assert llm._rules[0].pattern == "a"
+        assert llm._rules[1].pattern == "b"
+
+    def test_on_input_no_args_raises(self):
+        llm = MockLLM()
+        with pytest.raises(ValueError, match="Exactly one"):
+            llm.on_input()
+
+    def test_on_input_multiple_args_raises(self):
+        llm = MockLLM()
+        with pytest.raises(ValueError, match="Exactly one"):
+            llm.on_input(contains="a", exact="b")
+
+    @pytest.mark.asyncio
+    async def test_on_input_stream(self):
+        llm = MockLLM()
+        llm.on_input(contains="weather").stream(["It's ", "sunny ", "today!"])
+        events = []
+        async for event in llm.stream("What's the weather?"):
+            events.append(event)
+        text_chunks = [e.data for e in events if e.data is not None]
+        assert text_chunks == ["It's ", "sunny ", "today!"]
+
+    @pytest.mark.asyncio
+    async def test_fluent_and_classic_api_coexist(self):
+        llm = MockLLM()
+        llm.on_input(contains="fluent").respond("from fluent")
+        llm.add_rule("classic", "from classic")
+        assert await llm.complete("fluent test") == "from fluent"
+        assert await llm.complete("classic test") == "from classic"

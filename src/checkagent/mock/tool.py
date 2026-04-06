@@ -80,6 +80,54 @@ class ToolCallRecord(BaseModel):
     validation_errors: list[str] = Field(default_factory=list)
 
 
+class _ToolCallMatcher:
+    """Fluent builder returned by ``MockTool.on_call()``.
+
+    Captures the tool name and provides ``.respond()`` / ``.error()`` to
+    register the tool back on the owning :class:`MockTool`.
+
+    Usage::
+
+        tool.on_call("get_weather").respond({"temp": 72, "unit": "F"})
+        tool.on_call("search").respond({"results": []}, schema={...})
+        tool.on_call("bad_tool").error("Service unavailable")
+    """
+
+    def __init__(self, mock_tool: MockTool, tool_name: str) -> None:
+        self._mock_tool = mock_tool
+        self._tool_name = tool_name
+
+    def respond(
+        self,
+        response: Any,
+        *,
+        schema: dict[str, Any] | None = None,
+        description: str = "",
+    ) -> MockTool:
+        """Register the tool with a success response. Returns the MockTool for chaining."""
+        return self._mock_tool.register(
+            self._tool_name,
+            response=response,
+            schema=schema,
+            description=description,
+        )
+
+    def error(
+        self,
+        message: str,
+        *,
+        schema: dict[str, Any] | None = None,
+        description: str = "",
+    ) -> MockTool:
+        """Register the tool with an error response. Returns the MockTool for chaining."""
+        return self._mock_tool.register(
+            self._tool_name,
+            error=message,
+            schema=schema,
+            description=description,
+        )
+
+
 class MockTool:
     """A mock tool executor that returns preconfigured responses.
 
@@ -87,23 +135,23 @@ class MockTool:
     arguments against the schema, records the call, and returns the
     configured response.
 
-    Usage::
+    Fluent API (recommended)::
 
         tool = MockTool()
-        tool.register("get_weather", response={"temp": 72, "unit": "F"})
+        tool.on_call("get_weather").respond({"temp": 72, "unit": "F"})
         result = await tool.call("get_weather", {"city": "NYC"})
         assert result == {"temp": 72, "unit": "F"}
-        assert tool.call_count == 1
+
+    Classic API::
+
+        tool.register("get_weather", response={"temp": 72, "unit": "F"})
 
     With schema validation::
 
-        tool.register(
-            "search",
-            response={"results": []},
+        tool.on_call("search").respond(
+            {"results": []},
             schema={"properties": {"query": {"type": "string"}}, "required": ["query"]},
         )
-        result = await tool.call("search", {"query": "hello"})  # OK
-        result = await tool.call("search", {})  # raises ToolValidationError
 
     Sequential responses::
 
@@ -121,6 +169,19 @@ class MockTool:
         self.default_response = default_response
         self._tools: dict[str, _RegisteredTool] = {}
         self._calls: list[ToolCallRecord] = []
+
+    def on_call(self, tool_name: str) -> _ToolCallMatcher:
+        """Start a fluent tool registration by specifying the tool name.
+
+        Returns a :class:`_ToolCallMatcher` whose ``.respond()`` or ``.error()``
+        method completes the registration.
+
+        ::
+
+            tool.on_call("get_weather").respond({"temp": 72})
+            tool.on_call("bad_service").error("Service unavailable")
+        """
+        return _ToolCallMatcher(self, tool_name)
 
     def register(
         self,

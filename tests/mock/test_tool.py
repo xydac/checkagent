@@ -464,3 +464,68 @@ class TestExceptions:
         err = ToolValidationError("test", ["error1", "error2"])
         assert err.validation_errors == ["error1", "error2"]
         assert err.tool_name == "test"
+
+
+# --- Fluent API: on_call().respond() ---
+
+
+class TestMockToolFluentAPI:
+    @pytest.mark.asyncio
+    async def test_on_call_respond(self):
+        tool = MockTool()
+        tool.on_call("get_weather").respond({"temp": 72, "unit": "F"})
+        result = await tool.call("get_weather", {"city": "NYC"})
+        assert result == {"temp": 72, "unit": "F"}
+
+    @pytest.mark.asyncio
+    async def test_on_call_error(self):
+        tool = MockTool()
+        tool.on_call("bad_service").error("Service unavailable")
+        with pytest.raises(ToolExecutionError, match="Service unavailable"):
+            await tool.call("bad_service")
+
+    @pytest.mark.asyncio
+    async def test_on_call_with_schema(self):
+        tool = MockTool()
+        tool.on_call("search").respond(
+            {"results": []},
+            schema={"properties": {"query": {"type": "string"}}, "required": ["query"]},
+        )
+        result = await tool.call("search", {"query": "hello"})
+        assert result == {"results": []}
+
+    @pytest.mark.asyncio
+    async def test_on_call_schema_validation_fails(self):
+        tool = MockTool()
+        tool.on_call("search").respond(
+            {"results": []},
+            schema={"properties": {"query": {"type": "string"}}, "required": ["query"]},
+        )
+        with pytest.raises(ToolValidationError):
+            await tool.call("search", {})
+
+    def test_on_call_returns_mock_tool_for_chaining(self):
+        tool = MockTool()
+        result = tool.on_call("a").respond("ok")
+        assert result is tool
+
+    def test_on_call_chaining_multiple_tools(self):
+        tool = MockTool()
+        tool.on_call("a").respond("A").on_call("b").respond("B")
+        assert "a" in tool.registered_tools
+        assert "b" in tool.registered_tools
+
+    @pytest.mark.asyncio
+    async def test_fluent_and_classic_api_coexist(self):
+        tool = MockTool()
+        tool.on_call("fluent_tool").respond("from fluent")
+        tool.register("classic_tool", response="from classic")
+        assert await tool.call("fluent_tool") == "from fluent"
+        assert await tool.call("classic_tool") == "from classic"
+
+    @pytest.mark.asyncio
+    async def test_on_call_error_with_schema(self):
+        tool = MockTool()
+        tool.on_call("flaky").error("timeout", schema={"properties": {"id": {"type": "integer"}}})
+        with pytest.raises(ToolExecutionError, match="timeout"):
+            await tool.call("flaky", {"id": 1})
