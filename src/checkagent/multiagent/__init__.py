@@ -1,5 +1,6 @@
 """Multi-agent trace capture and handoff testing."""
 
+from checkagent.core.types import HandoffType
 from checkagent.multiagent.credit import (
     BlameResult,
     BlameStrategy,
@@ -16,6 +17,7 @@ __all__ = [
     "BlameResult",
     "BlameStrategy",
     "Handoff",
+    "HandoffType",
     "MultiAgentTrace",
     "assign_blame",
     "assign_blame_ensemble",

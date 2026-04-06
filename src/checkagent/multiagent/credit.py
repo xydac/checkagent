@@ -7,6 +7,7 @@ strategies that can be combined for robust attribution.
 
 from __future__ import annotations
 
+import warnings
 from enum import Enum
 
 from pydantic import BaseModel, Field
@@ -44,6 +45,16 @@ def assign_blame(
     Returns None if no blame can be assigned (e.g., all agents succeeded).
     """
     if not trace.runs:
+        return None
+
+    # Warn if runs exist but none have agent_id set (F-070)
+    if trace.runs and not any(r.agent_id for r in trace.runs):
+        warnings.warn(
+            "No runs have agent_id set — blame assignment requires agent_id "
+            "on AgentRun instances. All strategies will return None.",
+            UserWarning,
+            stacklevel=2,
+        )
         return None
 
     if strategy == BlameStrategy.FIRST_ERROR:
@@ -189,14 +200,20 @@ def _blame_leaf_errors(trace: MultiAgentTrace) -> BlameResult | None:
     In delegation patterns, leaf failures propagate up.
     The actual root cause is usually at the leaves.
     """
-    # Find run_ids that are parents
-    parent_ids = {r.parent_run_id for r in trace.runs if r.parent_run_id}
-    # Find failed leaf runs (not a parent of anything)
+    # Find run_ids that are parents (via parent_run_id links)
+    parent_run_ids = {r.parent_run_id for r in trace.runs if r.parent_run_id}
+    # Find agent_ids that delegate to other agents (via handoff edges)
+    delegating_agent_ids = {h.from_agent_id for h in trace.handoffs}
+
+    # A run is a leaf if:
+    # 1. Its run_id is not referenced as parent_run_id by any other run, AND
+    # 2. Its agent_id is not a source of any handoff
     leaves = [
         r for r in trace.runs
         if not r.succeeded
         and r.agent_id
-        and (r.run_id is None or r.run_id not in parent_ids)
+        and (r.run_id is None or r.run_id not in parent_run_ids)
+        and r.agent_id not in delegating_agent_ids
     ]
     if not leaves:
         return None

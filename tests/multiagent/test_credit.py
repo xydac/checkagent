@@ -138,6 +138,84 @@ class TestLeafErrors:
         trace.add_run(_run("b", run_id="r2", parent_run_id="r1"))
         assert assign_blame(trace, BlameStrategy.LEAF_ERRORS) is None
 
+    def test_handoff_topology_excludes_delegators(self):
+        """F-069: LEAF_ERRORS should use handoff edges, not just parent_run_id."""
+        from checkagent.multiagent.trace import Handoff
+
+        trace = MultiAgentTrace()
+        # A delegates to B via handoff (no parent_run_id set)
+        trace.add_run(_run("A", error="propagated"))
+        trace.add_run(_run("B", error="root cause"))
+        trace.add_handoff(Handoff(from_agent_id="A", to_agent_id="B"))
+
+        result = assign_blame(trace, BlameStrategy.LEAF_ERRORS)
+        assert result is not None
+        # B is the leaf (no outgoing handoffs), not A
+        assert result.agent_id == "B"
+
+    def test_handoff_chain_blames_final_leaf(self):
+        """In A→B→C chain via handoffs, only C is a leaf."""
+        from checkagent.multiagent.trace import Handoff
+
+        trace = MultiAgentTrace()
+        trace.add_run(_run("A", error="propagated"))
+        trace.add_run(_run("B", error="propagated"))
+        trace.add_run(_run("C", error="root cause"))
+        trace.add_handoff(Handoff(from_agent_id="A", to_agent_id="B"))
+        trace.add_handoff(Handoff(from_agent_id="B", to_agent_id="C"))
+
+        result = assign_blame(trace, BlameStrategy.LEAF_ERRORS)
+        assert result is not None
+        assert result.agent_id == "C"
+
+    def test_mixed_parent_and_handoff_topology(self):
+        """Both parent_run_id and handoff edges should exclude non-leaves."""
+        from checkagent.multiagent.trace import Handoff
+
+        trace = MultiAgentTrace()
+        # A is parent of B via parent_run_id
+        trace.add_run(_run("A", run_id="r1", error="propagated"))
+        trace.add_run(_run("B", run_id="r2", parent_run_id="r1", error="delegated"))
+        # B delegates to C via handoff
+        trace.add_run(_run("C", error="root cause"))
+        trace.add_handoff(Handoff(from_agent_id="B", to_agent_id="C"))
+
+        result = assign_blame(trace, BlameStrategy.LEAF_ERRORS)
+        assert result is not None
+        # Only C is a leaf (A is parent via run_id, B delegates via handoff)
+        assert result.agent_id == "C"
+
+
+class TestMissingAgentId:
+    """F-070: Warn when agent_id is missing on all runs."""
+
+    def test_warns_when_no_agent_ids(self):
+        import warnings as w
+
+        trace = MultiAgentTrace()
+        trace.add_run(AgentRun(
+            input=AgentInput(query="test"),
+            steps=[Step(step_index=0)],
+            error="fail",
+        ))
+        with w.catch_warnings(record=True) as caught:
+            w.simplefilter("always")
+            result = assign_blame(trace, BlameStrategy.FIRST_ERROR)
+        assert result is None
+        assert len(caught) == 1
+        assert "agent_id" in str(caught[0].message)
+
+    def test_no_warning_when_agent_ids_present(self):
+        import warnings as w
+
+        trace = MultiAgentTrace()
+        trace.add_run(_run("a", error="err"))
+        with w.catch_warnings(record=True) as caught:
+            w.simplefilter("always")
+            result = assign_blame(trace, BlameStrategy.FIRST_ERROR)
+        assert result is not None
+        assert len(caught) == 0
+
 
 class TestEnsemble:
     def test_returns_all_strategy_results(self):

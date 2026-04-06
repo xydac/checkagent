@@ -307,3 +307,13 @@ class TestMultiAgentTraceId:
     def test_trace_id_default_none(self):
         trace = MultiAgentTrace()
         assert trace.trace_id is None
+
+
+class TestMultiagentNamespace:
+    def test_handoff_type_importable_from_multiagent(self):
+        """F-071: HandoffType should be accessible from checkagent.multiagent."""
+        from checkagent.multiagent import HandoffType
+
+        assert HandoffType.DELEGATION == "delegation"
+        assert HandoffType.RELAY == "relay"
+        assert HandoffType.BROADCAST == "broadcast"
