@@ -37,8 +37,7 @@ SAMPLE_TEST = '''\
 
 import pytest
 
-from checkagent import AgentRun, Step
-from checkagent.adapters.generic import GenericAdapter
+from checkagent import AgentRun, GenericAdapter
 
 
 # Wrap the sample agent with GenericAdapter

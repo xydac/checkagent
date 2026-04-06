@@ -74,11 +74,12 @@ _config_key = config_key  # internal alias
 def ap_mock_llm() -> MockLLM:
     """A fresh MockLLM instance for each test.
 
-    Configure with rules in the test body::
+    Configure with the fluent API::
 
-        def test_agent(ap_mock_llm):
-            ap_mock_llm.add_rule("weather", "It's sunny")
-            result = await my_agent(ap_mock_llm).run("weather?")
+        async def test_agent(ap_mock_llm):
+            ap_mock_llm.on_input(contains="weather").respond("It's sunny")
+            response = await ap_mock_llm.complete("What's the weather?")
+            assert response == "It's sunny"
             assert ap_mock_llm.call_count == 1
     """
     return MockLLM()
@@ -88,11 +89,11 @@ def ap_mock_llm() -> MockLLM:
 def ap_mock_tool() -> MockTool:
     """A fresh MockTool instance for each test.
 
-    Register tools and their responses in the test body::
+    Register tools with the fluent API::
 
-        def test_agent(ap_mock_tool):
-            ap_mock_tool.register("get_weather", response={"temp": 72})
-            result = await my_agent(ap_mock_tool).run("weather in NYC?")
+        async def test_agent(ap_mock_tool):
+            ap_mock_tool.on_call("get_weather").respond({"temp": 72})
+            result = await ap_mock_tool.call("get_weather", {"city": "NYC"})
             ap_mock_tool.assert_tool_called("get_weather")
     """
     return MockTool()
@@ -138,7 +139,7 @@ def ap_stream_collector() -> StreamCollector:
     Collects streaming events and provides assertion helpers::
 
         async def test_streaming(ap_mock_llm, ap_stream_collector):
-            ap_mock_llm.stream_response("hello", ["Hi ", "there!"])
+            ap_mock_llm.on_input(contains="hello").stream(["Hi ", "there!"])
             await ap_stream_collector.collect_from(ap_mock_llm.stream("hello"))
             assert ap_stream_collector.aggregated_text == "Hi there!"
             assert ap_stream_collector.total_chunks == 2
