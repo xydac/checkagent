@@ -156,7 +156,7 @@ class TestMultiJudgeEvaluate:
         assert result.verdict == Verdict.PASS
 
     @pytest.mark.asyncio
-    async def test_per_judge_verdicts_keyed_by_name(self):
+    async def test_per_judge_verdicts_keyed_by_name_and_model(self):
         judges = [
             _make_judge(0.9, "alpha"),
             _make_judge(0.1, "beta"),
@@ -164,8 +164,9 @@ class TestMultiJudgeEvaluate:
         result = await multi_judge_evaluate(
             judges, _make_run(), num_trials=3, threshold=0.7
         )
-        assert "rubric_judge:rubric_alpha" in result.judge_verdicts
-        assert "rubric_judge:rubric_beta" in result.judge_verdicts
+        # Keys include model_name for uniqueness
+        assert "rubric_judge:rubric_alpha:mock-alpha" in result.judge_verdicts
+        assert "rubric_judge:rubric_beta:mock-beta" in result.judge_verdicts
 
     @pytest.mark.asyncio
     async def test_reasoning_includes_verdict_summary(self):
@@ -190,3 +191,63 @@ class TestMultiJudgeEvaluate:
             judges, _make_run(), num_trials=3, threshold=0.5
         )
         assert result.verdict == Verdict.PASS
+
+    @pytest.mark.asyncio
+    async def test_shared_rubric_different_models_no_collision(self):
+        """F-052: judges sharing a rubric but with different models get unique keys."""
+        shared_rubric = Rubric(
+            name="quality",
+            criteria=[Criterion(name="q", description="d")],
+        )
+
+        async def make_llm(score_val: float):
+            async def mock_llm(system: str, user: str) -> str:
+                raw = 1 + score_val * 4
+                return json.dumps({
+                    "scores": [{"criterion": "q", "value": raw, "reasoning": "ok"}],
+                    "overall_reasoning": "summary",
+                })
+            return mock_llm
+
+        judge_gpt = RubricJudge(
+            rubric=shared_rubric,
+            llm=await make_llm(0.9),
+            model_name="gpt-4",
+        )
+        judge_claude = RubricJudge(
+            rubric=shared_rubric,
+            llm=await make_llm(0.8),
+            model_name="claude-3",
+        )
+        judge_gemini = RubricJudge(
+            rubric=shared_rubric,
+            llm=await make_llm(0.7),
+            model_name="gemini-pro",
+        )
+
+        result = await multi_judge_evaluate(
+            [judge_gpt, judge_claude, judge_gemini],
+            _make_run(),
+            num_trials=3,
+            threshold=0.7,
+        )
+
+        # All three judges should have distinct entries
+        assert len(result.judge_verdicts) == 3
+        assert "rubric_judge:quality:gpt-4" in result.judge_verdicts
+        assert "rubric_judge:quality:claude-3" in result.judge_verdicts
+        assert "rubric_judge:quality:gemini-pro" in result.judge_verdicts
+
+    @pytest.mark.asyncio
+    async def test_identical_judges_get_indexed_keys(self):
+        """Edge case: same name AND same model_name still get unique keys."""
+        judges = [
+            _make_judge(0.9, "same"),
+            _make_judge(0.8, "same"),
+        ]
+        # Both have name="rubric_judge:rubric_same" and model_name="mock-same"
+        result = await multi_judge_evaluate(
+            judges, _make_run(), num_trials=3, threshold=0.7
+        )
+        # Should have 2 unique entries, not 1
+        assert len(result.judge_verdicts) == 2

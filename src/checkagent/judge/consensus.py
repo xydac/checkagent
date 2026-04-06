@@ -72,10 +72,19 @@ async def multi_judge_evaluate(
             result = await compute_verdict(judge, run, **verdict_kwargs)
             results.append(result)
 
-    # Collect per-judge verdicts keyed by judge name
-    judge_verdicts = {}
+    # Collect per-judge verdicts keyed by unique identifier.
+    # Use model_name when available to distinguish judges sharing a rubric.
+    judge_verdicts: dict[str, Any] = {}
     for judge, result in zip(judges, results, strict=True):
-        judge_verdicts[judge.name] = result
+        model = getattr(judge, "model_name", "")
+        key = f"{judge.name}:{model}" if model else judge.name
+        # If key still collides (e.g. same model_name), append index
+        if key in judge_verdicts:
+            idx = 2
+            while f"{key}:{idx}" in judge_verdicts:
+                idx += 1
+            key = f"{key}:{idx}"
+        judge_verdicts[key] = result
 
     # Majority vote among non-INCONCLUSIVE verdicts
     decisive_verdicts = [
