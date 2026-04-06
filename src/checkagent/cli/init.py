@@ -66,6 +66,12 @@ CONFTEST = '''\
 """pytest configuration for CheckAgent tests."""
 '''
 
+PYPROJECT_TOML = """\
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["."]
+"""
+
 
 def _detect_frameworks() -> list[str]:
     """Detect installed agent frameworks."""
@@ -106,6 +112,9 @@ def init_cmd(directory: str, force: bool) -> None:
 
     # Config
     _write(root / "checkagent.yml", CHECKAGENT_YML)
+
+    # pytest config (asyncio_mode + pythonpath)
+    _write(root / "pyproject.toml", PYPROJECT_TOML)
 
     # Sample agent
     _write(root / "sample_agent.py", SAMPLE_AGENT)

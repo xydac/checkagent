@@ -18,6 +18,7 @@ class TestInitCommand:
 
         assert result.exit_code == 0
         assert (tmp_path / "checkagent.yml").exists()
+        assert (tmp_path / "pyproject.toml").exists()
         assert (tmp_path / "sample_agent.py").exists()
         assert (tmp_path / "tests" / "test_sample.py").exists()
         assert (tmp_path / "tests" / "conftest.py").exists()
@@ -91,3 +92,29 @@ class TestInitCommand:
         assert "checkagent.yml" in result.output
         assert "sample_agent.py" in result.output
         assert "test_sample.py" in result.output
+
+    def test_pyproject_has_pytest_config(self, tmp_path: Path) -> None:
+        """F-005: Generated pyproject.toml must set asyncio_mode and pythonpath."""
+        runner = CliRunner()
+        runner.invoke(init_cmd, [str(tmp_path)])
+
+        content = (tmp_path / "pyproject.toml").read_text()
+        assert "asyncio_mode" in content
+        assert '"auto"' in content
+        assert "pythonpath" in content
+
+    def test_generated_tests_pass(self, tmp_path: Path) -> None:
+        """F-005: Generated tests must pass out of the box."""
+        import subprocess
+
+        runner = CliRunner()
+        runner.invoke(init_cmd, [str(tmp_path)])
+
+        proc = subprocess.run(
+            ["pytest", "tests/", "-q", "--tb=short"],
+            capture_output=True,
+            text=True,
+            cwd=str(tmp_path),
+        )
+        assert proc.returncode == 0, f"Generated tests failed:\n{proc.stdout}\n{proc.stderr}"
+        assert "passed" in proc.stdout
