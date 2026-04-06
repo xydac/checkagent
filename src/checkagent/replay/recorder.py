@@ -154,8 +154,8 @@ class TimedCall:
         self.duration_ms: float = 0.0
 
     def __enter__(self) -> TimedCall:
-        self._start = time.monotonic()
+        self._start = time.perf_counter()
         return self
 
     def __exit__(self, *args: object) -> None:
-        self.duration_ms = (time.monotonic() - self._start) * 1000
+        self.duration_ms = (time.perf_counter() - self._start) * 1000

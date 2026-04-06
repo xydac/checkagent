@@ -177,5 +177,5 @@ class TestTimedCall:
         import time
 
         with TimedCall() as tc:
-            time.sleep(0.01)
-        assert tc.duration_ms >= 5  # at least 5ms
+            time.sleep(0.05)
+        assert tc.duration_ms >= 20  # at least 20ms (generous for CI)
