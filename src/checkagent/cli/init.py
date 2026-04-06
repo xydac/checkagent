@@ -98,7 +98,7 @@ def init_cmd(directory: str, force: bool) -> None:
             console.print(f"  [dim]skip[/dim] {path.relative_to(root)} (exists)")
             return False
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content)
+        path.write_text(content, encoding="utf-8")
         created.append(str(path.relative_to(root)))
         return True
 

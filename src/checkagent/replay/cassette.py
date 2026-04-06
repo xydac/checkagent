@@ -121,7 +121,7 @@ class Cassette(BaseModel):
     def save(self, path: Path) -> Path:
         """Write cassette to a JSON file, creating parent dirs."""
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(self.to_json())
+        path.write_text(self.to_json(), encoding="utf-8")
         return path
 
     @classmethod

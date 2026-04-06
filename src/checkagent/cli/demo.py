@@ -51,7 +51,7 @@ async def calculator_agent(prompt: str) -> dict:
 '''
 
 DEMO_TESTS = '''\
-"""CheckAgent demo tests — zero API keys, runs in milliseconds."""
+"""CheckAgent demo tests - zero API keys, runs in milliseconds."""
 
 import pytest
 
@@ -145,8 +145,8 @@ def demo_cmd(verbose: bool) -> None:
         tmp = Path(tmpdir)
 
         # Write demo files
-        (tmp / "demo_agent.py").write_text(DEMO_AGENT)
-        (tmp / "test_demo.py").write_text(DEMO_TESTS)
+        (tmp / "demo_agent.py").write_text(DEMO_AGENT, encoding="utf-8")
+        (tmp / "test_demo.py").write_text(DEMO_TESTS, encoding="utf-8")
 
         console.print("[blue]Running 8 agent tests across the mock layer...[/blue]\n")
 
