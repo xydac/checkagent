@@ -165,6 +165,72 @@ class TestPathBoundaries:
             result = validator.evaluate_run(run)
             assert not result.passed, f"Failed for arg name: {arg_name}"
 
+    def test_path_prefix_confusion_blocked(self):
+        """F-024: /dataextra must not match allowed path /data."""
+        validator = ToolCallBoundaryValidator(
+            ToolBoundary(allowed_paths=["/data"])
+        )
+        run = _make_run(
+            ToolCall(name="read_file", arguments={"path": "/dataextra/file.txt"})
+        )
+        result = validator.evaluate_run(run)
+        assert not result.passed
+
+    def test_path_exact_match_passes(self):
+        """Exact path equal to allowed prefix should pass."""
+        validator = ToolCallBoundaryValidator(
+            ToolBoundary(allowed_paths=["/data"])
+        )
+        run = _make_run(
+            ToolCall(name="read_file", arguments={"path": "/data"})
+        )
+        result = validator.evaluate_run(run)
+        assert result.passed
+
+    def test_path_traversal_blocked(self):
+        """F-025: ../traversal must be normalized before boundary check."""
+        validator = ToolCallBoundaryValidator(
+            ToolBoundary(allowed_paths=["/data"])
+        )
+        run = _make_run(
+            ToolCall(name="read_file", arguments={"path": "/data/../etc/passwd"})
+        )
+        result = validator.evaluate_run(run)
+        assert not result.passed
+
+    def test_path_traversal_within_boundary_passes(self):
+        """Traversal that stays within the boundary should pass."""
+        validator = ToolCallBoundaryValidator(
+            ToolBoundary(allowed_paths=["/data"])
+        )
+        run = _make_run(
+            ToolCall(name="read_file", arguments={"path": "/data/sub/../other/file.txt"})
+        )
+        result = validator.evaluate_run(run)
+        assert result.passed
+
+    def test_path_dot_segments_normalized(self):
+        """/data/./sub should normalize to /data/sub and pass."""
+        validator = ToolCallBoundaryValidator(
+            ToolBoundary(allowed_paths=["/data"])
+        )
+        run = _make_run(
+            ToolCall(name="read_file", arguments={"path": "/data/./sub/file.txt"})
+        )
+        result = validator.evaluate_run(run)
+        assert result.passed
+
+    def test_allowed_path_with_trailing_slash(self):
+        """Trailing slash on allowed path should not break matching."""
+        validator = ToolCallBoundaryValidator(
+            ToolBoundary(allowed_paths=["/data/"])
+        )
+        run = _make_run(
+            ToolCall(name="read_file", arguments={"path": "/data/file.txt"})
+        )
+        result = validator.evaluate_run(run)
+        assert result.passed
+
 
 # ---------------------------------------------------------------------------
 # Forbidden argument patterns

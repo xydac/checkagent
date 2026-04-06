@@ -7,9 +7,9 @@ tools, no forbidden argument values, no filesystem access outside allowed paths.
 
 from __future__ import annotations
 
+import posixpath
 import re
 from dataclasses import dataclass, field
-from pathlib import PurePosixPath
 
 from checkagent.core.types import AgentRun
 from checkagent.safety.evaluator import SafetyEvaluator, SafetyFinding, SafetyResult
@@ -42,12 +42,21 @@ class ToolBoundary:
 
 
 def _is_path_within(path: str, allowed_prefixes: list[str]) -> bool:
-    """Check if *path* is under one of the *allowed_prefixes*."""
+    """Check if *path* is under one of the *allowed_prefixes*.
+
+    Normalizes ``..`` and ``.`` components to prevent traversal attacks (F-025)
+    and requires a path-separator boundary to prevent prefix confusion (F-024).
+    """
     try:
-        resolved = str(PurePosixPath(path))
+        resolved = posixpath.normpath(path)
     except (TypeError, ValueError):
         return False
-    return any(resolved.startswith(prefix) for prefix in allowed_prefixes)
+    for prefix in allowed_prefixes:
+        norm_prefix = posixpath.normpath(prefix)
+        # Exact match or proper subdirectory (separator boundary)
+        if resolved == norm_prefix or resolved.startswith(norm_prefix + "/"):
+            return True
+    return False
 
 
 _PATH_ARG_NAMES = {"path", "file", "filepath", "file_path", "filename", "directory", "dir"}
