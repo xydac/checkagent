@@ -185,8 +185,8 @@ class TestDetectHandoffs:
         assert detected[0].from_run_id == "r1"
         assert detected[0].to_run_id == "r2"
         assert detected[0].handoff_type == HandoffType.DELEGATION
-        # Also added to trace.handoffs
-        assert len(trace.handoffs) == 1
+        # detect_handoffs() is read-only — does NOT mutate trace.handoffs
+        assert len(trace.handoffs) == 0
 
     def test_detect_multiple_children(self):
         trace = MultiAgentTrace()
@@ -237,6 +237,74 @@ class TestDetectHandoffs:
         detected = trace.detect_handoffs()
         assert len(detected) == 2
         assert detected[0].from_agent_id == "b" or detected[0].from_agent_id == "a"
+
+    def test_detect_handoffs_is_read_only(self):
+        """F-076: detect_handoffs() must not mutate trace.handoffs."""
+        trace = MultiAgentTrace()
+        trace.add_run(_make_run(run_id="r1", agent_id="orch"))
+        trace.add_run(_make_run(run_id="r2", agent_id="w", parent_run_id="r1"))
+
+        detected1 = trace.detect_handoffs()
+        assert len(detected1) == 1
+        assert len(trace.handoffs) == 0  # not mutated
+
+        # Calling twice does NOT duplicate
+        detected2 = trace.detect_handoffs()
+        assert len(detected2) == 1
+        assert len(trace.handoffs) == 0
+
+    def test_apply_detected_handoffs_persists(self):
+        """apply_detected_handoffs() should mutate trace.handoffs."""
+        trace = MultiAgentTrace()
+        trace.add_run(_make_run(run_id="r1", agent_id="orch"))
+        trace.add_run(_make_run(run_id="r2", agent_id="w", parent_run_id="r1"))
+
+        added = trace.apply_detected_handoffs()
+        assert len(added) == 1
+        assert len(trace.handoffs) == 1
+        assert trace.handoffs[0].from_agent_id == "orch"
+
+    def test_apply_detected_handoffs_deduplicates(self):
+        """Calling apply_detected_handoffs() twice should not duplicate."""
+        trace = MultiAgentTrace()
+        trace.add_run(_make_run(run_id="r1", agent_id="orch"))
+        trace.add_run(_make_run(run_id="r2", agent_id="w", parent_run_id="r1"))
+
+        trace.apply_detected_handoffs()
+        added2 = trace.apply_detected_handoffs()
+        assert len(added2) == 0
+        assert len(trace.handoffs) == 1
+
+
+class TestBuilderChaining:
+    """F-074: add_run() and add_handoff() return self for chaining."""
+
+    def test_add_run_returns_self(self):
+        trace = MultiAgentTrace()
+        run = _make_run(run_id="r1", agent_id="a")
+        result = trace.add_run(run)
+        assert result is trace
+
+    def test_add_handoff_returns_self(self):
+        trace = MultiAgentTrace()
+        h = Handoff(from_agent_id="a", to_agent_id="b")
+        result = trace.add_handoff(h)
+        assert result is trace
+
+    def test_chaining_add_run(self):
+        trace = MultiAgentTrace()
+        trace.add_run(_make_run(run_id="r1", agent_id="a")).add_run(
+            _make_run(run_id="r2", agent_id="b")
+        )
+        assert len(trace.runs) == 2
+
+    def test_chaining_mixed(self):
+        trace = MultiAgentTrace()
+        trace.add_run(_make_run(run_id="r1", agent_id="a")).add_run(
+            _make_run(run_id="r2", agent_id="b")
+        ).add_handoff(Handoff(from_agent_id="a", to_agent_id="b"))
+        assert len(trace.runs) == 2
+        assert len(trace.handoffs) == 1
 
 
 class TestAgentRunMultiAgentFields:

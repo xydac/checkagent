@@ -36,13 +36,15 @@ class MultiAgentTrace(BaseModel):
     handoffs: list[Handoff] = Field(default_factory=list)
     trace_id: str | None = None
 
-    def add_run(self, run: AgentRun) -> None:
-        """Add an agent run to the trace."""
+    def add_run(self, run: AgentRun) -> MultiAgentTrace:
+        """Add an agent run to the trace. Returns self for chaining."""
         self.runs.append(run)
+        return self
 
-    def add_handoff(self, handoff: Handoff) -> None:
-        """Record a handoff between agents."""
+    def add_handoff(self, handoff: Handoff) -> MultiAgentTrace:
+        """Record a handoff between agents. Returns self for chaining."""
         self.handoffs.append(handoff)
+        return self
 
     @property
     def agent_ids(self) -> list[str]:
@@ -120,7 +122,8 @@ class MultiAgentTrace(BaseModel):
         """Auto-detect handoffs from parent-child relationships.
 
         Scans runs for parent_run_id links and creates Handoff records.
-        Appends detected handoffs to self.handoffs and returns them.
+        Returns detected handoffs **without** mutating ``self.handoffs``.
+        To persist detected handoffs, use :meth:`apply_detected_handoffs`.
         """
         # Index runs by run_id for fast lookup
         run_map: dict[str, AgentRun] = {}
@@ -142,6 +145,25 @@ class MultiAgentTrace(BaseModel):
                         input_summary=run.input.query[:100] if run.input.query else None,
                     )
                     detected.append(handoff)
-                    self.handoffs.append(handoff)
 
         return detected
+
+    def apply_detected_handoffs(self) -> list[Handoff]:
+        """Detect handoffs from parent-child links and append them to ``self.handoffs``.
+
+        Unlike :meth:`detect_handoffs`, this method **does** mutate
+        ``self.handoffs``. Safe to call multiple times — deduplicates by
+        checking existing (from_agent_id, to_agent_id) pairs.
+
+        Returns the newly added handoffs.
+        """
+        existing = {(h.from_agent_id, h.to_agent_id) for h in self.handoffs}
+        detected = self.detect_handoffs()
+        added: list[Handoff] = []
+        for h in detected:
+            key = (h.from_agent_id, h.to_agent_id)
+            if key not in existing:
+                self.handoffs.append(h)
+                existing.add(key)
+                added.append(h)
+        return added
