@@ -6,6 +6,7 @@ import pytest
 
 from checkagent.core.types import AgentInput, AgentRun, Step, ToolCall
 from checkagent.judge.judge import (
+    JudgeParseError,
     RubricJudge,
     _build_system_prompt,
     _build_user_prompt,
@@ -142,7 +143,7 @@ class TestParseJudgeResponse:
         assert len(scores) == 1
         assert reasoning == "Adequate"
 
-    def test_unknown_criterion_skipped(self):
+    def test_unknown_criterion_skipped_with_warning(self):
         rubric = _make_rubric()
         response = json.dumps({
             "scores": [
@@ -150,13 +151,59 @@ class TestParseJudgeResponse:
             ],
             "overall_reasoning": "",
         })
-        scores, _ = _parse_judge_response(response, rubric)
+        with pytest.warns(UserWarning, match="unknown criterion names"):
+            scores, _ = _parse_judge_response(response, rubric)
         assert len(scores) == 0
 
-    def test_invalid_json_raises(self):
+    def test_unknown_criterion_warning_includes_details(self):
         rubric = _make_rubric()
-        with pytest.raises(json.JSONDecodeError):
-            _parse_judge_response("not json", rubric)
+        response = json.dumps({
+            "scores": [
+                {"criterion": "misspelled_accuracy", "value": 5, "reasoning": "?"},
+                {"criterion": "accuracy", "value": 4, "reasoning": "ok"},
+            ],
+            "overall_reasoning": "",
+        })
+        with pytest.warns(UserWarning, match="misspelled_accuracy") as rec:
+            scores, _ = _parse_judge_response(response, rubric)
+        assert len(scores) == 1  # only "accuracy" matched
+        assert scores[0].criterion_name == "accuracy"
+        # Warning mentions expected criteria
+        assert "accuracy" in str(rec[0].message)
+        assert "tone" in str(rec[0].message)
+
+    def test_all_criteria_matched_no_warning(self):
+        rubric = _make_rubric()
+        response = json.dumps({
+            "scores": [
+                {"criterion": "accuracy", "value": 4, "reasoning": "good"},
+                {"criterion": "tone", "value": "pass", "reasoning": "polite"},
+            ],
+            "overall_reasoning": "nice",
+        })
+        # No warning when all criteria match
+        import warnings as _w
+        with _w.catch_warnings():
+            _w.simplefilter("error")
+            scores, _ = _parse_judge_response(response, rubric)
+        assert len(scores) == 2
+
+    def test_invalid_json_raises_judge_parse_error(self):
+        rubric = _make_rubric()
+        with pytest.raises(JudgeParseError, match="non-JSON response") as exc_info:
+            _parse_judge_response("not json at all", rubric)
+        assert exc_info.value.raw_response == "not json at all"
+        assert "accuracy" in str(exc_info.value)  # includes expected criteria
+
+    def test_judge_parse_error_includes_raw_response(self):
+        rubric = _make_rubric()
+        verbose_response = "I think the answer is great! " * 50
+        with pytest.raises(JudgeParseError) as exc_info:
+            _parse_judge_response(verbose_response, rubric)
+        # Raw response preserved in full
+        assert exc_info.value.raw_response == verbose_response
+        # Error message truncates to first 500 chars
+        assert "500 chars" in str(exc_info.value)
 
 
 class TestBuildPrompts:

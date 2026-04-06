@@ -4,7 +4,7 @@ Rubric-based evaluation with statistical verdicts.
 """
 
 from checkagent.judge.consensus import multi_judge_evaluate
-from checkagent.judge.judge import Judge, RubricJudge
+from checkagent.judge.judge import Judge, JudgeParseError, RubricJudge
 from checkagent.judge.types import (
     ConsensusVerdict,
     Criterion,
@@ -22,6 +22,7 @@ __all__ = [
     "Criterion",
     "CriterionScore",
     "Judge",
+    "JudgeParseError",
     "JudgeScore",
     "JudgeVerdict",
     "Rubric",

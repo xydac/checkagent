@@ -8,6 +8,7 @@ agent model being tested.
 from __future__ import annotations
 
 import json
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any, Protocol, runtime_checkable
@@ -20,6 +21,17 @@ from checkagent.judge.types import (
     Rubric,
     ScaleType,
 )
+
+
+class JudgeParseError(Exception):
+    """Raised when the judge LLM returns unparseable output.
+
+    Includes the raw response so users can diagnose the issue.
+    """
+
+    def __init__(self, message: str, raw_response: str) -> None:
+        self.raw_response = raw_response
+        super().__init__(message)
 
 
 @runtime_checkable
@@ -152,17 +164,33 @@ def _parse_judge_response(
         lines = [ln for ln in lines[1:] if not ln.strip().startswith("```")]
         text = "\n".join(lines)
 
-    data = json.loads(text)
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        expected_names = [c.name for c in rubric.criteria]
+        raise JudgeParseError(
+            f"Judge LLM returned non-JSON response. "
+            f"Expected JSON with keys 'scores' and 'overall_reasoning'. "
+            f"Expected criterion names: {expected_names}. "
+            f"Raw response (first 500 chars): {response[:500]!r}",
+            raw_response=response,
+        ) from exc
 
     scores_data = data.get("scores", [])
     overall_reasoning = data.get("overall_reasoning", "")
 
     criterion_scores: list[CriterionScore] = []
+    expected_names = {c.name for c in rubric.criteria}
+    matched_names: set[str] = set()
+    unmatched_names: list[str] = []
+
     for item in scores_data:
         crit_name = item.get("criterion", "")
         criterion = rubric.get_criterion(crit_name)
         if criterion is None:
+            unmatched_names.append(crit_name)
             continue
+        matched_names.add(crit_name)
         raw = item.get("value")
         normalized = _normalize_score(criterion, raw)
         criterion_scores.append(
@@ -172,6 +200,16 @@ def _parse_judge_response(
                 normalized=normalized,
                 reasoning=item.get("reasoning", ""),
             )
+        )
+
+    if unmatched_names:
+        missing = sorted(expected_names - matched_names)
+        warnings.warn(
+            f"Judge LLM returned unknown criterion names: {unmatched_names}. "
+            f"Expected: {sorted(expected_names)}. "
+            f"Unmatched rubric criteria: {missing}. "
+            f"These scores will be ignored, which may produce overall=0.0.",
+            stacklevel=2,
         )
 
     return criterion_scores, overall_reasoning
