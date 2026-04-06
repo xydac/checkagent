@@ -61,7 +61,7 @@ CheckAgent is being built in public. Here's where we're headed.
 ### Milestone 6: Framework Adapters + Production Loop
 - [x] LangChain adapter
 - [x] OpenAI Agents SDK adapter
-- [ ] CrewAI, PydanticAI, Anthropic adapters
+- [x] CrewAI, PydanticAI, Anthropic adapters
 - [ ] Production trace import (Langfuse, Phoenix, OpenTelemetry)
 - [ ] PyPI v1.0.0
 
