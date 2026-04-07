@@ -6,6 +6,10 @@ F11.3 (attack probe library), F11.4 (compliance reports), and F11.5 (custom eval
 
 # Namespace for ``from checkagent.safety import probes``
 from checkagent.safety import probes  # noqa: E402
+from checkagent.safety.conversation_scanner import (
+    ConversationSafetyResult,
+    ConversationSafetyScanner,
+)
 from checkagent.safety.compliance import (
     EU_AI_ACT_MAPPING,
     ComplianceReport,
@@ -35,6 +39,8 @@ from checkagent.safety.tool_boundary import ToolBoundary, ToolCallBoundaryValida
 
 __all__ = [
     "ComplianceReport",
+    "ConversationSafetyResult",
+    "ConversationSafetyScanner",
     "EU_AI_ACT_MAPPING",
     "OWASP_MAPPING",
     "PIILeakageScanner",
