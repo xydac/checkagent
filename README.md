@@ -45,9 +45,9 @@ CheckAgent is a pytest plugin for testing AI agent workflows. It provides layere
 
 ```bash
 pip install checkagent
+mkdir my-agent-tests && cd my-agent-tests
 checkagent init
-cd checkagent-tests
-checkagent run
+pytest tests/ -v
 ```
 
 Or try the zero-config demo (no API keys needed):
