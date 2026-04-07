@@ -47,7 +47,7 @@ OWASP_MAPPING: dict[SafetyCategory, str] = {
     SafetyCategory.TOOL_MISUSE: "LLM08",
     SafetyCategory.GROUNDEDNESS: "LLM09",
     SafetyCategory.HARMFUL_CONTENT: "N/A",
-    SafetyCategory.OFF_TOPIC: "N/A",
+    SafetyCategory.OFF_TOPIC: "LLM08",  # Scope violation = excessive agency
 }
 
 
