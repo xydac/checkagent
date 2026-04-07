@@ -111,18 +111,12 @@ async def test_booking(ap_mock_llm, ap_mock_tool):
 
 ## Roadmap
 
-See [ROADMAP.md](ROADMAP.md) for the full plan.
+All core milestones are implemented. See [ROADMAP.md](ROADMAP.md) for what's next:
 
-**Phase 1 — Ship Something People Love (Weeks 1-12)**
-- Milestone 0: Foundation + Demo
-- Milestone 1: Mock Layer + Fault Injection + Structured Output
-
-**Phase 2 — Make It Useful for Real Agents (Weeks 9-24)**
-- Milestone 2: Evaluation Metrics
-- Milestone 3: Safety Testing + CI/CD
-
-**Phase 3 — Make It Complete (Weeks 25-52)**
-- Milestones 4-7: Replay, Judge, Adapters, Multi-Agent
+- More framework adapters (AutoGen, DSPy, Marvin)
+- Production trace import from OpenTelemetry/Langfuse
+- VS Code extension for inline test results
+- Community plugin ecosystem
 
 ## Contributing
 

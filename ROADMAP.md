@@ -4,7 +4,7 @@ CheckAgent is being built in public. Here's where we're headed.
 
 ## Phase 1: Ship Something People Love
 
-### Milestone 0: Foundation + Demo (In Progress)
+### Milestone 0: Foundation + Demo (Complete)
 - [x] Core types (`AgentRun`, `Step`, `ToolCall`, `AgentInput`, `StreamEvent`, `Score`)
 - [x] `AgentAdapter` protocol (async-first)
 - [x] `GenericAdapter` for any Python callable
@@ -72,7 +72,7 @@ CheckAgent is being built in public. Here's where we're headed.
 
 ## Phase 4: Launch Readiness
 
-### Milestone 8: Documentation Site (In Progress)
+### Milestone 8: Documentation Site
 - [ ] MkDocs Material setup with GitHub Pages deployment
 - [ ] Landing page (index.md) — what, why, install, 30-sec demo
 - [ ] Quickstart guide — pip install → first test → green in 5 min
