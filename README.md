@@ -61,30 +61,34 @@ checkagent demo
 
 ```python
 import pytest
-from checkagent import assert_tool_called, assert_output_schema
-from pydantic import BaseModel
+from checkagent import AgentInput, AgentRun, Step, ToolCall, assert_tool_called
 
-class BookingResult(BaseModel):
-    confirmed: bool
-    event_id: str
-
-@pytest.mark.agent_test(layer="mock")
-async def test_booking_agent(booking_agent, ap_mock_llm, ap_mock_tool):
-    # Mock the LLM response for the booking request
-    ap_mock_llm.on_input(contains="book a meeting").respond(
-        "I'll book a meeting for April 10 at 2pm. Checking the calendar now."
+# Your agent — any async function that calls LLMs and tools
+async def booking_agent(query, *, llm, tools):
+    plan = await llm.complete(query)
+    event = await tools.call("create_event", {"title": "Meeting"})
+    return AgentRun(
+        input=AgentInput(query=query),
+        steps=[Step(output_text=plan, tool_calls=[
+            ToolCall(name="create_event", arguments={"title": "Meeting"}, result=event),
+        ])],
+        final_output=event,
     )
-    # Mock the tool that the agent calls
-    ap_mock_tool.on_call("check_calendar").respond({"available": True})
+
+# Test with zero LLM cost, deterministic, milliseconds
+@pytest.mark.agent_test(layer="mock")
+async def test_booking(ap_mock_llm, ap_mock_tool):
+    ap_mock_llm.on_input(contains="book").respond("Booking your meeting now.")
     ap_mock_tool.on_call("create_event").respond(
         {"confirmed": True, "event_id": "evt-123"}
     )
 
-    result = await booking_agent.run("Book a meeting for April 10 at 2pm")
+    result = await booking_agent(
+        "Book a meeting", llm=ap_mock_llm, tools=ap_mock_tool
+    )
 
-    assert_tool_called(result, "check_calendar", date="2026-04-10")
-    assert_tool_called(result, "create_event")
-    assert_output_schema(result, BookingResult)
+    assert_tool_called(result, "create_event", title="Meeting")
+    assert result.final_output["confirmed"] is True
 ```
 
 ## Features
