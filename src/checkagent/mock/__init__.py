@@ -31,6 +31,7 @@ from checkagent.mock.tool import (
     ToolNotFoundError,
     ToolSchema,
     ToolValidationError,
+    literal,
 )
 
 __all__ = [
@@ -68,4 +69,5 @@ __all__ = [
     "ToolSlowError",
     "ToolTimeoutError",
     "ToolValidationError",
+    "literal",
 ]

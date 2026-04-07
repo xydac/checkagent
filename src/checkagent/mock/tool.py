@@ -160,6 +160,11 @@ class MockTool:
 
         tool.register("roll_dice", response=[4, 2, 6])
         # First call returns 4, second returns 2, third returns 6, then cycles
+
+    Return a list as-is (no cycling)::
+
+        tool.register("search", response=literal(["doc1", "doc2", "doc3"]))
+        # Every call returns ["doc1", "doc2", "doc3"]
     """
 
     def __init__(
@@ -384,6 +389,40 @@ class MockTool:
         return list(self._tools.keys())
 
 
+class _LiteralResponse:
+    """Wrapper to prevent list-cycling and return a value exactly as-is.
+
+    Use :func:`literal` to create instances::
+
+        tool.register("search", response=literal(["doc1", "doc2"]))
+        # Always returns the full list — no cycling
+    """
+
+    __slots__ = ("value",)
+
+    def __init__(self, value: Any) -> None:
+        self.value = value
+
+    def __repr__(self) -> str:
+        return f"literal({self.value!r})"
+
+
+def literal(value: Any) -> _LiteralResponse:
+    """Wrap a value to prevent sequence cycling in MockTool/MockLLM.
+
+    By default, passing a list as a tool response causes MockTool to
+    cycle through its elements on successive calls.  Use ``literal()``
+    when you want to return the list itself::
+
+        # Without literal — cycles: first call → "doc1", second → "doc2"
+        tool.register("search", response=["doc1", "doc2"])
+
+        # With literal — always returns ["doc1", "doc2"]
+        tool.register("search", response=literal(["doc1", "doc2"]))
+    """
+    return _LiteralResponse(value)
+
+
 class _RegisteredTool:
     """Internal: a registered tool with its response configuration."""
 
@@ -404,6 +443,9 @@ class _RegisteredTool:
 
     def get_response(self) -> Any:
         """Get the next response, cycling through sequences."""
+        if isinstance(self.response, _LiteralResponse):
+            self._call_count += 1
+            return self.response.value
         if isinstance(self.response, list):
             idx = self._call_count % len(self.response)
             self._call_count += 1

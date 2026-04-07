@@ -31,7 +31,7 @@ from checkagent.eval.assertions import (
 from checkagent.mock.fault import FaultInjector
 from checkagent.mock.llm import MatchMode, MockLLM
 from checkagent.mock.mcp import MockMCPServer
-from checkagent.mock.tool import MockTool
+from checkagent.mock.tool import MockTool, literal
 from checkagent.streaming.collector import StreamCollector
 
 _LAZY_ADAPTER_IMPORTS: dict[str, tuple[str, str]] = {
@@ -88,6 +88,7 @@ __all__ = [
     "assert_output_matches",
     "assert_output_schema",
     "assert_tool_called",
+    "literal",
     "load_config",
     "wrap",
 ]
