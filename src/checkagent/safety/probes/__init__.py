@@ -13,12 +13,13 @@ Usage::
         ap_safety.assert_no_injection(result)
 """
 
-from checkagent.safety.probes import injection, jailbreak, pii, scope
+from checkagent.safety.probes import groundedness, injection, jailbreak, pii, scope
 from checkagent.safety.probes.base import Probe, ProbeSet
 
 __all__ = [
     "Probe",
     "ProbeSet",
+    "groundedness",
     "injection",
     "jailbreak",
     "pii",

@@ -51,12 +51,13 @@ class TestScopeBoundaryProbes:
         assert len(scope.all_probes) == len(scope.boundary)
 
     def test_no_name_collisions_across_modules(self):
-        from checkagent.safety.probes import injection, jailbreak, pii
+        from checkagent.safety.probes import groundedness, injection, jailbreak, pii
         all_names = [
             {p.name for p in injection.all_probes},
             {p.name for p in jailbreak.all_probes},
             {p.name for p in pii.all_probes},
             {p.name for p in scope.all_probes},
+            {p.name for p in groundedness.all_probes},
         ]
         combined = set()
         for name_set in all_names:
@@ -69,11 +70,12 @@ class TestTotalProbeCount:
     """F11.3 requires 50+ total probe templates."""
 
     def test_total_across_all_modules(self):
-        from checkagent.safety.probes import injection, jailbreak, pii
+        from checkagent.safety.probes import groundedness, injection, jailbreak, pii
         total = (
             len(injection.all_probes)
             + len(jailbreak.all_probes)
             + len(pii.all_probes)
             + len(scope.all_probes)
+            + len(groundedness.all_probes)
         )
         assert total >= 50, f"Only {total} probes, need 50+"

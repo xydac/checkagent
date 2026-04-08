@@ -22,6 +22,7 @@ from checkagent.safety.evaluator import SafetyEvaluator, SafetyFinding, SafetyRe
 from checkagent.safety.injection import PromptInjectionDetector
 from checkagent.safety.pii import PIILeakageScanner
 from checkagent.safety.probes import Probe, ProbeSet
+from checkagent.safety.probes import groundedness as probes_groundedness
 from checkagent.safety.probes import injection as probes_injection
 from checkagent.safety.probes import jailbreak as probes_jailbreak
 from checkagent.safety.probes import pii as probes_pii
@@ -58,6 +59,7 @@ __all__ = [
     "ToolBoundary",
     "ToolCallBoundaryValidator",
     "probes",
+    "probes_groundedness",
     "probes_injection",
     "probes_jailbreak",
     "probes_pii",

@@ -22,7 +22,7 @@ OWASP LLM Top 10 (2025):
 
 from __future__ import annotations
 
-from checkagent.safety.probes import injection, jailbreak, pii, scope
+from checkagent.safety.probes import groundedness, injection, jailbreak, pii, scope
 from checkagent.safety.probes.base import ProbeSet
 from checkagent.safety.taxonomy import (
     OWASP_MAPPING,
@@ -57,6 +57,8 @@ ALL_PROBE_SETS: list[tuple[str, ProbeSet]] = [
     ("jailbreak.roleplay", jailbreak.roleplay),
     ("pii.extraction", pii.extraction),
     ("scope.boundary", scope.boundary),
+    ("groundedness.fabrication", groundedness.fabrication),
+    ("groundedness.uncertainty", groundedness.uncertainty),
 ]
 
 
@@ -86,8 +88,8 @@ class TestOWASPCoverageMapping:
     def test_total_probe_count(self) -> None:
         """Verify we know the total number of probes."""
         total = sum(len(ps) for _, ps in ALL_PROBE_SETS)
-        # 25 direct + 10 indirect + 8 encoding + 7 roleplay + 10 pii + 8 scope
-        assert total == 68
+        # 25 direct + 10 indirect + 8 encoding + 7 roleplay + 10 pii + 8 scope + 4 fabrication + 4 uncertainty
+        assert total == 76
 
     def test_probes_per_owasp_category(self) -> None:
         """Count probes mapped to each OWASP LLM Top 10 category."""
@@ -108,13 +110,14 @@ class TestOWASPCoverageMapping:
         assert owasp_counts["LLM06"] == 10
         # LLM08 — Excessive Agency: scope boundary(8) mapped via OFF_TOPIC
         assert owasp_counts["LLM08"] == 8
+        # LLM09 — Overreliance: groundedness probes (4 fabrication + 4 uncertainty)
+        assert owasp_counts["LLM09"] == 8
         # Uncovered categories
         assert owasp_counts["LLM02"] == 0  # Insecure Output Handling
         assert owasp_counts["LLM03"] == 0  # Training Data Poisoning
         assert owasp_counts["LLM04"] == 0  # Model DoS
         assert owasp_counts["LLM05"] == 0  # Supply Chain
         assert owasp_counts["LLM07"] == 0  # Insecure Plugin Design (evaluated, not probed)
-        assert owasp_counts["LLM09"] == 0  # Overreliance (category exists, no probes yet)
         assert owasp_counts["LLM10"] == 0  # Model Theft
 
     def test_evaluator_owasp_coverage(self) -> None:
@@ -152,21 +155,21 @@ class TestOWASPCoverageMapping:
         combined = covered_by_probes | covered_by_evaluators
         total = len(OWASP_LLM_TOP_10)
 
-        # Probes cover: LLM01, LLM06, LLM08
-        assert covered_by_probes == {"LLM01", "LLM06", "LLM08"}
+        # Probes cover: LLM01, LLM06, LLM08, LLM09
+        assert covered_by_probes == {"LLM01", "LLM06", "LLM08", "LLM09"}
         # Evaluators cover: LLM01, LLM06, LLM07, LLM08
         assert covered_by_evaluators == {"LLM01", "LLM06", "LLM07", "LLM08"}
-        # Combined: 4/10
-        assert len(combined) == 4
-        assert combined == {"LLM01", "LLM06", "LLM07", "LLM08"}
+        # Combined: 5/10
+        assert len(combined) == 5
+        assert combined == {"LLM01", "LLM06", "LLM07", "LLM08", "LLM09"}
 
-        # Coverage = 40%
+        # Coverage = 50%
         coverage_pct = len(combined) / total * 100
-        assert coverage_pct == 40.0
+        assert coverage_pct == 50.0
 
         # Uncovered (by design or future work)
         uncovered = set(OWASP_LLM_TOP_10.keys()) - combined
-        assert uncovered == {"LLM02", "LLM03", "LLM04", "LLM05", "LLM09", "LLM10"}
+        assert uncovered == {"LLM02", "LLM03", "LLM04", "LLM05", "LLM10"}
 
     def test_probe_severity_distribution(self) -> None:
         """Analyze severity distribution across all probes."""
@@ -180,7 +183,7 @@ class TestOWASPCoverageMapping:
         assert severity_counts["high"] >= 20  # Majority are high
         assert severity_counts["medium"] >= 5
         total = sum(severity_counts.values())
-        assert total == 68
+        assert total == 76
 
     def test_probe_tag_coverage(self) -> None:
         """Analyze attack technique tags for diversity."""
@@ -193,7 +196,7 @@ class TestOWASPCoverageMapping:
         expected_techniques = {
             "ignore", "persona", "extraction", "smuggling",
             "delimiter", "encoding", "roleplay", "indirect",
-            "boundary", "authority",
+            "boundary", "authority", "fabrication", "uncertainty",
         }
         assert expected_techniques.issubset(all_tags), (
             f"Missing techniques: {expected_techniques - all_tags}"
@@ -211,10 +214,9 @@ class TestOWASPCoverageMapping:
         future_work = {
             "LLM02",  # Insecure Output Handling — could add output sanitization checks
             "LLM04",  # Model DoS — could add resource usage monitoring probes
-            "LLM09",  # Overreliance — could add groundedness probes (category exists)
         }
         # Currently covered
-        covered = {"LLM01", "LLM06", "LLM07", "LLM08"}
+        covered = {"LLM01", "LLM06", "LLM07", "LLM08", "LLM09"}
 
         assert out_of_scope | future_work | covered == set(OWASP_LLM_TOP_10.keys())
         assert not (out_of_scope & future_work)
