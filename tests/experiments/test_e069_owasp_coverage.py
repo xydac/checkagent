@@ -74,6 +74,7 @@ EVALUATOR_OWASP_MAP: dict[str, list[str]] = {
     "SystemPromptLeakageDetector": ["LLM01", "LLM06"],
     "ToolCallBoundaryValidator": ["LLM07", "LLM08"],
     "ConversationSafetyScanner": ["LLM01", "LLM06"],
+    "GroundednessEvaluator": ["LLM09"],
 }
 
 
@@ -88,7 +89,8 @@ class TestOWASPCoverageMapping:
     def test_total_probe_count(self) -> None:
         """Verify we know the total number of probes."""
         total = sum(len(ps) for _, ps in ALL_PROBE_SETS)
-        # 25 direct + 10 indirect + 8 encoding + 7 roleplay + 10 pii + 8 scope + 4 fabrication + 4 uncertainty
+        # 25 direct + 10 indirect + 8 encoding + 7 roleplay
+        # + 10 pii + 8 scope + 4 fabrication + 4 uncertainty
         assert total == 76
 
     def test_probes_per_owasp_category(self) -> None:
@@ -136,6 +138,8 @@ class TestOWASPCoverageMapping:
         assert len(owasp_evaluator_counts["LLM07"]) == 1
         # LLM08 covered by 2 (RefusalCompliance + ToolBoundary)
         assert len(owasp_evaluator_counts["LLM08"]) == 2
+        # LLM09 covered by GroundednessEvaluator
+        assert len(owasp_evaluator_counts["LLM09"]) == 1
 
     def test_combined_coverage_breadth(self) -> None:
         """Calculate total OWASP coverage combining probes + evaluators."""
@@ -157,8 +161,10 @@ class TestOWASPCoverageMapping:
 
         # Probes cover: LLM01, LLM06, LLM08, LLM09
         assert covered_by_probes == {"LLM01", "LLM06", "LLM08", "LLM09"}
-        # Evaluators cover: LLM01, LLM06, LLM07, LLM08
-        assert covered_by_evaluators == {"LLM01", "LLM06", "LLM07", "LLM08"}
+        # Evaluators cover: LLM01, LLM06, LLM07, LLM08, LLM09
+        assert covered_by_evaluators == {
+            "LLM01", "LLM06", "LLM07", "LLM08", "LLM09",
+        }
         # Combined: 5/10
         assert len(combined) == 5
         assert combined == {"LLM01", "LLM06", "LLM07", "LLM08", "LLM09"}

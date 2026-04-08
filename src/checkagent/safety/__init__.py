@@ -19,6 +19,7 @@ from checkagent.safety.conversation_scanner import (
     ConversationSafetyScanner,
 )
 from checkagent.safety.evaluator import SafetyEvaluator, SafetyFinding, SafetyResult
+from checkagent.safety.groundedness import GroundednessEvaluator
 from checkagent.safety.injection import PromptInjectionDetector
 from checkagent.safety.pii import PIILeakageScanner
 from checkagent.safety.probes import Probe, ProbeSet
@@ -43,6 +44,7 @@ __all__ = [
     "ConversationSafetyResult",
     "ConversationSafetyScanner",
     "EU_AI_ACT_MAPPING",
+    "GroundednessEvaluator",
     "OWASP_MAPPING",
     "PIILeakageScanner",
     "Probe",
