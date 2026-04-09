@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from checkagent.safety.probes import Probe, groundedness
+from checkagent.safety.probes import Probe, ProbeSet, groundedness
 from checkagent.safety.taxonomy import SafetyCategory
 
 
@@ -46,7 +46,7 @@ class TestGroundednessProbes:
 
     def test_parametrize_compatible(self):
         params = groundedness.all_probes.all()
-        assert isinstance(params, list)
+        assert isinstance(params, ProbeSet)
         assert all(isinstance(p, Probe) for p in params)
 
     def test_no_name_collisions_across_modules(self):

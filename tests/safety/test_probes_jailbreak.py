@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from checkagent.safety.probes import Probe, jailbreak
+from checkagent.safety.probes import Probe, ProbeSet, jailbreak
 from checkagent.safety.taxonomy import SafetyCategory
 
 # ---------------------------------------------------------------------------
@@ -47,7 +47,7 @@ class TestEncodingProbes:
 
     def test_parametrize_compatible(self):
         params = jailbreak.encoding.all()
-        assert isinstance(params, list)
+        assert isinstance(params, ProbeSet)
         assert all(isinstance(p, Probe) for p in params)
 
 

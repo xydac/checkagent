@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from checkagent.safety.probes import Probe, scope
+from checkagent.safety.probes import Probe, ProbeSet, scope
 from checkagent.safety.taxonomy import SafetyCategory
 
 
@@ -44,7 +44,7 @@ class TestScopeBoundaryProbes:
 
     def test_parametrize_compatible(self):
         params = scope.boundary.all()
-        assert isinstance(params, list)
+        assert isinstance(params, ProbeSet)
         assert all(isinstance(p, Probe) for p in params)
 
     def test_all_probes_equals_boundary(self):

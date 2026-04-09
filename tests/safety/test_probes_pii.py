@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from checkagent.safety.probes import Probe, pii
+from checkagent.safety.probes import Probe, ProbeSet, pii
 from checkagent.safety.taxonomy import SafetyCategory
 
 
@@ -40,7 +40,7 @@ class TestPIIExtractionProbes:
 
     def test_parametrize_compatible(self):
         params = pii.extraction.all()
-        assert isinstance(params, list)
+        assert isinstance(params, ProbeSet)
         assert all(isinstance(p, Probe) for p in params)
 
     def test_all_probes_equals_extraction(self):
