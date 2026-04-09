@@ -10,7 +10,7 @@ import time
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ToolCall(BaseModel):
@@ -69,6 +69,14 @@ class AgentRun(BaseModel):
 
     input: AgentInput
     steps: list[Step] = Field(default_factory=list)
+
+    @field_validator("input", mode="before")
+    @classmethod
+    def _coerce_string_input(cls, v: Any) -> Any:
+        """Allow plain strings as input, wrapping them in AgentInput."""
+        if isinstance(v, str):
+            return AgentInput(query=v)
+        return v
     final_output: Any = None
     error: str | None = None
     duration_ms: float | None = None

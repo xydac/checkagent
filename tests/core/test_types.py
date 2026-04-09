@@ -120,6 +120,15 @@ class TestAgentRun:
         assert len(run.get_tool_calls("write")) == 1
         assert len(run.get_tool_calls("delete")) == 0
 
+    def test_string_input_coerced_to_agent_input(self):
+        run = AgentRun(input="find cats")
+        assert isinstance(run.input, AgentInput)
+        assert run.input.query == "find cats"
+
+    def test_dict_input_still_works(self):
+        run = AgentRun(input={"query": "hello"})
+        assert run.input.query == "hello"
+
     def test_total_tokens(self):
         run = AgentRun(
             input=AgentInput(query="test"),
