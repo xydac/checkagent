@@ -80,6 +80,8 @@ def generate_pr_comment(
 class TestRunSummary:
     """Lightweight summary of pytest results for reporting."""
 
+    __test__ = False  # Prevent pytest from collecting this class
+
     def __init__(
         self,
         *,
