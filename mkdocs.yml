@@ -1,0 +1,65 @@
+site_name: CheckAgent
+site_description: The open-source testing framework for AI agents
+site_url: https://checkagent.dev
+repo_url: https://github.com/checkagent/checkagent
+repo_name: checkagent/checkagent
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - content.code.copy
+    - content.code.annotate
+    - navigation.instant
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - toc.follow
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.snippets
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Quickstart: quickstart.md
+  - Testing Layers:
+    - Overview: layers/index.md
+    - Mock: layers/mock.md
+    - Replay: layers/replay.md
+    - Eval: layers/eval.md
+    - Judge: layers/judge.md
+  - Guides:
+    - Safety Testing: guides/safety.md
+    - Fault Injection: guides/faults.md
+    - Multi-Agent Testing: guides/multiagent.md
+  - CLI Reference: cli.md
+  - Configuration: configuration.md
