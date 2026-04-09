@@ -42,6 +42,11 @@ otel = ["opentelemetry-api>=1.20"]
 json-schema = ["jsonschema>=4.0"]
 structured = ["dirty-equals>=0.7", "deepdiff>=7.0"]
 safety-ner = ["spacy>=3.7"]
+anthropic = ["anthropic>=0.30"]
+langchain = ["langchain-core>=0.2"]
+crewai = ["crewai>=0.40"]
+pydantic-ai = ["pydantic-ai>=1.0"]
+openai-agents = ["openai-agents>=0.1"]
 all = ["checkagent[otel,structured,json-schema,safety-ner]"]
 dev = [
     "checkagent[otel,structured,json-schema]",
