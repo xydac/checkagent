@@ -5,6 +5,10 @@ from __future__ import annotations
 from checkagent.ci.quality_gate import GateResult, GateVerdict, QualityGateReport
 from checkagent.ci.reporter import RunSummary, generate_pr_comment
 from checkagent.core.cost import CostReport, ModelCost
+from checkagent.eval.aggregate import AggregateResult, RegressionResult
+from checkagent.eval.aggregate import RunSummary as EvalRunSummary
+from checkagent.safety.compliance import CategorySummary, ComplianceReport
+from checkagent.safety.taxonomy import SafetyCategory, Severity
 
 
 class TestRunSummary:
@@ -137,3 +141,150 @@ class TestGeneratePRComment:
         summary = RunSummary(total=5, passed=3, failed=1, errors=1)
         comment = generate_pr_comment(test_summary=summary)
         assert "| Errors | 1 |" in comment
+
+    def test_eval_summary_section(self):
+        eval_summary = EvalRunSummary(
+            aggregates={
+                "task_completion": AggregateResult(
+                    metric_name="task_completion",
+                    count=10,
+                    mean=0.85,
+                    median=0.9,
+                    stdev=0.1,
+                    min_value=0.5,
+                    max_value=1.0,
+                    pass_rate=0.8,
+                ),
+            }
+        )
+        comment = generate_pr_comment(eval_summary=eval_summary)
+        assert "### Evaluation Metrics" in comment
+        assert "task_completion" in comment
+        assert "0.8500" in comment
+        assert "80.0%" in comment
+
+    def test_eval_summary_with_regressions(self):
+        eval_summary = EvalRunSummary(
+            aggregates={
+                "accuracy": AggregateResult(
+                    metric_name="accuracy", count=5,
+                    mean=0.7, median=0.7, stdev=0.1,
+                    min_value=0.5, max_value=0.9,
+                ),
+            },
+            regressions=[
+                RegressionResult(
+                    metric_name="accuracy",
+                    current=0.7,
+                    baseline=0.9,
+                    delta=-0.2,
+                    regressed=True,
+                    threshold=0.05,
+                ),
+            ],
+        )
+        comment = generate_pr_comment(eval_summary=eval_summary)
+        assert "Metric regressions detected" in comment
+        assert "`accuracy`" in comment
+        assert "0.9000" in comment
+        assert "0.7000" in comment
+
+    def test_eval_summary_no_regressions_skips_section(self):
+        eval_summary = EvalRunSummary(
+            aggregates={
+                "score": AggregateResult(
+                    metric_name="score", count=3,
+                    mean=0.95, median=0.95, stdev=0.01,
+                    min_value=0.93, max_value=0.97,
+                ),
+            },
+            regressions=[
+                RegressionResult(
+                    metric_name="score",
+                    current=0.95, baseline=0.90,
+                    delta=0.05, regressed=False, threshold=0.05,
+                ),
+            ],
+        )
+        comment = generate_pr_comment(eval_summary=eval_summary)
+        assert "Metric regressions detected" not in comment
+
+    def test_safety_report_section(self):
+        report = ComplianceReport(
+            total_tests=20,
+            total_passed=18,
+            total_findings=2,
+            categories={
+                SafetyCategory.PROMPT_INJECTION: CategorySummary(
+                    category=SafetyCategory.PROMPT_INJECTION,
+                    total=10,
+                    passed=9,
+                    failed=1,
+                    findings_by_severity={Severity.HIGH: 1},
+                ),
+                SafetyCategory.PII_LEAKAGE: CategorySummary(
+                    category=SafetyCategory.PII_LEAKAGE,
+                    total=10,
+                    passed=9,
+                    failed=1,
+                    findings_by_severity={Severity.MEDIUM: 1},
+                ),
+            },
+        )
+        comment = generate_pr_comment(safety_report=report)
+        assert "### Safety Results" in comment
+        assert "90.0%" in comment
+        assert "18/20" in comment
+        assert "prompt_injection" in comment
+        assert "pii_leakage" in comment
+        assert "Total findings" in comment
+
+    def test_safety_report_no_critical_shows_checkmark(self):
+        report = ComplianceReport(total_tests=5, total_passed=5)
+        comment = generate_pr_comment(safety_report=report)
+        assert ":white_check_mark:" in comment
+
+    def test_safety_report_critical_shows_warning(self):
+        report = ComplianceReport(
+            total_tests=5,
+            total_passed=3,
+            total_findings=2,
+            categories={
+                SafetyCategory.PROMPT_INJECTION: CategorySummary(
+                    category=SafetyCategory.PROMPT_INJECTION,
+                    total=5, passed=3, failed=2,
+                    findings_by_severity={Severity.CRITICAL: 2},
+                ),
+            },
+        )
+        comment = generate_pr_comment(safety_report=report)
+        assert ":warning:" in comment
+
+    def test_all_five_sections_combined(self):
+        summary = RunSummary(total=10, passed=10)
+        eval_summary = EvalRunSummary(
+            aggregates={
+                "score": AggregateResult(
+                    metric_name="score", count=10,
+                    mean=0.9, median=0.9, stdev=0.05,
+                    min_value=0.8, max_value=1.0,
+                ),
+            }
+        )
+        safety = ComplianceReport(total_tests=5, total_passed=5)
+        gate_report = QualityGateReport(
+            results=[GateResult(metric="a", verdict=GateVerdict.PASSED)]
+        )
+        cost = CostReport(run_count=1, total_cost=0.01)
+        comment = generate_pr_comment(
+            test_summary=summary,
+            eval_summary=eval_summary,
+            safety_report=safety,
+            gate_report=gate_report,
+            cost_report=cost,
+        )
+        assert "### Test Results" in comment
+        assert "### Evaluation Metrics" in comment
+        assert "### Safety Results" in comment
+        assert "### Quality Gates" in comment
+        assert "### Cost Summary" in comment

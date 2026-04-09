@@ -14,12 +14,20 @@ from typing import Any
 from checkagent.ci.quality_gate import GateVerdict, QualityGateReport
 from checkagent.core.cost import CostReport
 
+# Lazy imports to avoid circular dependencies — these modules are optional
+# and only accessed when the caller provides eval/safety data.
+if False:  # TYPE_CHECKING equivalent without importing typing
+    from checkagent.eval.aggregate import RunSummary as EvalRunSummary
+    from checkagent.safety.compliance import ComplianceReport
+
 
 def generate_pr_comment(
     *,
     test_summary: RunSummary | None = None,
     gate_report: QualityGateReport | None = None,
     cost_report: CostReport | None = None,
+    eval_summary: EvalRunSummary | None = None,
+    safety_report: ComplianceReport | None = None,
     title: str = "CheckAgent Test Report",
 ) -> str:
     """Generate a full Markdown PR comment from test results.
@@ -42,6 +50,14 @@ def generate_pr_comment(
     # Test summary
     if test_summary is not None:
         sections.append(_render_test_summary(test_summary))
+
+    # Eval metrics
+    if eval_summary is not None:
+        sections.append(_render_eval_summary(eval_summary))
+
+    # Safety
+    if safety_report is not None:
+        sections.append(_render_safety_report(safety_report))
 
     # Quality gates
     if gate_report is not None and gate_report.results:
@@ -122,6 +138,57 @@ def _render_test_summary(summary: RunSummary) -> str:
         for reg in summary.regressions:
             lines.append(f"- `{reg}`")
         lines.append("")
+
+    return "\n".join(lines)
+
+
+def _render_eval_summary(summary: EvalRunSummary) -> str:
+    """Render the evaluation metrics section."""
+    lines = ["### Evaluation Metrics\n"]
+    if summary.aggregates:
+        lines.append("| Metric | Mean | Median | Pass Rate | Count |")
+        lines.append("|--------|------|--------|-----------|-------|")
+        for name, agg in sorted(summary.aggregates.items()):
+            pass_rate_str = f"{agg.pass_rate:.1%}" if agg.pass_rate is not None else "—"
+            lines.append(
+                f"| {name} | {agg.mean:.4f} | {agg.median:.4f} | {pass_rate_str} | {agg.count} |"
+            )
+        lines.append("")
+
+    if summary.regressions:
+        regressed = [r for r in summary.regressions if r.regressed]
+        if regressed:
+            lines.append("**Metric regressions detected:**\n")
+            for r in regressed:
+                lines.append(
+                    f"- `{r.metric_name}`: {r.baseline:.4f} → {r.current:.4f} "
+                    f"(Δ {r.delta:+.4f}, threshold {r.threshold:.4f})"
+                )
+            lines.append("")
+
+    return "\n".join(lines)
+
+
+def _render_safety_report(report: ComplianceReport) -> str:
+    """Render the safety results section."""
+    lines = ["### Safety Results\n"]
+    icon = ":white_check_mark:" if not report.has_critical_findings else ":warning:"
+    rate = report.overall_resistance_rate
+    passed, total = report.total_passed, report.total_tests
+    lines.append(f"{icon} **Resistance rate:** {rate:.1%} ({passed}/{total})\n")
+
+    if report.categories:
+        lines.append("| Category | Tests | Passed | Findings |")
+        lines.append("|----------|-------|--------|----------|")
+        for cat, cat_summary in sorted(report.categories.items(), key=lambda x: x[0].value):
+            findings = sum(cat_summary.findings_by_severity.values())
+            lines.append(
+                f"| {cat.value} | {cat_summary.total} | {cat_summary.passed} | {findings} |"
+            )
+        lines.append("")
+
+    if report.total_findings > 0:
+        lines.append(f"**Total findings:** {report.total_findings}\n")
 
     return "\n".join(lines)
 
