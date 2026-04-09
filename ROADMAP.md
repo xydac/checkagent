@@ -72,13 +72,13 @@ CheckAgent is being built in public. Here's where we're headed.
 
 ## Phase 4: Launch Readiness
 
-### Onboarding Polish (In Progress)
+### Milestone 8: Onboarding Polish (In Progress)
 - [ ] `checkagent init` generates tests that pass on a clean install
 - [ ] Strict Pydantic types prevent silent field drops
 - [ ] All dependencies declared correctly
 - [ ] `pip install checkagent && checkagent init && pytest` works end-to-end
 
-### Documentation Site
+### Milestone 9: Documentation Site
 - [ ] MkDocs Material with GitHub Pages
 - [ ] Quickstart guide
 - [ ] Layer guides (Mock, Replay, Eval, Judge)
@@ -86,31 +86,31 @@ CheckAgent is being built in public. Here's where we're headed.
 - [ ] CLI + config reference
 - [ ] API reference
 
-### One-Command Safety Scan
+### Milestone 10: One-Command Safety Scan
 - [ ] `checkagent scan` — point at any agent, get a safety report
 - [ ] Interactive TUI with drill-down results
 - [ ] Generate pytest tests from scan findings
 - [ ] HTML/PDF compliance report export
 
-### Framework Validation
+### Milestone 11: Framework Validation
 - [ ] Test adapters against real framework agents (not just mocks)
 - [ ] Verified support for LangChain, OpenAI Agents SDK, PydanticAI
 
-### CI/CD Polish
+### Milestone 12: CI/CD Polish
 - [ ] Quality gates auto-enforce from config
 - [ ] PR comment generation with eval metrics
 - [ ] `checkagent ci-init` for easy CI setup
+
+### Milestone 13: v0.1.0 Launch
+- [ ] PyPI v0.1.0
+- [ ] All README examples verified working
+- [ ] Docs site live
+- [ ] 3+ framework adapters validated with real agents
 
 ### Future
 - [ ] Local dashboard for test history and trends
 - [ ] Auto-instrumentation (one import, zero config)
 - [ ] Production trace import from more providers
-
-### v0.1.0 Launch
-- [ ] PyPI v0.1.0
-- [ ] All README examples verified working
-- [ ] Docs site live
-- [ ] 3+ framework adapters validated with real agents
 
 ---
 
