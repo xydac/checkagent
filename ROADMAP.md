@@ -70,30 +70,102 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] Credit assignment heuristics
 - [ ] PyPI v1.1.0
 
-## Phase 4: Launch Readiness
+## Phase 4: Launch Readiness — Feature Arcs
 
-### Milestone 8: Documentation Site
-- [ ] MkDocs Material setup with GitHub Pages deployment
-- [ ] Landing page (index.md) — what, why, install, 30-sec demo
-- [ ] Quickstart guide — pip install → first test → green in 5 min
-- [ ] Testing pyramid concept guide
-- [ ] Layer guides: Mock, Replay, Eval, Judge
-- [ ] Feature guides: Safety, Fault Injection, Multi-Turn, Streaming, CI/CD, Cost Tracking
-- [ ] CLI reference
-- [ ] Configuration reference (checkagent.yml)
-- [ ] API reference (auto-generated with mkdocstrings)
+Each arc is 3-5 cycles of connected work delivering a complete, coherent capability.
 
-### Milestone 9: Local Dashboard
+---
+
+### Arc A: "First 5 Minutes" — Onboarding Fix (Priority 1)
+**Why:** `checkagent init` is DX 1/1 (generates tests that fail immediately). Silent field drops on core types (F-027) mean beginners hit invisible bugs. This is THE adoption blocker — nothing else matters if the first 5 minutes are broken.
+
+**
+
+| Stage | Cycle | Deliverable |
+|-------|-------|-------------|
+| 1 | 084 | Fix `checkagent init` — generated tests must pass. Fix silent field drops (extra='forbid' on remaining types). Fix `assert_json_schema` missing dep (F-008). |
+| 2 | 085 | Fix DX < 3 paper cuts: case-sensitive filters (F-023 severity), `was_called_with` substring confusion (F-009), `RunSummary` name collision (F-029). |
+| 3 | 086 | End-to-end onboarding test: `pip install checkagent && checkagent init && pytest` must work in a clean venv. Add `checkagent[all]` extra (F-088). |
+| 4 | 087 | Verify with QA agent. Update DX scores. Log experiment on onboarding success rate. |
+
+**Delivers:** A new user can go from zero to green tests in under 2 minutes.
+
+---
+
+### Arc B: Documentation Site (Priority 2)
+**Why:** No docs = no launch. 1668 tests mean nothing without a way for users to discover features. Every competitor has docs. We have a README.
+
+**
+
+| Stage | Cycle | Deliverable |
+|-------|-------|-------------|
+| 1 | 088 | MkDocs Material setup, GitHub Pages deploy, landing page (what/why/install/demo). |
+| 2 | 089 | Quickstart guide + testing pyramid concept page + mock layer guide. |
+| 3 | 090 (meta-review) | — |
+| 4 | 091 | Remaining layer guides (replay, eval, judge) + safety guide. |
+| 5 | 092 | CLI reference, config reference, API reference (mkdocstrings). |
+
+**Delivers:** A complete documentation site at checkagent.dev (or GitHub Pages).
+
+---
+
+### Arc C: One-Command Safety Scan (Priority 3)
+
+**
+
+| Stage | Cycle | Deliverable |
+|-------|-------|-------------|
+| 1 | 093 (planning) | — |
+| 2 | 094 | `checkagent scan` CLI — accepts a Python callable or HTTP endpoint, runs all safety probes, prints Rich-formatted report. |
+| 3 | 095 (innovation) | Interactive TUI with drill-down into individual probe results. Press [t] to generate a pytest test file from scan results. |
+| 4 | 096 | HTML/PDF compliance report export (OWASP mapping, EU AI Act references). |
+| 5 | 097 | Docs page + README section + example with real agent scan. |
+
+**Delivers:** `checkagent scan my_agent.py` — one command, full safety report, tweetable screenshot.
+
+---
+
+### Arc D: Real-Agent Validation (Priority 4)
+**Why:** We claim "works with LangChain, OpenAI, CrewAI, PydanticAI, Anthropic" but the QA agent found real bugs in PydanticAI adapter (F-085, F-087). We cannot launch claiming framework support without testing real framework agents.
+
+| Stage | Cycle | Deliverable |
+|-------|-------|-------------|
+| 1 | 098 | Test with real PydanticAI agent. Fix F-085 (empty input_text) and F-087 (deprecated tokens). |
+| 2 | 099 | Test with real LangChain agent. Fix any adapter bugs found. |
+| 3 | 100 (meta-review) | — |
+| 4 | 101 | Test with OpenAI Agents SDK agent. Fix any adapter bugs found. |
+| 5 | 102 | Update README with verified "works with" claims. Paper Section 5.1 data. |
+
+**Delivers:** Verified, tested adapter support for top 3 frameworks.
+
+---
+
+### Arc E: CI/CD Integration Polish (Priority 5)
+**Why:** QA found CI quality gates are disconnected from pytest (F-033, F-034). The GitHub Action exists but the pytest integration is manual. Enterprise users need this to work automatically.
+
+| Stage | Cycle | Deliverable |
+|-------|-------|-------------|
+| 1 | 103 | pytest_sessionfinish hook that auto-evaluates quality gates from config. |
+| 2 | 104 | `generate_pr_comment` integration with eval metrics and regressions. |
+| 3 | 105 (innovation) | Auto-generated CI config (`checkagent ci-init`) for GitHub Actions, GitLab CI. |
+
+**Delivers:** Quality gates that actually enforce in CI without manual wiring.
+
+---
+
+### Milestone 9: Local Dashboard (Future)
 - [ ] Test run history storage (`.checkagent/` directory with JSON results)
 - [ ] `checkagent dashboard` — local web UI showing test history, score trends, cost trends
 - [ ] Safety probe detection rate visualization
 - [ ] Publishable results export (charts/screenshots for paper and launch)
 
-### Milestone 10: PyPI + Launch
+### Milestone 10: PyPI v0.1.0 + Launch (After Arcs A-D)
 - [ ] PyPI v0.1.0 publish
 - [ ] All README examples verified working
 - [ ] checkagent demo runs clean end-to-end
 - [ ] QA critical findings < 5 open
+- [ ] Docs site live
+- [ ] 3+ framework adapters validated with real agents
 
 ---
 
