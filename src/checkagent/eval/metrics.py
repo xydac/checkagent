@@ -44,15 +44,20 @@ def task_completion(
     if check_no_error:
         checks.append(run.succeeded)
 
-    output = str(run.final_output) if run.final_output is not None else ""
-
     if expected_output_equals is not None:
-        checks.append(output == expected_output_equals)
+        if run.final_output is None:
+            checks.append(False)
+        else:
+            checks.append(str(run.final_output) == expected_output_equals)
 
     if expected_output_contains:
-        output_lower = output.lower()
-        for substring in expected_output_contains:
-            checks.append(substring.lower() in output_lower)
+        if run.final_output is None:
+            for _substring in expected_output_contains:
+                checks.append(False)
+        else:
+            output_lower = str(run.final_output).lower()
+            for substring in expected_output_contains:
+                checks.append(substring.lower() in output_lower)
 
     value = (1.0 if run.succeeded else 0.0) if not checks else sum(checks) / len(checks)
 

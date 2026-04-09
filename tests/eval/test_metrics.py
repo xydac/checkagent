@@ -110,10 +110,38 @@ class TestTaskCompletion:
         # 2/3 checks pass (no_error + "partial"), "missing" fails
         assert score.passed is True
 
-    def test_none_output(self):
+    def test_none_output_contains(self):
         run = _make_run(output=None)
         score = task_completion(run, expected_output_contains=["something"])
         assert score.value < 1.0
+
+    def test_none_output_does_not_equal_empty_string(self):
+        """F-031: None output must not match expected_output_equals=''."""
+        run = _make_run(output=None)
+        score = task_completion(run, expected_output_equals="", check_no_error=False)
+        assert score.passed is False
+        assert score.value == 0.0
+
+    def test_none_output_does_not_equal_any_string(self):
+        """F-031: None output must not match any expected string."""
+        run = _make_run(output=None)
+        score = task_completion(run, expected_output_equals="hello", check_no_error=False)
+        assert score.passed is False
+
+    def test_empty_string_output_equals_empty_string(self):
+        """Actual empty string output should match expected_output_equals=''."""
+        run = _make_run(output="")
+        score = task_completion(run, expected_output_equals="", check_no_error=False)
+        assert score.value == 1.0
+        assert score.passed is True
+
+    def test_none_output_fails_all_contains_checks(self):
+        """F-031: None output should fail every contains check."""
+        run = _make_run(output=None)
+        score = task_completion(
+            run, expected_output_contains=["a", "b"], check_no_error=False
+        )
+        assert score.value == 0.0
 
 
 # ── ToolCorrectness ─────────────────────────────────────────────────────
