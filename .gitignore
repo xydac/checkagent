@@ -36,3 +36,4 @@ htmlcov/
 
 # Cassettes may contain sensitive data — review before committing
 # tests/cassettes/  # Uncomment to ignore all cassettes
+.market-signals.md
