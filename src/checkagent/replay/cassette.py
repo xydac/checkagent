@@ -121,18 +121,20 @@ class Cassette(BaseModel):
 
     # --- File I/O ---
 
-    def save(self, path: Path) -> Path:
+    def save(self, path: str | Path) -> Path:
         """Write cassette to a JSON file, creating parent dirs."""
+        path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(self.to_json(), encoding="utf-8")
         return path
 
     @classmethod
-    def load(cls, path: Path) -> Cassette:
+    def load(cls, path: str | Path) -> Cassette:
         """Load a cassette from a JSON file.
 
         Raises a warning if schema version is outdated.
         """
+        path = Path(path)
         cassette = cls.from_json(path.read_text(encoding="utf-8"))
         if cassette.meta.schema_version < CASSETTE_SCHEMA_VERSION:
             import warnings

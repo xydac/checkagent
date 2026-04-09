@@ -195,6 +195,20 @@ class TestCassetteFileIO:
         assert loaded.meta.test_id == "test_example"
         assert loaded.verify_integrity()
 
+    def test_save_and_load_with_string_path(self, tmp_path: Path):
+        c = Cassette(
+            meta=CassetteMeta(test_id="str_path"),
+            interactions=[_make_interaction()],
+        )
+        c.finalize()
+        str_path = str(tmp_path / "str_test.json")
+        c.save(str_path)
+        assert Path(str_path).exists()
+
+        loaded = Cassette.load(str_path)
+        assert loaded.meta.test_id == "str_path"
+        assert loaded.verify_integrity()
+
     def test_save_creates_parent_dirs(self, tmp_path: Path):
         c = Cassette()
         path = tmp_path / "a" / "b" / "cassette.json"
