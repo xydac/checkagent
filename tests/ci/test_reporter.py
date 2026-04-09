@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from checkagent.ci.quality_gate import GateResult, GateVerdict, QualityGateReport
-from checkagent.ci.reporter import RunSummary, generate_pr_comment
+from checkagent.ci.reporter import TestRunSummary as CITestRunSummary
+from checkagent.ci.reporter import generate_pr_comment
 from checkagent.core.cost import CostReport, ModelCost
 from checkagent.eval.aggregate import AggregateResult, RegressionResult
 from checkagent.eval.aggregate import RunSummary as EvalRunSummary
@@ -11,19 +12,24 @@ from checkagent.safety.compliance import CategorySummary, ComplianceReport
 from checkagent.safety.taxonomy import SafetyCategory, Severity
 
 
-class TestRunSummary:
-    """Tests for RunSummary data class."""
+class TestCIRunSummary:
+    """Tests for TestRunSummary (CI test results)."""
+
+    def test_backward_compat_alias(self):
+        from checkagent.ci.reporter import RunSummary
+
+        assert RunSummary is CITestRunSummary
 
     def test_pass_rate(self):
-        s = RunSummary(total=10, passed=8, failed=2)
+        s = CITestRunSummary(total=10, passed=8, failed=2)
         assert s.pass_rate == 0.8
 
     def test_pass_rate_zero_total(self):
-        s = RunSummary(total=0, passed=0, failed=0)
+        s = CITestRunSummary(total=0, passed=0, failed=0)
         assert s.pass_rate == 0.0
 
     def test_to_dict(self):
-        s = RunSummary(total=5, passed=4, failed=1, duration_s=1.234)
+        s = CITestRunSummary(total=5, passed=4, failed=1, duration_s=1.234)
         d = s.to_dict()
         assert d["total"] == 5
         assert d["passed"] == 4
@@ -44,7 +50,7 @@ class TestGeneratePRComment:
         assert "## My Report" in comment
 
     def test_test_summary_section(self):
-        summary = RunSummary(total=10, passed=9, failed=1, duration_s=5.0)
+        summary = CITestRunSummary(total=10, passed=9, failed=1, duration_s=5.0)
         comment = generate_pr_comment(test_summary=summary)
         assert "### Test Results" in comment
         assert "| Total tests | 10 |" in comment
@@ -53,7 +59,7 @@ class TestGeneratePRComment:
         assert "90.0%" in comment
 
     def test_regressions_listed(self):
-        summary = RunSummary(
+        summary = CITestRunSummary(
             total=10, passed=8, failed=2,
             regressions=["test_foo", "test_bar"],
         )
@@ -123,7 +129,7 @@ class TestGeneratePRComment:
         assert "gpt-4o" in comment
 
     def test_all_sections_combined(self):
-        summary = RunSummary(total=10, passed=10)
+        summary = CITestRunSummary(total=10, passed=10)
         gate_report = QualityGateReport(
             results=[GateResult(metric="a", verdict=GateVerdict.PASSED)]
         )
@@ -138,7 +144,7 @@ class TestGeneratePRComment:
         assert "### Cost Summary" in comment
 
     def test_errors_shown_when_nonzero(self):
-        summary = RunSummary(total=5, passed=3, failed=1, errors=1)
+        summary = CITestRunSummary(total=5, passed=3, failed=1, errors=1)
         comment = generate_pr_comment(test_summary=summary)
         assert "| Errors | 1 |" in comment
 
@@ -261,7 +267,7 @@ class TestGeneratePRComment:
         assert ":warning:" in comment
 
     def test_all_five_sections_combined(self):
-        summary = RunSummary(total=10, passed=10)
+        summary = CITestRunSummary(total=10, passed=10)
         eval_summary = EvalRunSummary(
             aggregates={
                 "score": AggregateResult(

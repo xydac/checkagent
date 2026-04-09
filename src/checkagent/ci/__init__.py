@@ -20,7 +20,7 @@ from checkagent.ci.quality_gate import (
     evaluate_gates,
     scores_to_dict,
 )
-from checkagent.ci.reporter import RunSummary, generate_pr_comment
+from checkagent.ci.reporter import RunSummary, TestRunSummary, generate_pr_comment
 
 __all__ = [
     "GateResult",
@@ -30,6 +30,7 @@ __all__ = [
     "JUnitTestSuite",
     "QualityGateReport",
     "RunSummary",
+    "TestRunSummary",
     "evaluate_gate",
     "evaluate_gates",
     "from_quality_gate_report",

@@ -13,7 +13,7 @@ from checkagent.ci.junit_xml import (
     render_junit_xml,
 )
 from checkagent.ci.quality_gate import GateResult, GateVerdict, QualityGateReport
-from checkagent.ci.reporter import RunSummary
+from checkagent.ci.reporter import TestRunSummary
 
 
 class TestJUnitTestCase:
@@ -247,14 +247,14 @@ class TestFromRunSummary:
     """Tests for converting RunSummary to JUnit XML."""
 
     def test_all_passed(self):
-        summary = RunSummary(total=3, passed=3, duration_s=1.5)
+        summary = TestRunSummary(total=3, passed=3, duration_s=1.5)
         suite = from_run_summary(summary)
         assert suite.tests == 3
         assert suite.failures == 0
         assert all(tc.is_passed for tc in suite.test_cases)
 
     def test_mixed_results(self):
-        summary = RunSummary(total=6, passed=3, failed=1, skipped=1, errors=1, duration_s=3.0)
+        summary = TestRunSummary(total=6, passed=3, failed=1, skipped=1, errors=1, duration_s=3.0)
         suite = from_run_summary(summary)
         assert suite.tests == 6
         assert suite.failures == 1
@@ -262,7 +262,7 @@ class TestFromRunSummary:
         assert suite.skipped == 1
 
     def test_regressions_used_as_names(self):
-        summary = RunSummary(
+        summary = TestRunSummary(
             total=2, passed=0, failed=2,
             regressions=["test_login", "test_signup"],
             duration_s=1.0,
@@ -273,12 +273,12 @@ class TestFromRunSummary:
         assert "test_signup" in names
 
     def test_custom_suite_name(self):
-        summary = RunSummary(total=1, passed=1, duration_s=0.1)
+        summary = TestRunSummary(total=1, passed=1, duration_s=0.1)
         suite = from_run_summary(summary, suite_name="my_agent")
         assert suite.name == "my_agent"
 
     def test_with_test_details(self):
-        summary = RunSummary(total=2, passed=1, failed=1, duration_s=0.5)
+        summary = TestRunSummary(total=2, passed=1, failed=1, duration_s=0.5)
         details = [
             {"name": "test_a", "classname": "tests.mod", "status": "passed", "time_s": "0.1"},
             {"name": "test_b", "classname": "tests.mod", "status": "failed", "message": "bad"},
@@ -292,12 +292,12 @@ class TestFromRunSummary:
         assert failed[0].failure_message == "bad"
 
     def test_zero_total(self):
-        summary = RunSummary(total=0, passed=0, duration_s=0.0)
+        summary = TestRunSummary(total=0, passed=0, duration_s=0.0)
         suite = from_run_summary(summary)
         assert suite.tests == 0
 
     def test_renders_valid_xml(self):
-        summary = RunSummary(total=5, passed=3, failed=1, skipped=1, duration_s=2.5)
+        summary = TestRunSummary(total=5, passed=3, failed=1, skipped=1, duration_s=2.5)
         suite = from_run_summary(summary)
         xml = render_junit_xml([suite])
         root = ET.fromstring(xml)

@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from checkagent.ci.quality_gate import QualityGateReport
-from checkagent.ci.reporter import RunSummary
+from checkagent.ci.reporter import TestRunSummary
 
 
 @dataclass
@@ -188,12 +188,12 @@ def _render_test_case(parent: Element, tc: JUnitTestCase) -> None:
 
 
 def from_run_summary(
-    summary: RunSummary,
+    summary: TestRunSummary,
     *,
     suite_name: str = "checkagent",
     test_details: list[dict[str, str]] | None = None,
 ) -> JUnitTestSuite:
-    """Convert a RunSummary into a JUnitTestSuite.
+    """Convert a TestRunSummary into a JUnitTestSuite.
 
     If test_details is provided, each entry should have:
         - name: test name

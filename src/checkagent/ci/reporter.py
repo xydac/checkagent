@@ -23,7 +23,7 @@ if False:  # TYPE_CHECKING equivalent without importing typing
 
 def generate_pr_comment(
     *,
-    test_summary: RunSummary | None = None,
+    test_summary: TestRunSummary | None = None,
     gate_report: QualityGateReport | None = None,
     cost_report: CostReport | None = None,
     eval_summary: EvalRunSummary | None = None,
@@ -77,7 +77,7 @@ def generate_pr_comment(
     return "\n".join(sections)
 
 
-class RunSummary:
+class TestRunSummary:
     """Lightweight summary of pytest results for reporting."""
 
     def __init__(
@@ -118,7 +118,7 @@ class RunSummary:
         }
 
 
-def _render_test_summary(summary: RunSummary) -> str:
+def _render_test_summary(summary: TestRunSummary) -> str:
     """Render the test summary section."""
     lines = ["### Test Results\n"]
     lines.append("| Metric | Value |")
@@ -257,3 +257,7 @@ def _verdict_icon(verdict: GateVerdict) -> str:
         GateVerdict.BLOCKED: ":x:",
         GateVerdict.SKIPPED: ":heavy_minus_sign:",
     }[verdict]
+
+
+# Backward-compat alias — CI RunSummary was renamed to TestRunSummary (F-029)
+RunSummary = TestRunSummary

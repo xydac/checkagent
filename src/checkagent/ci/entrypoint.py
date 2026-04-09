@@ -15,12 +15,12 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from checkagent.ci.quality_gate import evaluate_gates
-from checkagent.ci.reporter import RunSummary, generate_pr_comment
+from checkagent.ci.reporter import TestRunSummary, generate_pr_comment
 from checkagent.core.config import load_config
 
 
-def parse_junit_xml(path: Path) -> RunSummary:
-    """Parse a JUnit XML file into a RunSummary."""
+def parse_junit_xml(path: Path) -> TestRunSummary:
+    """Parse a JUnit XML file into a TestRunSummary."""
     tree = ET.parse(path)  # noqa: S314
     root = tree.getroot()
 
@@ -42,7 +42,7 @@ def parse_junit_xml(path: Path) -> RunSummary:
 
     passed = total - failures - errors - skipped
 
-    return RunSummary(
+    return TestRunSummary(
         total=total,
         passed=passed,
         failed=failures,
