@@ -78,12 +78,13 @@ class ReplayEngine:
         """Whether all recorded interactions have been consumed."""
         return len(self._used) == len(self._cassette.interactions)
 
-    def match(self, request: RecordedRequest) -> Interaction:
+    def match(self, request: RecordedRequest) -> Interaction | None:
         """Find a matching recorded interaction for the given request.
 
-        Raises CassetteMismatchError if no match is found and
-        block_unmatched is True. Returns None-safe (always raises or
-        returns a valid Interaction).
+        Raises :class:`CassetteMismatchError` if no match is found and
+        ``block_unmatched`` is ``True``.  Returns ``None`` when
+        ``block_unmatched`` is ``False`` and no match exists, allowing
+        the caller to pass the request through to the real service.
         """
         if self._strategy == MatchStrategy.SEQUENCE:
             return self._match_sequence(request)
@@ -93,19 +94,19 @@ class ReplayEngine:
             return self._match_subset(request)
         raise ValueError(f"Unknown strategy: {self._strategy}")
 
-    def _match_sequence(self, request: RecordedRequest) -> Interaction:
+    def _match_sequence(self, request: RecordedRequest) -> Interaction | None:
         """Match by position in the interaction sequence."""
         idx = self._sequence_index
         if idx >= len(self._cassette.interactions):
             if self._block_unmatched:
                 raise CassetteMismatchError(request, "sequence")
-            raise CassetteMismatchError(request, "sequence")
+            return None
         interaction = self._cassette.interactions[idx]
         self._sequence_index += 1
         self._used.add(idx)
         return interaction
 
-    def _match_exact(self, request: RecordedRequest) -> Interaction:
+    def _match_exact(self, request: RecordedRequest) -> Interaction | None:
         """Match by exact method + body equality."""
         for idx, interaction in enumerate(self._cassette.interactions):
             if idx in self._used:
@@ -121,9 +122,9 @@ class ReplayEngine:
 
         if self._block_unmatched:
             raise CassetteMismatchError(request, "exact")
-        raise CassetteMismatchError(request, "exact")
+        return None
 
-    def _match_subset(self, request: RecordedRequest) -> Interaction:
+    def _match_subset(self, request: RecordedRequest) -> Interaction | None:
         """Match by kind + method, and recorded body keys are a subset."""
         for idx, interaction in enumerate(self._cassette.interactions):
             if idx in self._used:
@@ -137,7 +138,7 @@ class ReplayEngine:
 
         if self._block_unmatched:
             raise CassetteMismatchError(request, "subset")
-        raise CassetteMismatchError(request, "subset")
+        return None
 
     @staticmethod
     def _bodies_equal(a: dict[str, Any], b: dict[str, Any]) -> bool:

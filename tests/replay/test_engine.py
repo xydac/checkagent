@@ -282,3 +282,70 @@ class TestEngineState:
             engine.match(
                 RecordedRequest(kind="llm", method="x", body={})
             )
+
+
+# --- block_unmatched=False passthrough (F-042) ---
+
+
+class TestBlockUnmatchedFalse:
+    """When block_unmatched=False, unmatched requests return None instead of raising."""
+
+    def test_exact_returns_none_on_no_match(self):
+        cassette = _make_cassette([
+            _llm_interaction("chat", {"prompt": "hi"}, "hello"),
+        ])
+        engine = ReplayEngine(
+            cassette, MatchStrategy.EXACT, block_unmatched=False
+        )
+        result = engine.match(
+            RecordedRequest(kind="llm", method="chat", body={"prompt": "bye"})
+        )
+        assert result is None
+
+    def test_sequence_returns_none_when_exhausted(self):
+        cassette = _make_cassette([
+            _llm_interaction("chat", {}, "only"),
+        ])
+        engine = ReplayEngine(
+            cassette, MatchStrategy.SEQUENCE, block_unmatched=False
+        )
+        engine.match(RecordedRequest(kind="llm", method="chat", body={}))
+        result = engine.match(
+            RecordedRequest(kind="llm", method="chat", body={})
+        )
+        assert result is None
+
+    def test_subset_returns_none_on_no_match(self):
+        cassette = _make_cassette([
+            _llm_interaction("chat", {"model": "gpt-4"}, "ok"),
+        ])
+        engine = ReplayEngine(
+            cassette, MatchStrategy.SUBSET, block_unmatched=False
+        )
+        result = engine.match(
+            RecordedRequest(kind="tool", method="search", body={"q": "test"})
+        )
+        assert result is None
+
+    def test_matched_requests_still_return_interaction(self):
+        cassette = _make_cassette([
+            _llm_interaction("chat", {"prompt": "hi"}, "hello"),
+        ])
+        engine = ReplayEngine(
+            cassette, MatchStrategy.EXACT, block_unmatched=False
+        )
+        result = engine.match(
+            RecordedRequest(kind="llm", method="chat", body={"prompt": "hi"})
+        )
+        assert result is not None
+        assert result.response.body == "hello"
+
+    def test_empty_cassette_returns_none(self):
+        cassette = _make_cassette([])
+        engine = ReplayEngine(
+            cassette, MatchStrategy.EXACT, block_unmatched=False
+        )
+        result = engine.match(
+            RecordedRequest(kind="llm", method="chat", body={})
+        )
+        assert result is None
