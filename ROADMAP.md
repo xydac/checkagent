@@ -78,14 +78,14 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] All dependencies declared correctly
 - [x] `pip install checkagent && checkagent init && pytest` works end-to-end
 
-### Milestone 9: Documentation Site (In Progress)
+### Milestone 9: Documentation Site (Complete)
 - [x] MkDocs Material with GitHub Pages
 - [x] Quickstart guide
 - [x] Layer guides (Mock, Replay, Eval, Judge)
 - [x] Safety testing guide
 - [x] CLI + config reference
-- [ ] API reference
-- [ ] Docs site deployed to GitHub Pages
+- [x] API reference (auto-generated via mkdocstrings, 173 symbols across 8 pages)
+- [x] Docs site deployed to GitHub Pages
 
 ### Milestone 10: One-Command Safety Scan
 - [ ] `checkagent scan` — point at any agent, get a safety report
