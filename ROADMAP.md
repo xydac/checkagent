@@ -72,19 +72,20 @@ CheckAgent is being built in public. Here's where we're headed.
 
 ## Phase 4: Launch Readiness
 
-### Milestone 8: Onboarding Polish (In Progress)
-- [ ] `checkagent init` generates tests that pass on a clean install
-- [ ] Strict Pydantic types prevent silent field drops
-- [ ] All dependencies declared correctly
-- [ ] `pip install checkagent && checkagent init && pytest` works end-to-end
+### Milestone 8: Onboarding Polish (Complete)
+- [x] `checkagent init` generates tests that pass on a clean install
+- [x] Strict Pydantic types prevent silent field drops (`extra="forbid"`)
+- [x] All dependencies declared correctly
+- [x] `pip install checkagent && checkagent init && pytest` works end-to-end
 
-### Milestone 9: Documentation Site
-- [ ] MkDocs Material with GitHub Pages
-- [ ] Quickstart guide
-- [ ] Layer guides (Mock, Replay, Eval, Judge)
-- [ ] Safety testing guide
-- [ ] CLI + config reference
+### Milestone 9: Documentation Site (In Progress)
+- [x] MkDocs Material with GitHub Pages
+- [x] Quickstart guide
+- [x] Layer guides (Mock, Replay, Eval, Judge)
+- [x] Safety testing guide
+- [x] CLI + config reference
 - [ ] API reference
+- [ ] Docs site deployed to GitHub Pages
 
 ### Milestone 10: One-Command Safety Scan
 - [ ] `checkagent scan` — point at any agent, get a safety report
