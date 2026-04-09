@@ -29,7 +29,6 @@ def _make_simple_run() -> AgentRun:
             ),
         ],
         final_output="The weather in NYC is currently 72°F and sunny.",
-        success=True,
     )
 
 
@@ -67,7 +66,6 @@ def _make_tool_run() -> AgentRun:
             ),
         ],
         final_output="Meeting booked! Event ID: evt-789.",
-        success=True,
     )
 
 
@@ -153,7 +151,6 @@ def _make_complex_run() -> AgentRun:
             ),
         ],
         final_output=report,
-        success=True,
     )
 
 
@@ -285,8 +282,7 @@ class TestCostTrackerIntegration:
                 ),
             ],
             final_output="response",
-            success=True,
-            total_prompt_tokens=150,
+                total_prompt_tokens=150,
             total_completion_tokens=200,
         )
         breakdown = calculate_run_cost(run)

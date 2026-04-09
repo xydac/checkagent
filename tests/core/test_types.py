@@ -173,3 +173,54 @@ class TestScore:
     def test_threshold_bounds(self):
         with pytest.raises(ValidationError):
             Score(name="bad", value=0.5, threshold=1.5)
+
+
+class TestExtraFieldRejection:
+    """Verify that extra/misspelled fields raise ValidationError (F-027).
+
+    Before this fix, AgentRun(output='x') silently dropped 'output' and left
+    final_output=None. Users would spend time debugging why their output was
+    missing when the real problem was a wrong field name.
+    """
+
+    def test_agent_run_rejects_output(self):
+        """The most common F-027 trap: 'output' instead of 'final_output'."""
+        with pytest.raises(ValidationError, match="output"):
+            AgentRun(
+                input=AgentInput(query="test"),
+                steps=[],
+                output="this should fail",
+            )
+
+    def test_agent_run_rejects_unknown_field(self):
+        with pytest.raises(ValidationError, match="success"):
+            AgentRun(
+                input=AgentInput(query="test"),
+                steps=[],
+                success=True,
+            )
+
+    def test_step_rejects_input(self):
+        """'input' instead of 'input_text' is the Step-level F-027 trap."""
+        with pytest.raises(ValidationError, match="input"):
+            Step(input="should fail")
+
+    def test_step_rejects_output(self):
+        with pytest.raises(ValidationError, match="output"):
+            Step(output="should fail")
+
+    def test_tool_call_rejects_extra(self):
+        with pytest.raises(ValidationError):
+            ToolCall(name="search", params={"q": "test"})
+
+    def test_agent_input_rejects_extra(self):
+        with pytest.raises(ValidationError):
+            AgentInput(query="test", prompt="extra")
+
+    def test_stream_event_rejects_extra(self):
+        with pytest.raises(ValidationError):
+            StreamEvent(event_type=StreamEventType.TEXT_DELTA, content="extra")
+
+    def test_score_rejects_extra(self):
+        with pytest.raises(ValidationError):
+            Score(name="acc", value=0.9, result="extra")

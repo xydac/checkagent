@@ -10,11 +10,13 @@ import time
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ToolCall(BaseModel):
     """A single tool/function invocation within an agent step."""
+
+    model_config = ConfigDict(extra="forbid")
 
     name: str
     arguments: dict[str, Any] = Field(default_factory=dict)
@@ -29,6 +31,8 @@ class ToolCall(BaseModel):
 
 class Step(BaseModel):
     """A single reasoning/action step in an agent run."""
+
+    model_config = ConfigDict(extra="forbid")
 
     step_index: int = 0
     input_text: str | None = None
@@ -50,6 +54,8 @@ class Step(BaseModel):
 class AgentInput(BaseModel):
     """Input to an agent run."""
 
+    model_config = ConfigDict(extra="forbid")
+
     query: str
     context: dict[str, Any] = Field(default_factory=dict)
     conversation_history: list[dict[str, str]] = Field(default_factory=list)
@@ -58,6 +64,8 @@ class AgentInput(BaseModel):
 
 class AgentRun(BaseModel):
     """Complete execution trace of an agent run."""
+
+    model_config = ConfigDict(extra="forbid")
 
     input: AgentInput
     steps: list[Step] = Field(default_factory=list)
@@ -123,6 +131,8 @@ class StreamEventType(str, Enum):
 class StreamEvent(BaseModel):
     """A single streaming event from an agent execution."""
 
+    model_config = ConfigDict(extra="forbid")
+
     event_type: StreamEventType
     data: Any = None
     timestamp: float = Field(default_factory=time.time)
@@ -132,6 +142,8 @@ class StreamEvent(BaseModel):
 
 class Score(BaseModel):
     """An evaluation score for an agent run."""
+
+    model_config = ConfigDict(extra="forbid")
 
     name: str
     value: float = Field(ge=0.0, le=1.0)
