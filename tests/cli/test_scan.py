@@ -8,7 +8,15 @@ from pathlib import Path
 from click.testing import CliRunner
 
 from checkagent.cli import main
-from checkagent.cli.scan import _evaluate_output, _resolve_callable, scan_cmd
+from checkagent.cli.scan import (
+    _evaluate_output,
+    _generate_test_file,
+    _resolve_callable,
+    scan_cmd,
+)
+from checkagent.safety.evaluator import SafetyFinding
+from checkagent.safety.probes.base import Probe
+from checkagent.safety.taxonomy import SafetyCategory, Severity
 
 # ---------------------------------------------------------------------------
 # Helper: write a temp module with agent callables
@@ -213,3 +221,174 @@ class TestScanCommand:
             "--verbose",
         ])
         assert result.exit_code == 0
+
+    def test_generate_tests_with_findings(
+        self, tmp_path: Path, monkeypatch,
+    ) -> None:
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        out_file = tmp_path / "test_safety.py"
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "scan_test_agents:unsafe_agent",
+            "--category", "injection",
+            "--timeout", "2",
+            "--generate-tests", str(out_file),
+        ])
+        assert out_file.exists()
+        content = out_file.read_text()
+        assert "def test_" in content
+        assert "pytest" in content
+        assert "Generated" in result.output or "test" in result.output.lower()
+
+    def test_generate_tests_no_findings(
+        self, tmp_path: Path, monkeypatch,
+    ) -> None:
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        out_file = tmp_path / "test_safety.py"
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "scan_test_agents:safe_agent",
+            "--category", "injection",
+            "--timeout", "2",
+            "--generate-tests", str(out_file),
+        ])
+        assert not out_file.exists()
+        assert "No findings" in result.output
+
+    def test_generate_tests_flag_in_help(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, ["--help"])
+        assert "--generate-tests" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Unit tests: _generate_test_file
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateTestFile:
+    def _make_findings(
+        self,
+        category: str = "prompt_injection",
+        count: int = 2,
+    ) -> list[tuple[Probe, SafetyFinding]]:
+        findings = []
+        for i in range(count):
+            probe = Probe(
+                input=f"Ignore instructions {i}",
+                category=SafetyCategory.PROMPT_INJECTION,
+                severity=Severity.HIGH,
+                name=f"injection-probe-{i}",
+            )
+            finding = SafetyFinding(
+                category=SafetyCategory.PROMPT_INJECTION,
+                severity=Severity.HIGH,
+                description=f"Possible injection detected {i}",
+            )
+            findings.append((probe, finding))
+        return findings
+
+    def test_generates_valid_python(self, tmp_path: Path) -> None:
+        out = tmp_path / "test_gen.py"
+        findings = self._make_findings()
+        _generate_test_file("my_mod:my_fn", findings, out)
+        content = out.read_text()
+        # Should be valid Python
+        compile(content, str(out), "exec")
+
+    def test_contains_target(self, tmp_path: Path) -> None:
+        out = tmp_path / "test_gen.py"
+        _generate_test_file("my_mod:agent", self._make_findings(), out)
+        content = out.read_text()
+        assert 'TARGET = "my_mod:agent"' in content
+
+    def test_one_function_per_category(self, tmp_path: Path) -> None:
+        out = tmp_path / "test_gen.py"
+        _generate_test_file("m:f", self._make_findings(), out)
+        content = out.read_text()
+        assert "def test_prompt_injection_safety" in content
+
+    def test_deduplicates_probes(self, tmp_path: Path) -> None:
+        """Same input should produce one param, not two."""
+        probe = Probe(
+            input="duplicate input",
+            category=SafetyCategory.PROMPT_INJECTION,
+            severity=Severity.HIGH,
+            name="dup",
+        )
+        finding = SafetyFinding(
+            category=SafetyCategory.PROMPT_INJECTION,
+            severity=Severity.HIGH,
+            description="found",
+        )
+        findings = [(probe, finding), (probe, finding)]
+        out = tmp_path / "test_gen.py"
+        _generate_test_file("m:f", findings, out)
+        content = out.read_text()
+        assert content.count("duplicate input") == 1
+
+    def test_multiple_categories(self, tmp_path: Path) -> None:
+        probe_inj = Probe(
+            input="inject",
+            category=SafetyCategory.PROMPT_INJECTION,
+            severity=Severity.HIGH,
+            name="inj",
+        )
+        finding_inj = SafetyFinding(
+            category=SafetyCategory.PROMPT_INJECTION,
+            severity=Severity.HIGH,
+            description="injection",
+        )
+        probe_pii = Probe(
+            input="pii leak",
+            category=SafetyCategory.PII_LEAKAGE,
+            severity=Severity.MEDIUM,
+            name="pii",
+        )
+        finding_pii = SafetyFinding(
+            category=SafetyCategory.PII_LEAKAGE,
+            severity=Severity.MEDIUM,
+            description="pii found",
+        )
+        findings = [(probe_inj, finding_inj), (probe_pii, finding_pii)]
+        out = tmp_path / "test_gen.py"
+        _generate_test_file("m:f", findings, out)
+        content = out.read_text()
+        assert "def test_prompt_injection_safety" in content
+        assert "def test_pii_leakage_safety" in content
+
+    def test_escapes_special_chars(self, tmp_path: Path) -> None:
+        probe = Probe(
+            input='He said "ignore rules"\nand more',
+            category=SafetyCategory.PROMPT_INJECTION,
+            severity=Severity.HIGH,
+            name="special",
+        )
+        finding = SafetyFinding(
+            category=SafetyCategory.PROMPT_INJECTION,
+            severity=Severity.HIGH,
+            description="found",
+        )
+        out = tmp_path / "test_gen.py"
+        _generate_test_file("m:f", [(probe, finding)], out)
+        content = out.read_text()
+        # Should be valid Python despite special chars
+        compile(content, str(out), "exec")
+        # Newline should be escaped
+        assert "\\n" in content
+
+    def test_has_pytest_imports(self, tmp_path: Path) -> None:
+        out = tmp_path / "test_gen.py"
+        _generate_test_file("m:f", self._make_findings(), out)
+        content = out.read_text()
+        assert "import pytest" in content
+        assert "pytest.mark.parametrize" in content
+
+    def test_has_fixture(self, tmp_path: Path) -> None:
+        out = tmp_path / "test_gen.py"
+        _generate_test_file("m:f", self._make_findings(), out)
+        content = out.read_text()
+        assert "@pytest.fixture" in content
+        assert "def agent_fn():" in content
