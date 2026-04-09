@@ -73,7 +73,7 @@ class TestProbeSet:
     def test_empty_probe_set(self):
         ps = ProbeSet()
         assert len(ps) == 0
-        assert ps.all() == []
+        assert len(ps.all()) == 0
 
     def test_probe_set_len(self):
         ps = ProbeSet(self._make_probes(3))
@@ -84,12 +84,21 @@ class TestProbeSet:
         ps = ProbeSet(probes)
         assert list(ps) == probes
 
-    def test_probe_set_all_returns_copy(self):
+    def test_probe_set_all_returns_probe_set(self):
         probes = self._make_probes(3)
         ps = ProbeSet(probes)
         result = ps.all()
-        assert result == probes
-        assert result is not ps._probes  # noqa: SLF001
+        assert isinstance(result, ProbeSet)
+        assert list(result) == probes
+        assert result is not ps
+
+    def test_probe_set_all_composes_with_add(self):
+        """F-032: all() returns ProbeSet so + composition works."""
+        a = ProbeSet(self._make_probes(2), name="a")
+        b = ProbeSet(self._make_probes(3), name="b")
+        combined = a.all() + b.all()
+        assert isinstance(combined, ProbeSet)
+        assert len(combined) == 5
 
     def test_probe_set_add(self):
         a = ProbeSet(self._make_probes(2), name="a")
@@ -206,9 +215,9 @@ class TestDirectInjectionProbes:
         assert len(severities) >= 2
 
     def test_parametrize_compatible(self):
-        """Probes work with pytest.mark.parametrize."""
+        """Probes work with pytest.mark.parametrize (ProbeSet is iterable)."""
         params = injection.direct.all()
-        assert isinstance(params, list)
+        assert isinstance(params, ProbeSet)
         assert all(isinstance(p, Probe) for p in params)
 
 

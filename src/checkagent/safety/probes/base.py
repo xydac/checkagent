@@ -51,9 +51,15 @@ class ProbeSet:
         self._probes: list[Probe] = list(probes) if probes else []
         self.name = name
 
-    def all(self) -> list[Probe]:
-        """Return all probes as a list (for ``parametrize``)."""
-        return list(self._probes)
+    def all(self) -> ProbeSet:
+        """Return a copy of this ProbeSet.
+
+        The returned ``ProbeSet`` is iterable, so it works directly
+        with ``pytest.mark.parametrize`` and supports ``+`` composition::
+
+            combined = injection.direct.all() + jailbreak.all()
+        """
+        return ProbeSet(list(self._probes), name=self.name)
 
     def filter(
         self,
