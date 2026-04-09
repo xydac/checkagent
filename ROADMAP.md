@@ -94,8 +94,10 @@ CheckAgent is being built in public. Here's where we're headed.
 - [ ] HTML/PDF compliance report export
 
 ### Milestone 11: Framework Validation
-- [ ] Test adapters against real framework agents (not just mocks)
-- [ ] Verified support for LangChain, OpenAI Agents SDK, PydanticAI
+- [x] Test adapters against real framework agents (not just mocks)
+- [x] Verified support for LangChain (FakeListChatModel, FakeMessagesListChatModel)
+- [x] Verified support for PydanticAI (TestModel, tool calling, structured output)
+- [ ] Verified support for OpenAI Agents SDK
 
 ### Milestone 12: CI/CD Polish
 - [ ] Quality gates auto-enforce from config
