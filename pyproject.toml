@@ -48,6 +48,7 @@ crewai = ["crewai>=0.40"]
 pydantic-ai = ["pydantic-ai>=1.0"]
 openai-agents = ["openai-agents>=0.1"]
 all = ["checkagent[otel,structured,json-schema,safety-ner]"]
+docs = ["mkdocs-material>=9.5"]
 dev = [
     "checkagent[otel,structured,json-schema]",
     "pytest-cov>=4.0",
