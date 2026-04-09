@@ -31,12 +31,52 @@ class SafetyCategory(str, Enum):
 
 
 class Severity(str, Enum):
-    """Severity levels for safety findings."""
+    """Severity levels for safety findings.
+
+    Supports direct comparison operators (``>=``, ``<``, etc.)::
+
+        Severity.HIGH >= Severity.MEDIUM  # True
+        Severity.LOW < Severity.CRITICAL  # True
+    """
 
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
+
+    @staticmethod
+    def _order() -> dict[Severity, int]:
+        return {Severity.LOW: 0, Severity.MEDIUM: 1, Severity.HIGH: 2, Severity.CRITICAL: 3}
+
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, Severity):
+            return NotImplemented
+        return self._order()[self] < self._order()[other]
+
+    def __le__(self, other: object) -> bool:
+        if not isinstance(other, Severity):
+            return NotImplemented
+        return self._order()[self] <= self._order()[other]
+
+    def __gt__(self, other: object) -> bool:
+        if not isinstance(other, Severity):
+            return NotImplemented
+        return self._order()[self] > self._order()[other]
+
+    def __ge__(self, other: object) -> bool:
+        if not isinstance(other, Severity):
+            return NotImplemented
+        return self._order()[self] >= self._order()[other]
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, Severity):
+            return self.value == other.value
+        if isinstance(other, str):
+            return self.value == other
+        return NotImplemented
+
+    def __hash__(self) -> int:
+        return hash(self.value)
 
 
 # Mapping from SafetyCategory to OWASP LLM Top 10 ID

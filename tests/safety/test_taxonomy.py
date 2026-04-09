@@ -40,6 +40,35 @@ class TestSeverity:
         assert SEVERITY_ORDER[Severity.MEDIUM] < SEVERITY_ORDER[Severity.HIGH]
         assert SEVERITY_ORDER[Severity.HIGH] < SEVERITY_ORDER[Severity.CRITICAL]
 
+    def test_direct_comparison_lt(self):
+        """F-023: Severity enum should support direct < comparison."""
+        assert Severity.LOW < Severity.MEDIUM
+        assert Severity.MEDIUM < Severity.HIGH
+        assert Severity.HIGH < Severity.CRITICAL
+
+    def test_direct_comparison_ge(self):
+        """F-023: Severity enum should support direct >= comparison."""
+        assert Severity.CRITICAL >= Severity.HIGH
+        assert Severity.HIGH >= Severity.HIGH
+        assert Severity.HIGH >= Severity.MEDIUM
+        assert not (Severity.LOW >= Severity.MEDIUM)
+
+    def test_direct_comparison_le(self):
+        assert Severity.LOW <= Severity.LOW
+        assert Severity.LOW <= Severity.CRITICAL
+        assert not (Severity.CRITICAL <= Severity.HIGH)
+
+    def test_severity_equality_with_string(self):
+        """Severity should still compare equal to its string value."""
+        assert Severity.LOW == "low"
+        assert Severity.CRITICAL == "critical"
+
+    def test_severity_hashable(self):
+        """Severity values should be usable as dict keys and set members."""
+        s = {Severity.LOW, Severity.HIGH}
+        assert Severity.LOW in s
+        assert len(s) == 2
+
 
 class TestSeverityThreshold:
     def test_critical_meets_all_thresholds(self):
