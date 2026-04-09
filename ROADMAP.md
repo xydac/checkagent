@@ -110,10 +110,49 @@ CheckAgent is being built in public. Here's where we're headed.
 - [ ] Docs site live
 - [ ] 3+ framework adapters validated with real agents
 
+## Feature Arcs (Current Priority)
+
+### Arc A: First Impression (Cycles 094–098)
+
+Everything a new user touches in their first 5 minutes must work flawlessly.
+
+- **094:** Fix critical DX bugs — security issues in ToolCallBoundaryValidator (path traversal, prefix confusion), silent field drops in AgentRun/Step, broken replay passthrough mode
+- **095:** Top-level exports for all adapters and modules, `checkagent[all]` extra, verify README code examples run without errors
+- **096:** Error message polish — helpful error when passing string to AgentRun.input, case-insensitive ProbeSet.filter, Severity enum ordering, consistent method naming
+- **097:** End-to-end verification in clean virtualenv: `pip install checkagent && checkagent init && pytest` green, `checkagent demo` green, `checkagent scan` works
+- **098:** v0.1.0 PyPI publish, README final review, launch checklist
+
+### Arc B: Safety Badges (Cycles 099–102)
+
+A shareable safety score drives organic adoption.
+
+- **099:** Interactive TUI for `checkagent scan` with drill-down results (rich/textual)
+- **101:** HTML compliance report export + SVG safety badge generation
+- **102:** Docs page for scan-to-badge workflow, "Add to your README" instructions
+
+### Arc C: Zero-Config LLM Testing (Cycles 103–106)
+
+Use existing AI coding tool CLIs (Claude Code, etc.) as LLM providers — zero API key setup for eval and judge layers.
+
+- **103:** Provider backend that shells out to `claude --print` (user-configured, opt-in)
+- **104:** Integration with eval and judge layers
+- **105:** Innovation cycle
+- **106:** Demo and docs: "Run judge tests with zero API keys"
+
+### Arc D: CI That Works (Cycles 107–110)
+
+Enterprise adoption requires quality gates that enforce automatically.
+
+- **107:** Wire quality gates into pytest hooks (pytest_sessionfinish)
+- **108:** PR comment generation with eval metrics and regression detection
+- **109:** `checkagent ci-init` scaffolding command
+- **110:** Meta-review cycle
+
 ### Future
 - [ ] Local dashboard for test history and trends
 - [ ] Auto-instrumentation (one import, zero config)
 - [ ] Production trace import from more providers
+- [ ] Browser-based safety playground (Pyodide + GitHub Pages)
 
 ---
 
