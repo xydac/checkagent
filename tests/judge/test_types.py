@@ -50,6 +50,19 @@ class TestCriterion:
         with pytest.raises(ValueError):
             Criterion(name="x", description="y", weight=0.0)
 
+    def test_binary_default_scale(self):
+        """BINARY scale_type defaults to ['pass', 'fail'] not [1,2,3,4,5] (F-060)."""
+        c = Criterion(name="ok", description="is it ok?", scale_type=ScaleType.BINARY)
+        assert c.scale == ["pass", "fail"]
+
+    def test_binary_explicit_scale_preserved(self):
+        """Explicit scale on BINARY is not overridden."""
+        c = Criterion(
+            name="ok", description="x",
+            scale_type=ScaleType.BINARY, scale=["yes", "no"],
+        )
+        assert c.scale == ["yes", "no"]
+
 
 class TestRubric:
     def test_basic_rubric(self):
@@ -111,6 +124,16 @@ class TestJudgeScore:
     def test_overall_bounds(self):
         with pytest.raises(ValueError):
             JudgeScore(rubric_name="r", overall=1.5)
+
+    def test_passed_above_threshold(self):
+        """JudgeScore.passed returns True when overall >= 0.5 (F-058)."""
+        assert JudgeScore(rubric_name="r", overall=0.8).passed is True
+        assert JudgeScore(rubric_name="r", overall=0.5).passed is True
+
+    def test_passed_below_threshold(self):
+        """JudgeScore.passed returns False when overall < 0.5 (F-058)."""
+        assert JudgeScore(rubric_name="r", overall=0.3).passed is False
+        assert JudgeScore(rubric_name="r", overall=0.0).passed is False
 
 
 class TestVerdict:

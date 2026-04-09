@@ -37,6 +37,14 @@ class Criterion(BaseModel):
     scale: list[Any] = Field(default_factory=lambda: [1, 2, 3, 4, 5])
     weight: float = Field(default=1.0, gt=0.0)
 
+    def model_post_init(self, __context: Any) -> None:
+        """Set sensible default scale when using BINARY with default numeric scale."""
+        if (
+            self.scale_type == ScaleType.BINARY
+            and self.scale == [1, 2, 3, 4, 5]
+        ):
+            self.scale = ["pass", "fail"]
+
     @property
     def max_value(self) -> float:
         """Maximum numeric score for this criterion."""
@@ -100,6 +108,11 @@ class JudgeScore(BaseModel):
             if cs.criterion_name == criterion_name:
                 return cs
         return None
+
+    @property
+    def passed(self) -> bool:
+        """Whether the overall score meets or exceeds 0.5 (F-058)."""
+        return self.overall >= 0.5
 
 
 class Verdict(str, Enum):
