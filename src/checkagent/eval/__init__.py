@@ -22,12 +22,15 @@ from checkagent.eval.metrics import (
     tool_correctness,
     trajectory_match,
 )
+from checkagent.eval.resilience import ResilienceProfile, ScenarioResult
 
 __all__ = [
     "AggregateResult",
     "Evaluator",
     "EvaluatorRegistry",
+    "ResilienceProfile",
     "RunSummary",
+    "ScenarioResult",
     "StepStats",
     "StructuredAssertionError",
     "aggregate_scores",
