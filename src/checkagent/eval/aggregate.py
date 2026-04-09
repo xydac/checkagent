@@ -146,6 +146,17 @@ class RunSummary:
                 max_steps=s["max"],
             )
         summary.total_cost = data.get("total_cost")
+        for r in data.get("regressions", []):
+            summary.regressions.append(
+                RegressionResult(
+                    metric_name=r["metric_name"],
+                    current=r["current"],
+                    baseline=r["baseline"],
+                    delta=r["delta"],
+                    regressed=r["regressed"],
+                    threshold=r["threshold"],
+                )
+            )
         return summary
 
 

@@ -240,3 +240,35 @@ class TestRunSummary:
         assert loaded.aggregates == {}
         assert loaded.step_stats is None
         assert loaded.total_cost is None
+
+    def test_save_load_preserves_regressions(self, tmp_path):
+        """F-035: regressions must survive save/load round-trip."""
+        summary = RunSummary(
+            aggregates={
+                "task_completion": AggregateResult(
+                    "task_completion", 5, 0.8, 0.85, 0.1, 0.5, 1.0, 0.8
+                ),
+            },
+            regressions=[
+                RegressionResult(
+                    metric_name="task_completion",
+                    current=0.6,
+                    baseline=0.8,
+                    delta=-0.2,
+                    regressed=True,
+                    threshold=0.1,
+                ),
+            ],
+        )
+        path = tmp_path / "summary.json"
+        summary.save(path)
+
+        loaded = RunSummary.load(path)
+        assert len(loaded.regressions) == 1
+        r = loaded.regressions[0]
+        assert r.metric_name == "task_completion"
+        assert r.regressed is True
+        assert r.current == pytest.approx(0.6)
+        assert r.baseline == pytest.approx(0.8)
+        assert r.delta == pytest.approx(-0.2)
+        assert r.threshold == pytest.approx(0.1)
