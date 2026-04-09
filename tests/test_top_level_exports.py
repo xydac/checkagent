@@ -71,6 +71,56 @@ def test_adapters_importable_via_from_import():
     assert CrewAIAdapter is not None
 
 
+def test_datasets_importable():
+    """Dataset types are importable from top-level (F-063, F-067)."""
+    from checkagent import EvalCase, GoldenDataset, load_cases, load_dataset
+
+    assert GoldenDataset is not None
+    assert EvalCase is not None
+    assert callable(load_dataset)
+    assert callable(load_cases)
+
+
+def test_judge_importable():
+    """Judge types are importable from top-level (F-063)."""
+    from checkagent import Criterion, JudgeScore, RubricJudge
+
+    assert RubricJudge is not None
+    assert Criterion is not None
+    assert JudgeScore is not None
+
+
+def test_replay_importable():
+    """Replay types are importable from top-level."""
+    from checkagent import Cassette, ReplayEngine
+
+    assert Cassette is not None
+    assert ReplayEngine is not None
+
+
+def test_multiagent_importable():
+    """Multi-agent types are importable from top-level (F-068, F-071)."""
+    from checkagent import HandoffType, MultiAgentTrace
+
+    assert MultiAgentTrace is not None
+    assert HandoffType is not None
+
+
+def test_ci_importable():
+    """CI types are importable from top-level (F-030)."""
+    from checkagent import QualityGateEntry, TestRunSummary
+
+    assert QualityGateEntry is not None
+    assert TestRunSummary is not None
+
+
+def test_safety_importable():
+    """Safety types are importable from top-level."""
+    from checkagent import ProbeSet
+
+    assert ProbeSet is not None
+
+
 def test_all_list_matches_actual_exports():
     """__all__ contains every name we expect to be public."""
     expected = {
@@ -84,6 +134,20 @@ def test_all_list_matches_actual_exports():
         "MockLLM",
         "MockTool",
         "AgentRun",
+        "GoldenDataset",
+        "EvalCase",
+        "load_dataset",
+        "load_cases",
+        "RubricJudge",
+        "Criterion",
+        "JudgeScore",
+        "Cassette",
+        "ReplayEngine",
+        "MultiAgentTrace",
+        "HandoffType",
+        "QualityGateEntry",
+        "TestRunSummary",
+        "ProbeSet",
     }
     missing = expected - set(checkagent.__all__)
     assert not missing, f"Missing from __all__: {missing}"

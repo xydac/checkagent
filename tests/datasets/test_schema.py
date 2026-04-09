@@ -135,3 +135,18 @@ class TestGoldenDataset:
     def test_get_case_not_found(self):
         ds = GoldenDataset(cases=[EvalCase(id="t1", input="a")])
         assert ds.get_case("missing") is None
+
+    def test_version_coerces_int(self):
+        """Integer version values are coerced to str (F-012)."""
+        ds = GoldenDataset(version=2, cases=[])
+        assert ds.version == "2"
+
+    def test_version_coerces_float(self):
+        """Float version values are coerced to str (F-012)."""
+        ds = GoldenDataset(version=3.1, cases=[])
+        assert ds.version == "3.1"
+
+    def test_version_string_unchanged(self):
+        """String version values pass through unchanged."""
+        ds = GoldenDataset(version="1.0-beta", cases=[])
+        assert ds.version == "1.0-beta"

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class EvalCase(BaseModel):
@@ -53,6 +53,14 @@ class GoldenDataset(BaseModel):
     description: str = ""
     cases: list[EvalCase]
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("version", mode="before")
+    @classmethod
+    def _coerce_version(cls, v: Any) -> str:
+        """Accept int/float version values (e.g. YAML ``version: 2``)."""
+        if isinstance(v, (int, float)):
+            return str(v)
+        return v
 
     @model_validator(mode="after")
     def _validate_unique_ids(self) -> GoldenDataset:
