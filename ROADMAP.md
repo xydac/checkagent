@@ -97,7 +97,7 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] Test adapters against real framework agents (not just mocks)
 - [x] Verified support for LangChain (FakeListChatModel, FakeMessagesListChatModel)
 - [x] Verified support for PydanticAI (TestModel, tool calling, structured output)
-- [ ] Verified support for OpenAI Agents SDK
+- [x] Verified support for OpenAI Agents SDK (FakeModel, tool calling, streaming)
 
 ### Milestone 12: CI/CD Polish
 - [ ] Quality gates auto-enforce from config
