@@ -42,6 +42,7 @@ otel = ["opentelemetry-api>=1.20"]
 json-schema = ["jsonschema>=4.0"]
 structured = ["dirty-equals>=0.7", "deepdiff>=7.0"]
 safety-ner = ["spacy>=3.7"]
+all = ["checkagent[otel,structured,json-schema,safety-ner]"]
 dev = [
     "checkagent[otel,structured,json-schema]",
     "pytest-cov>=4.0",
