@@ -23,7 +23,7 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] Multi-turn conversation fixture (`ca_conversation`)
 - [x] Streaming support: `StreamCollector`, `ca_stream_collector`, stream event assertions
 - [x] MCP-aware mock server
-- [ ] PyPI v0.1.0 — **public alpha**
+- [x] PyPI v0.1.0 — **public alpha**
 
 ## Phase 2: Make It Useful for Real Agents
 
@@ -105,10 +105,15 @@ CheckAgent is being built in public. Here's where we're headed.
 - [ ] `checkagent ci-init` for easy CI setup
 
 ### Milestone 13: v0.1.0 Launch
-- [ ] PyPI v0.1.0
-- [ ] All README examples verified working
-- [ ] Docs site live
-- [ ] 3+ framework adapters validated with real agents
+- [x] PyPI v0.1.0 published
+- [x] All README examples verified working
+- [x] Docs site live
+- [x] 3+ framework adapters validated with real agents
+- [x] Fixture naming matches branding (`ca_` prefix)
+- [x] Async auto-configuration (zero-config pytest-asyncio)
+- [ ] PyPI v0.1.1 published with asyncio fix
+- [ ] Demo animation on README (terminal recording)
+- [ ] End-to-end validation from clean `pip install`
 
 ### Future
 - [ ] Interactive TUI for `checkagent scan` with drill-down results
@@ -118,6 +123,7 @@ CheckAgent is being built in public. Here's where we're headed.
 - [ ] Auto-instrumentation (one import, zero config)
 - [ ] Production trace import from more providers
 - [ ] Browser-based safety playground
+- [ ] HTML/PDF compliance report export from scan results
 
 ---
 
