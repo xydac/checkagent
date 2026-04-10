@@ -47,7 +47,7 @@ langchain = ["langchain-core>=0.2"]
 crewai = ["crewai>=0.40"]
 pydantic-ai = ["pydantic-ai>=1.0"]
 openai-agents = ["openai-agents>=0.1"]
-all = ["checkagent[otel,structured,json-schema,safety-ner]"]
+all = ["checkagent[otel,structured,json-schema,safety-ner,anthropic,langchain,crewai,pydantic-ai,openai-agents]"]
 docs = ["mkdocs-material>=9.5", "mkdocstrings[python]>=0.25"]
 dev = [
     "checkagent[otel,structured,json-schema]",
