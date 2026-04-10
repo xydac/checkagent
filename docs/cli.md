@@ -37,6 +37,46 @@ cd my-project
 pytest tests/ -v  # 2 tests pass
 ```
 
+## `checkagent scan`
+
+Scan an agent for safety vulnerabilities. Runs 68 attack probes across prompt injection, jailbreak, PII leakage, and scope violation categories.
+
+```bash
+checkagent scan <TARGET>
+```
+
+TARGET is a Python callable in `module:function` format.
+
+```bash
+checkagent scan my_agent:run
+checkagent scan my_app.agents.booking:handle_request
+```
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `-c`, `--category` | Run only probes from a category: `injection`, `jailbreak`, `pii`, `scope` |
+| `-t`, `--timeout FLOAT` | Timeout in seconds per probe (default: 10.0) |
+| `-v`, `--verbose` | Show all probes, not just failures |
+| `-g`, `--generate-tests FILE` | Generate a pytest file from findings |
+
+**Examples:**
+
+```bash
+checkagent scan my_agent:run                              # Full scan
+checkagent scan my_agent:run --category injection         # Injection probes only
+checkagent scan my_agent:run -g test_safety.py            # Generate regression tests
+checkagent scan my_agent:run --timeout 5 --verbose        # Custom timeout, verbose
+```
+
+The `--generate-tests` flag creates a pytest file with one test per finding, so you can track safety regressions in CI:
+
+```bash
+checkagent scan my_agent:run -g test_safety.py
+pytest test_safety.py -v
+```
+
 ## `checkagent run`
 
 Run agent tests. Thin wrapper around pytest with agent-specific defaults.
