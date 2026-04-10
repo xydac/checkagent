@@ -4,7 +4,7 @@ Simulates a Model Context Protocol server that handles JSON-RPC 2.0 messages.
 Agents can register tools, call them, and list available tools through the
 standard MCP protocol interface.
 
-Implements F1.2 (MCP-aware) and F1.5 (ap_mock_mcp_server fixture) from the PRD.
+Implements F1.2 (MCP-aware) and F1.5 (ca_mock_mcp_server fixture) from the PRD.
 """
 
 from __future__ import annotations

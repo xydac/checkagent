@@ -71,57 +71,57 @@ _config_key = config_key  # internal alias
 
 
 @pytest.fixture
-def ap_mock_llm() -> MockLLM:
+def ca_mock_llm() -> MockLLM:
     """A fresh MockLLM instance for each test.
 
     Configure with the fluent API::
 
-        async def test_agent(ap_mock_llm):
-            ap_mock_llm.on_input(contains="weather").respond("It's sunny")
-            response = await ap_mock_llm.complete("What's the weather?")
+        async def test_agent(ca_mock_llm):
+            ca_mock_llm.on_input(contains="weather").respond("It's sunny")
+            response = await ca_mock_llm.complete("What's the weather?")
             assert response == "It's sunny"
-            assert ap_mock_llm.call_count == 1
+            assert ca_mock_llm.call_count == 1
     """
     return MockLLM()
 
 
 @pytest.fixture
-def ap_mock_tool() -> MockTool:
+def ca_mock_tool() -> MockTool:
     """A fresh MockTool instance for each test.
 
     Register tools with the fluent API::
 
-        async def test_agent(ap_mock_tool):
-            ap_mock_tool.on_call("get_weather").respond({"temp": 72})
-            result = await ap_mock_tool.call("get_weather", {"city": "NYC"})
-            ap_mock_tool.assert_tool_called("get_weather")
+        async def test_agent(ca_mock_tool):
+            ca_mock_tool.on_call("get_weather").respond({"temp": 72})
+            result = await ca_mock_tool.call("get_weather", {"city": "NYC"})
+            ca_mock_tool.assert_tool_called("get_weather")
     """
     return MockTool()
 
 
 @pytest.fixture
-def ap_fault() -> FaultInjector:
+def ca_fault() -> FaultInjector:
     """A fresh FaultInjector instance for each test.
 
     Configure faults using the fluent API::
 
-        def test_resilience(ap_fault):
-            ap_fault.on_tool("search").timeout(5)
-            ap_fault.on_llm().rate_limit(after_n=3)
+        def test_resilience(ca_fault):
+            ca_fault.on_tool("search").timeout(5)
+            ca_fault.on_llm().rate_limit(after_n=3)
             # ... run agent and assert graceful degradation
     """
     return FaultInjector()
 
 
 @pytest.fixture
-def ap_conversation() -> Conversation:
+def ca_conversation() -> Conversation:
     """A conversation factory fixture for multi-turn testing.
 
     Returns a ``Conversation`` constructor. Pass your agent function
     to create a session::
 
-        async def test_multi_turn(ap_conversation):
-            conv = ap_conversation(my_agent_fn)
+        async def test_multi_turn(ca_conversation):
+            conv = ca_conversation(my_agent_fn)
             r1 = await conv.say("Hello")
             r2 = await conv.say("What did I just say?")
             assert conv.total_turns == 2
@@ -133,54 +133,54 @@ def ap_conversation() -> Conversation:
 
 
 @pytest.fixture
-def ap_stream_collector() -> StreamCollector:
+def ca_stream_collector() -> StreamCollector:
     """A fresh StreamCollector instance for each test.
 
     Collects streaming events and provides assertion helpers::
 
-        async def test_streaming(ap_mock_llm, ap_stream_collector):
-            ap_mock_llm.on_input(contains="hello").stream(["Hi ", "there!"])
-            await ap_stream_collector.collect_from(ap_mock_llm.stream("hello"))
-            assert ap_stream_collector.aggregated_text == "Hi there!"
-            assert ap_stream_collector.total_chunks == 2
+        async def test_streaming(ca_mock_llm, ca_stream_collector):
+            ca_mock_llm.on_input(contains="hello").stream(["Hi ", "there!"])
+            await ca_stream_collector.collect_from(ca_mock_llm.stream("hello"))
+            assert ca_stream_collector.aggregated_text == "Hi there!"
+            assert ca_stream_collector.total_chunks == 2
     """
     return StreamCollector()
 
 
 @pytest.fixture
-def ap_mock_mcp_server() -> MockMCPServer:
+def ca_mock_mcp_server() -> MockMCPServer:
     """A fresh MockMCPServer instance for each test.
 
     Simulates an MCP server for testing MCP-aware agents::
 
-        async def test_mcp_agent(ap_mock_mcp_server):
-            ap_mock_mcp_server.register_tool("search", response={"results": []})
-            resp = await ap_mock_mcp_server.handle_message({
+        async def test_mcp_agent(ca_mock_mcp_server):
+            ca_mock_mcp_server.register_tool("search", response={"results": []})
+            resp = await ca_mock_mcp_server.handle_message({
                 "jsonrpc": "2.0", "id": 1, "method": "tools/call",
                 "params": {"name": "search", "arguments": {"q": "test"}},
             })
-            ap_mock_mcp_server.assert_tool_called("search")
+            ca_mock_mcp_server.assert_tool_called("search")
     """
     return MockMCPServer()
 
 
 @pytest.fixture
-def ap_safety() -> dict[str, object]:
+def ca_safety() -> dict[str, object]:
     """Safety evaluator instances for testing agent outputs.
 
     Provides all built-in safety evaluators::
 
-        def test_agent_safety(ap_safety):
-            result = ap_safety["injection"].evaluate(agent_output)
+        def test_agent_safety(ca_safety):
+            result = ca_safety["injection"].evaluate(agent_output)
             assert result.passed
 
-            result = ap_safety["pii"].evaluate(agent_output)
+            result = ca_safety["pii"].evaluate(agent_output)
             assert result.passed
 
-            result = ap_safety["tool_boundary"].evaluate_run(agent_run)
+            result = ca_safety["tool_boundary"].evaluate_run(agent_run)
             assert result.passed
 
-            result = ap_safety["refusal"].evaluate(agent_output)
+            result = ca_safety["refusal"].evaluate(agent_output)
             assert result.passed
     """
     return {
@@ -193,14 +193,14 @@ def ap_safety() -> dict[str, object]:
 
 
 @pytest.fixture
-def ap_judge() -> Callable[..., RubricJudge]:
+def ca_judge() -> Callable[..., RubricJudge]:
     """Factory fixture for creating RubricJudge instances.
 
     Returns a factory that creates judges from a rubric and LLM callable::
 
-        async def test_judge(ap_judge):
+        async def test_judge(ca_judge):
             rubric = Rubric(name="quality", criteria=[...])
-            judge = ap_judge(rubric, my_llm_callable)
+            judge = ca_judge(rubric, my_llm_callable)
             score = await judge.evaluate(run)
             assert score.overall >= 0.7
 
@@ -221,7 +221,7 @@ def ap_judge() -> Callable[..., RubricJudge]:
 
 
 @pytest.fixture
-def ap_config(request: pytest.FixtureRequest) -> CheckAgentConfig:
+def ca_config(request: pytest.FixtureRequest) -> CheckAgentConfig:
     """Access the loaded CheckAgent configuration."""
     return request.config.stash[_config_key]
 

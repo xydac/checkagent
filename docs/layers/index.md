@@ -10,11 +10,11 @@ Replace LLMs and tools with deterministic mocks. Test your agent's logic without
 
 ```python
 @pytest.mark.agent_test(layer="mock")
-async def test_agent_uses_correct_tool(ap_mock_llm, ap_mock_tool):
-    ap_mock_llm.on_input(contains="schedule").respond("I'll create an event.")
-    ap_mock_tool.on_call("create_event").respond({"id": "evt-1"})
+async def test_agent_uses_correct_tool(ca_mock_llm, ca_mock_tool):
+    ca_mock_llm.on_input(contains="schedule").respond("I'll create an event.")
+    ca_mock_tool.on_call("create_event").respond({"id": "evt-1"})
 
-    result = await my_agent("Schedule a meeting", llm=ap_mock_llm, tools=ap_mock_tool)
+    result = await my_agent("Schedule a meeting", llm=ca_mock_llm, tools=ca_mock_tool)
     assert_tool_called(result, "create_event")
 ```
 

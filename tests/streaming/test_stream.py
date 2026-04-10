@@ -342,16 +342,16 @@ class TestStreamCollectorAssertions:
 
 
 class TestStreamFixtures:
-    """Test the ap_stream_collector fixture."""
+    """Test the ca_stream_collector fixture."""
 
-    async def test_fixture_provides_collector(self, ap_stream_collector):
-        assert isinstance(ap_stream_collector, StreamCollector)
-        assert ap_stream_collector.total_events == 0
+    async def test_fixture_provides_collector(self, ca_stream_collector):
+        assert isinstance(ca_stream_collector, StreamCollector)
+        assert ca_stream_collector.total_events == 0
 
-    async def test_fixture_with_mock_llm(self, ap_mock_llm, ap_stream_collector):
-        ap_mock_llm.stream_response("hello", ["Hi ", "there!"])
-        await ap_stream_collector.collect_from(ap_mock_llm.stream("hello"))
+    async def test_fixture_with_mock_llm(self, ca_mock_llm, ca_stream_collector):
+        ca_mock_llm.stream_response("hello", ["Hi ", "there!"])
+        await ca_stream_collector.collect_from(ca_mock_llm.stream("hello"))
 
-        assert ap_stream_collector.aggregated_text == "Hi there!"
-        assert ap_stream_collector.total_chunks == 2
-        assert ap_mock_llm.call_count == 1
+        assert ca_stream_collector.aggregated_text == "Hi there!"
+        assert ca_stream_collector.total_chunks == 2
+        assert ca_mock_llm.call_count == 1

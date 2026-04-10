@@ -50,13 +50,13 @@ async def my_agent(query: str, *, llm, tools):
     )
 
 @pytest.mark.agent_test(layer="mock")
-async def test_my_agent(ap_mock_llm, ap_mock_tool):
+async def test_my_agent(ca_mock_llm, ca_mock_tool):
     # Set up deterministic responses
-    ap_mock_llm.on_input(contains="weather").respond("Let me search for that.")
-    ap_mock_tool.on_call("search").respond({"temp": 72, "unit": "F"})
+    ca_mock_llm.on_input(contains="weather").respond("Let me search for that.")
+    ca_mock_tool.on_call("search").respond({"temp": 72, "unit": "F"})
 
     # Run your agent
-    result = await my_agent("What's the weather?", llm=ap_mock_llm, tools=ap_mock_tool)
+    result = await my_agent("What's the weather?", llm=ca_mock_llm, tools=ca_mock_tool)
 
     # Assert on the result
     assert result.succeeded
@@ -120,12 +120,12 @@ CheckAgent provides fixtures with the `ap_` prefix:
 
 | Fixture | Purpose |
 |---------|---------|
-| `ap_mock_llm` | Mock LLM with pattern-based responses |
-| `ap_mock_tool` | Mock tool with schema validation and call recording |
-| `ap_fault` | Fault injection (timeouts, rate limits, errors) |
-| `ap_conversation` | Multi-turn conversation session |
-| `ap_stream_collector` | Streaming event collector |
-| `ap_safety` | Safety assertion helpers |
+| `ca_mock_llm` | Mock LLM with pattern-based responses |
+| `ca_mock_tool` | Mock tool with schema validation and call recording |
+| `ca_fault` | Fault injection (timeouts, rate limits, errors) |
+| `ca_conversation` | Multi-turn conversation session |
+| `ca_stream_collector` | Streaming event collector |
+| `ca_safety` | Safety assertion helpers |
 
 ## What's Next?
 

@@ -59,9 +59,9 @@ class ToolFaultBuilder:
 
     Usage::
 
-        ap_fault.on_tool("search").timeout(5)
-        ap_fault.on_tool("search").rate_limit(after_n=3)
-        ap_fault.on_tool("search").intermittent(fail_rate=0.3, seed=42)
+        ca_fault.on_tool("search").timeout(5)
+        ca_fault.on_tool("search").rate_limit(after_n=3)
+        ca_fault.on_tool("search").intermittent(fail_rate=0.3, seed=42)
     """
 
     def __init__(self, injector: FaultInjector, tool_name: str) -> None:
@@ -126,9 +126,9 @@ class LLMFaultBuilder:
 
     Usage::
 
-        ap_fault.on_llm().context_overflow()
-        ap_fault.on_llm().rate_limit(after_n=5)
-        ap_fault.on_llm().server_error()
+        ca_fault.on_llm().context_overflow()
+        ca_fault.on_llm().rate_limit(after_n=5)
+        ca_fault.on_llm().server_error()
     """
 
     def __init__(self, injector: FaultInjector) -> None:

@@ -135,68 +135,68 @@ class TestConfigIntegration:
         cfg = pytestconfig.stash[_config_key]
         assert isinstance(cfg, CheckAgentConfig)
 
-    def test_ap_config_fixture(self, ap_config):
-        """The ap_config fixture returns the loaded config."""
-        assert isinstance(ap_config, CheckAgentConfig)
-        assert ap_config.version == 1
+    def test_ca_config_fixture(self, ca_config):
+        """The ca_config fixture returns the loaded config."""
+        assert isinstance(ca_config, CheckAgentConfig)
+        assert ca_config.version == 1
 
 class TestMockLLMFixture:
-    """The ap_mock_llm fixture provides a fresh MockLLM per test."""
+    """The ca_mock_llm fixture provides a fresh MockLLM per test."""
 
-    def test_ap_mock_llm_returns_mock_llm(self, ap_mock_llm):
-        assert isinstance(ap_mock_llm, MockLLM)
+    def test_ca_mock_llm_returns_mock_llm(self, ca_mock_llm):
+        assert isinstance(ca_mock_llm, MockLLM)
 
-    def test_ap_mock_llm_is_fresh(self, ap_mock_llm):
+    def test_ca_mock_llm_is_fresh(self, ca_mock_llm):
         """Each test gets a clean MockLLM with no rules or calls."""
-        assert ap_mock_llm.call_count == 0
-        assert len(ap_mock_llm._rules) == 0
+        assert ca_mock_llm.call_count == 0
+        assert len(ca_mock_llm._rules) == 0
 
     @pytest.mark.asyncio
-    async def test_ap_mock_llm_works_in_async_test(self, ap_mock_llm):
-        ap_mock_llm.add_rule("hello", "world")
-        result = await ap_mock_llm.complete("hello")
+    async def test_ca_mock_llm_works_in_async_test(self, ca_mock_llm):
+        ca_mock_llm.add_rule("hello", "world")
+        result = await ca_mock_llm.complete("hello")
         assert result == "world"
 
 
 class TestMockToolFixture:
-    """The ap_mock_tool fixture provides a fresh MockTool per test."""
+    """The ca_mock_tool fixture provides a fresh MockTool per test."""
 
-    def test_ap_mock_tool_returns_mock_tool(self, ap_mock_tool):
-        assert isinstance(ap_mock_tool, MockTool)
+    def test_ca_mock_tool_returns_mock_tool(self, ca_mock_tool):
+        assert isinstance(ca_mock_tool, MockTool)
 
-    def test_ap_mock_tool_is_fresh(self, ap_mock_tool):
+    def test_ca_mock_tool_is_fresh(self, ca_mock_tool):
         """Each test gets a clean MockTool with no tools or calls."""
-        assert ap_mock_tool.call_count == 0
-        assert ap_mock_tool.registered_tools == []
+        assert ca_mock_tool.call_count == 0
+        assert ca_mock_tool.registered_tools == []
 
     @pytest.mark.asyncio
-    async def test_ap_mock_tool_works_in_async_test(self, ap_mock_tool):
-        ap_mock_tool.register("greet", response="hello")
-        result = await ap_mock_tool.call("greet")
+    async def test_ca_mock_tool_works_in_async_test(self, ca_mock_tool):
+        ca_mock_tool.register("greet", response="hello")
+        result = await ca_mock_tool.call("greet")
         assert result == "hello"
-        ap_mock_tool.assert_tool_called("greet")
+        ca_mock_tool.assert_tool_called("greet")
 
 
 class TestFaultInjectorFixture:
-    """The ap_fault fixture provides a fresh FaultInjector per test."""
+    """The ca_fault fixture provides a fresh FaultInjector per test."""
 
-    def test_ap_fault_returns_fault_injector(self, ap_fault):
-        assert isinstance(ap_fault, FaultInjector)
+    def test_ca_fault_returns_fault_injector(self, ca_fault):
+        assert isinstance(ca_fault, FaultInjector)
 
-    def test_ap_fault_is_fresh(self, ap_fault):
+    def test_ca_fault_is_fresh(self, ca_fault):
         """Each test gets a clean FaultInjector with no faults or records."""
-        assert ap_fault.trigger_count == 0
-        assert ap_fault.records == []
-        assert not ap_fault.has_llm_faults()
+        assert ca_fault.trigger_count == 0
+        assert ca_fault.records == []
+        assert not ca_fault.has_llm_faults()
 
     @pytest.mark.asyncio
-    async def test_ap_fault_works_in_async_test(self, ap_fault):
+    async def test_ca_fault_works_in_async_test(self, ca_fault):
         from checkagent.mock.fault import ToolTimeoutError
 
-        ap_fault.on_tool("search").timeout(5)
+        ca_fault.on_tool("search").timeout(5)
         with pytest.raises(ToolTimeoutError):
-            await ap_fault.check_tool_async("search")
-        assert ap_fault.trigger_count == 1
+            await ca_fault.check_tool_async("search")
+        assert ca_fault.trigger_count == 1
 
 
 class TestCustomConfigFile:

@@ -111,14 +111,14 @@ async def booking_agent(query, *, llm, tools):
 
 # Test with zero LLM cost, deterministic, milliseconds
 @pytest.mark.agent_test(layer="mock")
-async def test_booking(ap_mock_llm, ap_mock_tool):
-    ap_mock_llm.on_input(contains="book").respond("Booking your meeting now.")
-    ap_mock_tool.on_call("create_event").respond(
+async def test_booking(ca_mock_llm, ca_mock_tool):
+    ca_mock_llm.on_input(contains="book").respond("Booking your meeting now.")
+    ca_mock_tool.on_call("create_event").respond(
         {"confirmed": True, "event_id": "evt-123"}
     )
 
     result = await booking_agent(
-        "Book a meeting", llm=ap_mock_llm, tools=ap_mock_tool
+        "Book a meeting", llm=ca_mock_llm, tools=ca_mock_tool
     )
 
     assert_tool_called(result, "create_event", title="Meeting")
@@ -131,13 +131,13 @@ async def test_booking(ap_mock_llm, ap_mock_tool):
 
 ```python
 @pytest.mark.agent_test(layer="mock")
-async def test_agent_handles_timeout(ap_mock_llm, ap_mock_tool, ap_fault):
-    ap_fault.on_tool("search").timeout(seconds=5.0)
-    ap_mock_tool.register("search")
-    ap_mock_tool.attach_faults(ap_fault)  # faults fire automatically on tool calls
-    ap_mock_llm.on_input(contains="search").respond("Searching...")
+async def test_agent_handles_timeout(ca_mock_llm, ca_mock_tool, ca_fault):
+    ca_fault.on_tool("search").timeout(seconds=5.0)
+    ca_mock_tool.register("search")
+    ca_mock_tool.attach_faults(ca_fault)  # faults fire automatically on tool calls
+    ca_mock_llm.on_input(contains="search").respond("Searching...")
 
-    result = await my_agent("Find docs", llm=ap_mock_llm, tools=ap_mock_tool)
+    result = await my_agent("Find docs", llm=ca_mock_llm, tools=ca_mock_tool)
     assert result.error is not None  # agent should handle the timeout
 ```
 
@@ -152,7 +152,7 @@ class BookingResponse(BaseModel):
     event_id: str
 
 @pytest.mark.agent_test(layer="mock")
-async def test_output_structure(ap_mock_llm, ap_mock_tool):
+async def test_output_structure(ca_mock_llm, ca_mock_tool):
     # ... run agent ...
     assert_output_schema(result, BookingResponse)
     assert_output_matches(result, {"confirmed": True})

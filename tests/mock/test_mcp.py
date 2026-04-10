@@ -477,19 +477,19 @@ class TestReset:
 # ---------------------------------------------------------------------------
 
 class TestFixture:
-    """Test the ap_mock_mcp_server fixture."""
+    """Test the ca_mock_mcp_server fixture."""
 
-    def test_fixture_provides_fresh_instance(self, ap_mock_mcp_server):
-        assert isinstance(ap_mock_mcp_server, MockMCPServer)
-        assert ap_mock_mcp_server.call_count == 0
-        assert ap_mock_mcp_server.registered_tools == []
+    def test_fixture_provides_fresh_instance(self, ca_mock_mcp_server):
+        assert isinstance(ca_mock_mcp_server, MockMCPServer)
+        assert ca_mock_mcp_server.call_count == 0
+        assert ca_mock_mcp_server.registered_tools == []
 
     @pytest.mark.asyncio
-    async def test_fixture_is_functional(self, ap_mock_mcp_server):
-        ap_mock_mcp_server.register_tool("test", response="ok")
-        resp = await ap_mock_mcp_server.handle_message({
+    async def test_fixture_is_functional(self, ca_mock_mcp_server):
+        ca_mock_mcp_server.register_tool("test", response="ok")
+        resp = await ca_mock_mcp_server.handle_message({
             "jsonrpc": "2.0", "id": 1, "method": "tools/call",
             "params": {"name": "test", "arguments": {}},
         })
         assert resp["result"]["content"][0]["text"] == "ok"
-        ap_mock_mcp_server.assert_tool_called("test")
+        ca_mock_mcp_server.assert_tool_called("test")

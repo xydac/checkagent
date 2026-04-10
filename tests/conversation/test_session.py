@@ -435,17 +435,17 @@ class TestReset:
         assert received[1].conversation_history == []
 
 
-# --- Test: ap_conversation fixture ---
+# --- Test: ca_conversation fixture ---
 
 
 class TestFixture:
-    def test_fixture_returns_conversation_class(self, ap_conversation):
-        """ap_conversation fixture returns the Conversation class."""
-        assert ap_conversation is Conversation
+    def test_fixture_returns_conversation_class(self, ca_conversation):
+        """ca_conversation fixture returns the Conversation class."""
+        assert ca_conversation is Conversation
 
-    async def test_fixture_creates_working_conversation(self, ap_conversation):
+    async def test_fixture_creates_working_conversation(self, ca_conversation):
         """Can create a working Conversation from the fixture."""
-        conv = ap_conversation(make_agent_fn("Fixture works!"))
+        conv = ca_conversation(make_agent_fn("Fixture works!"))
         result = await conv.say("Hello")
         assert result.final_output == "Fixture works!"
         assert conv.total_turns == 1

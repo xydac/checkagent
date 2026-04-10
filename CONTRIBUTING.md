@@ -24,7 +24,7 @@ pytest tests/
 ## Code Conventions
 
 - **Async-first** — all agent-facing APIs use `async def`
-- **Fixtures** use `ap_` prefix (e.g., `ap_mock_llm`, `ap_fault`)
+- **Fixtures** use `ca_` prefix (e.g., `ca_mock_llm`, `ca_fault`)
 - **Adapters** stay under 200 lines — thin wrappers, not deep integrations
 - **Types** go in `src/checkagent/core/types.py`
 - **Tests** mirror the source layout in `tests/`
