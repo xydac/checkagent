@@ -8,6 +8,8 @@ Usage::
     checkagent scan my_module:agent_fn
     checkagent scan my_module:agent_fn --category injection
     checkagent scan my_module:agent_fn --timeout 5
+    checkagent scan my_module:agent_fn --json
+    checkagent scan my_module:agent_fn --badge badge.svg
 
 Implements Milestone 10 (F11.3 scan CLI).
 """
@@ -16,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import json as json_mod
 import sys
 import time
 from collections import defaultdict
@@ -298,12 +301,25 @@ def _generate_test_file(
     default=None,
     help="Generate a pytest file from findings. Pass a file path (e.g. test_safety.py).",
 )
+@click.option(
+    "--json", "json_output",
+    is_flag=True,
+    help="Output results as JSON to stdout (suppresses Rich display).",
+)
+@click.option(
+    "--badge",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help="Generate a shields.io-style SVG badge (e.g. --badge badge.svg).",
+)
 def scan_cmd(
     target: str,
     category: str | None,
     timeout: float,
     verbose: bool,
     generate_tests: str | None,
+    json_output: bool,
+    badge: str | None,
 ) -> None:
     """Scan an agent for safety vulnerabilities.
 
@@ -316,13 +332,16 @@ def scan_cmd(
         checkagent scan my_agent:run --category injection
         checkagent scan my_agent:run --timeout 5 --verbose
     """
-    console.print()
-    console.print(Panel.fit(
+    # Use a quiet console for JSON mode (suppresses Rich output)
+    out_console = Console(quiet=True) if json_output else console
+
+    out_console.print()
+    out_console.print(Panel.fit(
         "[bold]CheckAgent Safety Scan[/bold]\n"
         f"Target: [cyan]{target}[/cyan]",
         border_style="blue",
     ))
-    console.print()
+    out_console.print()
 
     # Resolve the callable
     agent_fn = _resolve_callable(target)
@@ -331,17 +350,17 @@ def scan_cmd(
     if category:
         probes = _PROBE_SETS.get(category, [])
         if not probes:
-            console.print(f"[yellow]No probes found for category '{category}'.[/yellow]")
+            out_console.print(f"[yellow]No probes found for category '{category}'.[/yellow]")
             sys.exit(0)
-        console.print(f"[blue]Running {len(probes)} {category} probes...[/blue]")
+        out_console.print(f"[blue]Running {len(probes)} {category} probes...[/blue]")
     else:
         probes = []
         for cat_probes in _PROBE_SETS.values():
             probes.extend(cat_probes)
         msg = f"Running {len(probes)} probes across {len(_PROBE_SETS)} categories..."
-        console.print(f"[blue]{msg}[/blue]")
+        out_console.print(f"[blue]{msg}[/blue]")
 
-    console.print()
+    out_console.print()
 
     # Run probes
     start_time = time.monotonic()
@@ -374,28 +393,58 @@ def scan_cmd(
         else:
             passed += 1
 
-    # Display results
-    _display_results(
-        total=total,
-        passed=passed,
-        failed=failed,
-        errors=errors,
-        elapsed=elapsed,
-        all_findings=all_findings,
-        findings_by_category=findings_by_category,
-        verbose=verbose,
-    )
+    # JSON output mode
+    if json_output:
+        print(json_mod.dumps(
+            _build_json_report(
+                target=target,
+                total=total,
+                passed=passed,
+                failed=failed,
+                errors=errors,
+                elapsed=elapsed,
+                all_findings=all_findings,
+            ),
+            indent=2,
+        ))
+    else:
+        # Rich display
+        _display_results(
+            total=total,
+            passed=passed,
+            failed=failed,
+            errors=errors,
+            elapsed=elapsed,
+            all_findings=all_findings,
+            findings_by_category=findings_by_category,
+            verbose=verbose,
+        )
+
+    # Generate badge
+    if badge:
+        from checkagent.cli.badge import write_badge
+
+        badge_path = write_badge(
+            badge,
+            passed=passed,
+            failed=failed,
+            errors=errors,
+        )
+        if not json_output:
+            out_console.print(
+                f"\n[green]Badge written → [bold]{badge_path}[/bold][/green]"
+            )
 
     # Generate test file from findings
     if generate_tests and all_findings:
         out_path = Path(generate_tests)
         _generate_test_file(target, all_findings, out_path)
-        console.print(
+        out_console.print(
             f"\n[green]Generated {len(all_findings)} test(s) → [bold]{out_path}[/bold][/green]"
         )
-        console.print(f"  Run with: [cyan]pytest {out_path} -v[/cyan]\n")
+        out_console.print(f"  Run with: [cyan]pytest {out_path} -v[/cyan]\n")
     elif generate_tests and not all_findings:
-        console.print("\n[dim]No findings to generate tests from.[/dim]\n")
+        out_console.print("\n[dim]No findings to generate tests from.[/dim]\n")
 
     # Exit with non-zero if any findings
     if all_findings:
@@ -415,6 +464,43 @@ async def _run_all_probes(
             return await _run_probe(agent_fn, probe, timeout)
 
     return await asyncio.gather(*[_limited(p) for p in probes])
+
+
+def _build_json_report(
+    *,
+    target: str,
+    total: int,
+    passed: int,
+    failed: int,
+    errors: int,
+    elapsed: float,
+    all_findings: list[tuple[Probe, SafetyFinding]],
+) -> dict:
+    """Build a structured JSON report from scan results."""
+    findings_list = []
+    for probe, finding in all_findings:
+        findings_list.append({
+            "probe": probe.name or probe.input[:60],
+            "category": finding.category.value,
+            "severity": finding.severity.value,
+            "description": finding.description,
+            "input": probe.input,
+        })
+
+    score = passed / total if total > 0 else 0.0
+
+    return {
+        "target": target,
+        "summary": {
+            "total": total,
+            "passed": passed,
+            "failed": failed,
+            "errors": errors,
+            "score": round(score, 4),
+            "elapsed_seconds": round(elapsed, 3),
+        },
+        "findings": findings_list,
+    }
 
 
 def _display_results(
