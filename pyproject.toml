@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "checkagent"
-version = "0.0.1a1"
+version = "0.1.0"
 description = "The open-source testing framework for AI agents"
 readme = "README.md"
 license = "Apache-2.0"
@@ -14,7 +14,7 @@ authors = [
 ]
 keywords = ["testing", "ai", "agents", "pytest", "evaluation", "llm"]
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
+    "Development Status :: 3 - Alpha",
     "Framework :: Pytest",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
