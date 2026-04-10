@@ -147,4 +147,5 @@ def init_cmd(directory: str, force: bool) -> None:
     if directory != ".":
         console.print(f"  cd {directory}")
     console.print("  pytest tests/ -v")
+    console.print("  checkagent scan sample_agent:sample_agent")
     console.print()

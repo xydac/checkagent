@@ -67,8 +67,8 @@ checkagent scan my_agent:agent_fn
      Scan Summary
 ┌────────────┬───────┐
 │ Probes run │ 68    │
-│ Passed     │ 52    │
-│ Failed     │ 16    │
+│ Passed     │ 53    │
+│ Failed     │ 15    │
 │ Time       │ 0.04s │
 └────────────┴───────┘
 

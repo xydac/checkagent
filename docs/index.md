@@ -20,23 +20,19 @@ CheckAgent is a pytest plugin for testing AI agent workflows. It provides layere
 ## The Testing Pyramid
 
 ```
-┌─────────────────────────────────────────────┐
-│  Layer 4: JUDGE                             │
-│  LLM-as-judge · statistical assertions      │
-│  ⏱ Minutes  💰 $$$  📍 Nightly              │
-├─────────────────────────────────────────────┤
-│  Layer 3: EVAL                              │
-│  Agent metrics · golden datasets            │
-│  ⏱ Seconds  💰 $$   📍 On merge             │
-├─────────────────────────────────────────────┤
-│  Layer 2: REPLAY                            │
-│  Record-and-replay · regression testing     │
-│  ⏱ Seconds  💰 $    📍 On every PR          │
-├─────────────────────────────────────────────┤
-│  Layer 1: MOCK                              │
-│  Deterministic unit tests · zero LLM cost   │
-│  ⏱ Milliseconds  💰 Free  📍 On every commit│
-└─────────────────────────────────────────────┘
+                  ╱‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾╲
+                 │   JUDGE  · $$$     │          Minutes · Nightly
+                 │   LLM-as-judge     │
+                ╱‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾╲
+               │   EVAL  · $$          │         Seconds · On merge
+               │   Metrics & datasets  │
+              ╱‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾╲
+             │   REPLAY  · $              │      Seconds · On PR
+             │   Record & replay          │
+            ╱‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾╲
+           │   MOCK  · Free                  │   Milliseconds · Every commit
+           │   Deterministic unit tests      │
+            ╲_______________________________╱
 ```
 
 Each layer builds on the one below it. Start with mocks (free, fast, deterministic), then add replay tests for regression, eval metrics for quality, and judge assertions for subjective quality.
