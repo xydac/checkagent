@@ -328,8 +328,9 @@ def scan_cmd(
     \b
     Examples:
         checkagent scan my_agent:run
-        checkagent scan my_app.agents.booking:handle_request
         checkagent scan my_agent:run --category injection
+        checkagent scan my_agent:run --json
+        checkagent scan my_agent:run --badge badge.svg
         checkagent scan my_agent:run --timeout 5 --verbose
     """
     # Use a quiet console for JSON mode (suppresses Rich output)
