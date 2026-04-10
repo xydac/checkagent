@@ -81,11 +81,12 @@ Findings by Severity
 └──────────┴───────┘
 ```
 
-Turn findings into regression tests with one flag:
+Turn findings into regression tests, get machine-readable output, or generate a README badge:
 
 ```bash
 checkagent scan my_agent:agent_fn --generate-tests test_safety.py
-pytest test_safety.py -v
+checkagent scan my_agent:agent_fn --json           # structured JSON for CI
+checkagent scan my_agent:agent_fn --badge badge.svg # shields.io-style badge
 ```
 
 ## Example Test
@@ -175,7 +176,7 @@ async def test_no_prompt_injection():
 | **Mock layer** | MockLLM with pattern matching, MockTool with schema validation, streaming mocks |
 | **Fault injection** | Timeouts, rate limits, server errors, malformed responses — fluent builder API |
 | **Assertions** | `assert_tool_called`, `assert_output_schema`, `assert_output_matches` with dirty-equals |
-| **Safety scanning** | 68 attack probes: prompt injection, PII leakage, tool boundary, system prompt leak |
+| **Safety scanning** | 68 attack probes, `--json` for CI, `--badge` for README badges, `--generate-tests` for regression |
 | **Evaluation metrics** | Task completion, tool correctness, step efficiency, trajectory matching |
 | **Record & replay** | JSON cassettes with content-addressed filenames, migration tooling, stream support |
 | **LLM-as-judge** | Rubric-based evaluation, statistical pass/fail, multi-judge consensus |
