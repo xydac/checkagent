@@ -17,28 +17,25 @@ CheckAgent is a pytest plugin for testing AI agent workflows. It provides layere
 - **Async-first** — most agent frameworks are async; CheckAgent is too
 - **Framework-agnostic** — works with LangChain, OpenAI Agents SDK, CrewAI, PydanticAI, Anthropic, or any Python callable
 - **Cost-aware** — every test run tracks token usage and estimated cost, with budget limits
+- **Zero telemetry** — no analytics, no tracking, no phone-home. Your agent data stays on your machine
 - **Safety built-in** — prompt injection, PII leakage, and tool misuse testing ships as core
 
 ## The Testing Pyramid
 
 ```
-┌─────────────────────────────────────────────┐
-│  Layer 4: JUDGE                             │
-│  LLM-as-judge · statistical assertions      │
-│  ⏱ Minutes  💰 $$$  📍 Nightly              │
-├─────────────────────────────────────────────┤
-│  Layer 3: EVAL                              │
-│  Agent metrics · golden datasets            │
-│  ⏱ Seconds  💰 $$   📍 On merge             │
-├─────────────────────────────────────────────┤
-│  Layer 2: REPLAY                            │
-│  Record-and-replay · regression testing     │
-│  ⏱ Seconds  💰 $    📍 On every PR          │
-├─────────────────────────────────────────────┤
-│  Layer 1: MOCK                              │
-│  Deterministic unit tests · zero LLM cost   │
-│  ⏱ Milliseconds  💰 Free  📍 On every commit│
-└─────────────────────────────────────────────┘
+                  ╱‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾╲
+                 │   JUDGE  · $$$     │          Minutes · Nightly
+                 │   LLM-as-judge     │
+                ╱‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾╲
+               │   EVAL  · $$          │         Seconds · On merge
+               │   Metrics & datasets  │
+              ╱‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾╲
+             │   REPLAY  · $              │      Seconds · On PR
+             │   Record & replay          │
+            ╱‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾╲
+           │   MOCK  · Free                  │   Milliseconds · Every commit
+           │   Deterministic unit tests      │
+            ╲_______________________________╱
 ```
 
 ## Quick Start
