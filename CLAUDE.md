@@ -39,21 +39,21 @@ Sync agents are supported via the `@wrap` decorator which auto-detects sync call
 ```python
 # Async test — the default
 @pytest.mark.agent_test(layer="mock")
-async def test_my_agent(my_agent, ap_mock_llm):
+async def test_my_agent(my_agent, ca_mock_llm):
     result = await my_agent.run("hello")
     assert result.final_output is not None
 ```
 
 ### Fixture Naming
 
-All fixtures use the `ap_` prefix to avoid conflicts with other pytest plugins:
+All fixtures use the `ca_` prefix to avoid conflicts with other pytest plugins:
 
-- `ap_mock_llm` — mock LLM provider
-- `ap_mock_tool` — mock tool executor
-- `ap_fault` — fault injection
-- `ap_conversation` — multi-turn conversation session
-- `ap_stream_collector` — streaming event collector
-- `ap_safety` — safety assertion helpers
+- `ca_mock_llm` — mock LLM provider
+- `ca_mock_tool` — mock tool executor
+- `ca_fault` — fault injection
+- `ca_conversation` — multi-turn conversation session
+- `ca_stream_collector` — streaming event collector
+- `ca_safety` — safety assertion helpers
 
 ### Adapters
 
