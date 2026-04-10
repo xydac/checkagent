@@ -58,11 +58,29 @@ def pytest_configure(config: pytest.Config) -> None:
         "cassette(path): specify a cassette file for record-replay testing",
     )
 
+    # Auto-configure pytest-asyncio to "auto" mode so async tests just work.
+    # Only override if the user hasn't explicitly set asyncio_mode in their
+    # own pytest config (pyproject.toml, pytest.ini, etc.).
+    _auto_configure_asyncio(config)
+
     # Load configuration
     config_path_str = config.getoption("--checkagent-config", default=None)
     config_path = Path(config_path_str) if config_path_str else None
     ca_config = load_config(config_path)
     config.stash[_config_key] = ca_config
+
+
+def _auto_configure_asyncio(config: pytest.Config) -> None:
+    """Set asyncio_mode=auto if the user hasn't configured it themselves."""
+    try:
+        # Check if the user explicitly set asyncio_mode in their config file.
+        # config.inicfg contains only values from the user's config file.
+        inicfg = config.inicfg or {}
+        if "asyncio_mode" not in inicfg:
+            config._inicache["asyncio_mode"] = "auto"  # noqa: SLF001
+    except Exception:  # noqa: BLE001
+        # Don't crash if pytest-asyncio isn't installed or API changed
+        pass
 
 
 # Stash key for the CheckAgent config object

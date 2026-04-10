@@ -199,6 +199,38 @@ class TestFaultInjectorFixture:
         assert ca_fault.trigger_count == 1
 
 
+class TestAsyncioAutoConfig:
+    """Verify the plugin auto-sets asyncio_mode=auto for pytest-asyncio."""
+
+    def test_async_test_works_without_explicit_config(self, pytester):
+        """An async test should pass without the user setting asyncio_mode."""
+        pytester.makepyfile("""
+            import pytest
+
+            @pytest.mark.agent_test(layer="mock")
+            async def test_async_just_works(ca_mock_llm):
+                ca_mock_llm.on_input(contains="hi").respond("hello")
+                response = await ca_mock_llm.complete("hi")
+                assert response == "hello"
+        """)
+        result = pytester.runpytest("-v")
+        result.assert_outcomes(passed=1)
+
+    def test_user_explicit_strict_mode_preserved(self, pytester):
+        """If the user explicitly sets asyncio_mode=strict, we don't override."""
+        pytester.makeini("[pytest]\nasyncio_mode = strict")
+        pytester.makepyfile("""
+            import pytest
+
+            @pytest.mark.agent_test(layer="mock")
+            async def test_strict_mode():
+                pass
+        """)
+        result = pytester.runpytest("-v")
+        # strict mode requires explicit @pytest.mark.asyncio, so this should fail
+        result.assert_outcomes(failed=1)
+
+
 class TestCustomConfigFile:
     def test_custom_config_file(self, pytester):
         """--checkagent-config loads a specific file."""
