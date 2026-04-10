@@ -133,11 +133,12 @@ async def test_booking(ap_mock_llm, ap_mock_tool):
 @pytest.mark.agent_test(layer="mock")
 async def test_agent_handles_timeout(ap_mock_llm, ap_mock_tool, ap_fault):
     ap_fault.on_tool("search").timeout(seconds=5.0)
-    ap_mock_llm.on_input(contains="search").respond("Searching...")
     ap_mock_tool.register("search")
+    ap_mock_tool.attach_faults(ap_fault)  # faults fire automatically on tool calls
+    ap_mock_llm.on_input(contains="search").respond("Searching...")
 
     result = await my_agent("Find docs", llm=ap_mock_llm, tools=ap_mock_tool)
-    assert result.error is not None or "retry" in result.final_output.lower()
+    assert result.error is not None  # agent should handle the timeout
 ```
 
 ### Structured output assertions
