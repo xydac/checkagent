@@ -1,8 +1,8 @@
 site_name: CheckAgent
 site_description: The open-source testing framework for AI agents
-site_url: https://checkagent.dev
-repo_url: https://github.com/checkagent/checkagent
-repo_name: checkagent/checkagent
+site_url: https://xydac.github.io/checkagent
+repo_url: https://github.com/xydac/checkagent
+repo_name: xydac/checkagent
 
 theme:
   name: material

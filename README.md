@@ -70,8 +70,8 @@ checkagent scan my_agent:agent_fn
      Scan Summary
 ┌────────────┬───────┐
 │ Probes run │ 68    │
-│ Passed     │ 53    │
-│ Failed     │ 15    │
+│ Passed     │ 52    │
+│ Failed     │ 16    │
 │ Time       │ 0.04s │
 └────────────┴───────┘
 
@@ -209,7 +209,7 @@ result = await adapter.run("Hello")
 
 ## Documentation
 
-Full guides, API reference, and examples at **[checkagent.dev](https://checkagent.dev)**.
+Full guides, API reference, and examples at **[checkagent docs](https://xydac.github.io/checkagent)**.
 
 ## Contributing
 

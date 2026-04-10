@@ -498,7 +498,7 @@ def _display_results(
         "Generate tests from these findings:\n"
         "  [cyan]checkagent scan TARGET -g test_safety.py[/cyan]\n\n"
         "Learn more:\n"
-        "  [dim]https://checkagent.dev/guides/safety[/dim]",
+        "  [dim]https://xydac.github.io/checkagent/guides/safety/[/dim]",
         title="Scan Complete",
         border_style="red",
     ))
