@@ -4,6 +4,10 @@
 
 *pytest-native · async-first · CI/CD-first · safety-aware*
 
+<p align="center">
+  <img src="demo.gif" alt="CheckAgent demo — run tests and safety scans in seconds" width="720">
+</p>
+
 ---
 
 CheckAgent is a pytest plugin for testing AI agent workflows. It provides layered testing — from free, millisecond unit tests to LLM-judged evaluations with statistical rigor — so you can ship agents with the same confidence you ship traditional software.

@@ -7,6 +7,10 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org)
 
+<p align="center">
+  <img src="assets/demo.gif" alt="CheckAgent demo — run tests and safety scans in seconds" width="720">
+</p>
+
 ---
 
 CheckAgent is a pytest plugin for testing AI agent workflows. It provides layered testing — from free, millisecond unit tests to LLM-judged evaluations with statistical rigor — so you can ship agents with the same confidence you ship traditional software.
