@@ -37,8 +37,6 @@ htmlcov/
 # MkDocs build output
 site/
 
-# Cassettes may contain sensitive data — review before committing
-# tests/cassettes/  # Uncomment to ignore all cassettes
-.market-signals.md
-.launch-blockers.md
-.leader-notes.md
+# Local config and notes
+.*.md
+!.github/**
