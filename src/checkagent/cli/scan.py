@@ -458,7 +458,7 @@ def _is_http_target(target: str) -> bool:
 
 def _generate_test_file(
     target: str,
-    findings: list[tuple[Probe, SafetyFinding]],
+    findings: list[tuple[Probe, str | None, SafetyFinding]],
     output_path: Path,
 ) -> None:
     """Generate a pytest file from scan findings.
@@ -471,7 +471,7 @@ def _generate_test_file(
     """
     # Group findings by category for parametrized tests
     by_category: dict[str, list[tuple[Probe, SafetyFinding]]] = defaultdict(list)
-    for probe, finding in findings:
+    for probe, _output, finding in findings:
         by_category[finding.category.value].append((probe, finding))
 
     is_http = _is_http_target(target)
@@ -789,8 +789,10 @@ def scan_cmd(
     errors = 0
     passed = 0
     failed = 0
-    all_findings: list[tuple[Probe, SafetyFinding]] = []
-    findings_by_category: dict[str, list[tuple[Probe, SafetyFinding]]] = defaultdict(list)
+    all_findings: list[tuple[Probe, str | None, SafetyFinding]] = []
+    findings_by_category: dict[
+        str, list[tuple[Probe, str | None, SafetyFinding]]
+    ] = defaultdict(list)
 
     if llm_judge:
         evaluated = asyncio.run(_evaluate_all_with_llm(results, llm_judge))
@@ -804,8 +806,8 @@ def scan_cmd(
             if findings:
                 failed += 1
                 for finding in findings:
-                    all_findings.append((probe, finding))
-                    findings_by_category[finding.category.value].append((probe, finding))
+                    all_findings.append((probe, output, finding))
+                    findings_by_category[finding.category.value].append((probe, output, finding))
             else:
                 passed += 1
     else:
@@ -820,8 +822,8 @@ def scan_cmd(
             if findings:
                 failed += 1
                 for finding in findings:
-                    all_findings.append((probe, finding))
-                    findings_by_category[finding.category.value].append((probe, finding))
+                    all_findings.append((probe, output, finding))
+                    findings_by_category[finding.category.value].append((probe, output, finding))
             else:
                 passed += 1
 
@@ -916,17 +918,18 @@ def _build_json_report(
     failed: int,
     errors: int,
     elapsed: float,
-    all_findings: list[tuple[Probe, SafetyFinding]],
+    all_findings: list[tuple[Probe, str | None, SafetyFinding]],
 ) -> dict:
     """Build a structured JSON report from scan results."""
     findings_list = []
-    for probe, finding in all_findings:
+    for probe, output, finding in all_findings:
         findings_list.append({
-            "probe": probe.name or probe.input[:60],
+            "probe_id": probe.name or probe.input[:60],
             "category": finding.category.value,
             "severity": finding.severity.value,
-            "description": finding.description,
-            "input": probe.input,
+            "finding": finding.description,
+            "probe_input": probe.input,
+            "response": output,
         })
 
     score = passed / total if total > 0 else 0.0
@@ -952,8 +955,8 @@ def _display_results(
     failed: int,
     errors: int,
     elapsed: float,
-    all_findings: list[tuple[Probe, SafetyFinding]],
-    findings_by_category: dict[str, list[tuple[Probe, SafetyFinding]]],
+    all_findings: list[tuple[Probe, str | None, SafetyFinding]],
+    findings_by_category: dict[str, list[tuple[Probe, str | None, SafetyFinding]]],
     verbose: bool,
 ) -> None:
     """Render scan results to the console."""
@@ -982,7 +985,7 @@ def _display_results(
 
     # Findings by severity
     by_severity: dict[Severity, int] = defaultdict(int)
-    for _, finding in all_findings:
+    for _, _output, finding in all_findings:
         by_severity[finding.severity] += 1
 
     sev_table = Table(title="Findings by Severity", border_style="red")
@@ -1003,24 +1006,29 @@ def _display_results(
     detail_table.add_column("Category", max_width=20)
     detail_table.add_column("Probe", max_width=25)
     detail_table.add_column("Finding", max_width=50)
+    if verbose:
+        detail_table.add_column("Agent Response", max_width=60)
 
     # Sort by severity (critical first)
     severity_order = {Severity.CRITICAL: 0, Severity.HIGH: 1, Severity.MEDIUM: 2, Severity.LOW: 3}
-    sorted_findings = sorted(all_findings, key=lambda x: severity_order.get(x[1].severity, 99))
+    sorted_findings = sorted(all_findings, key=lambda x: severity_order.get(x[2].severity, 99))
 
-    for probe, finding in sorted_findings:
-        detail_table.add_row(
+    for probe, output, finding in sorted_findings:
+        row = [
             f"[{_severity_style(finding.severity)}]{_severity_label(finding.severity)}[/{_severity_style(finding.severity)}]",
             finding.category.value,
             probe.name or probe.input[:25],
             finding.description,
-        )
+        ]
+        if verbose:
+            row.append(output[:120] if output else "")
+        detail_table.add_row(*row)
 
     console.print(detail_table)
     console.print()
 
     # Remediation guide — deduplicated by category
-    failed_categories = sorted({finding.category.value for _, finding in all_findings})
+    failed_categories = sorted({finding.category.value for _, _output, finding in all_findings})
     if failed_categories:
         remediation_lines: list[str] = []
         for cat in failed_categories:
