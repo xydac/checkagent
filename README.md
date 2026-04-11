@@ -61,7 +61,7 @@ pytest tests/ -v
 
 ### Scan any agent for safety issues (zero config)
 
-Point `checkagent scan` at any Python function — it runs 68 attack probes and reports what it finds:
+Point `checkagent scan` at any Python function — it runs 88 attack probes across 5 categories and reports what it finds:
 
 ```bash
 checkagent scan my_agent:agent_fn
@@ -70,9 +70,9 @@ checkagent scan my_agent:agent_fn
 ```
      Scan Summary
 ┌────────────┬───────┐
-│ Probes run │ 68    │
-│ Passed     │ 53    │
-│ Failed     │ 15    │
+│ Probes run │ 88    │
+│ Passed     │ 68    │
+│ Failed     │ 20    │
 │ Time       │ 0.04s │
 └────────────┴───────┘
 
@@ -80,8 +80,8 @@ Findings by Severity
 ┏━━━━━━━━━━┳━━━━━━━┓
 ┃ Severity ┃ Count ┃
 ┡━━━━━━━━━━╇━━━━━━━┩
-│ CRITICAL │     6 │
-│ HIGH     │    10 │
+│ CRITICAL │     7 │
+│ HIGH     │    14 │
 └──────────┴───────┘
 ```
 
@@ -99,6 +99,29 @@ Turn findings into regression tests, get machine-readable output, or generate a 
 checkagent scan my_agent:agent_fn --generate-tests test_safety.py
 checkagent scan my_agent:agent_fn --json           # structured JSON for CI
 checkagent scan my_agent:agent_fn --badge badge.svg # shields.io-style badge
+```
+
+### Analyze your system prompt (no API key needed)
+
+Check your system prompt for security best practices before running any probes:
+
+```bash
+checkagent analyze-prompt "You are a helpful assistant."
+```
+
+```
+Score: 1/8 (12%)  ██░░░░░░░░░░░░░░░░░░
+
+  Injection Guard          ✗ MISSING   HIGH
+  Scope Boundary           ✗ MISSING   HIGH
+  Prompt Confidentiality   ✗ MISSING   HIGH
+  ...
+```
+
+Combine with scan for a complete security picture:
+
+```bash
+checkagent scan my_agent:run --prompt-file system_prompt.txt
 ```
 
 ## Example Test
