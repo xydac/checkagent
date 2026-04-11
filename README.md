@@ -85,6 +85,14 @@ Findings by Severity
 └──────────┴───────┘
 ```
 
+Scan any HTTP endpoint — works with agents in any language or framework:
+
+```bash
+checkagent scan --url http://localhost:8000/chat
+checkagent scan --url http://localhost:8000/api --input-field query
+checkagent scan --url http://localhost:8000/api -H 'Authorization: Bearer tok'
+```
+
 Turn findings into regression tests, get machine-readable output, or generate a README badge:
 
 ```bash
@@ -180,7 +188,7 @@ async def test_no_prompt_injection():
 | **Mock layer** | MockLLM with pattern matching, MockTool with schema validation, streaming mocks |
 | **Fault injection** | Timeouts, rate limits, server errors, malformed responses — fluent builder API |
 | **Assertions** | `assert_tool_called`, `assert_output_schema`, `assert_output_matches` with dirty-equals |
-| **Safety scanning** | 68 attack probes, `--json` for CI, `--badge` for README badges, `--generate-tests` for regression |
+| **Safety scanning** | 68 attack probes, scan Python callables or HTTP endpoints, `--json`/`--badge`/`--generate-tests` |
 | **Evaluation metrics** | Task completion, tool correctness, step efficiency, trajectory matching |
 | **Record & replay** | JSON cassettes with content-addressed filenames, migration tooling, stream support |
 | **LLM-as-judge** | Rubric-based evaluation, statistical pass/fail, multi-judge consensus |

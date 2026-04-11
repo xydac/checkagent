@@ -1,4 +1,4 @@
-"""checkagent scan — one-command safety scan for any agent callable.
+"""checkagent scan — one-command safety scan for any agent callable or HTTP endpoint.
 
 Run all safety probes against an agent and display categorized results.
 No test files, no configuration, no API keys required.
@@ -6,6 +6,7 @@ No test files, no configuration, no API keys required.
 Usage::
 
     checkagent scan my_module:agent_fn
+    checkagent scan --url http://localhost:8000/chat
     checkagent scan my_module:agent_fn --category injection
     checkagent scan my_module:agent_fn --timeout 5
     checkagent scan my_module:agent_fn --json
@@ -21,6 +22,8 @@ import importlib
 import json as json_mod
 import sys
 import time
+import urllib.error
+import urllib.request
 from collections import defaultdict
 from pathlib import Path
 
@@ -101,6 +104,69 @@ def _resolve_callable(target: str) -> object:
         )
 
     return fn
+
+
+def _make_http_agent(
+    url: str,
+    *,
+    input_field: str = "message",
+    output_field: str | None = None,
+    headers: dict[str, str] | None = None,
+    request_timeout: float = 30.0,
+) -> object:
+    """Create a callable that sends probes to an HTTP endpoint.
+
+    Returns a sync callable that sends a JSON POST request for each probe
+    input and extracts the response text.  The callable is designed to work
+    with ``_run_probe`` which handles both sync and async callables.
+    """
+    extra_headers = headers or {}
+
+    def _do_request(probe_input: str) -> str:
+        payload = json_mod.dumps({input_field: probe_input}).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={"Content-Type": "application/json", **extra_headers},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=request_timeout) as resp:
+                body = resp.read().decode("utf-8")
+        except urllib.error.HTTPError as exc:
+            raise RuntimeError(
+                f"HTTP {exc.code} from {url}: {exc.reason}"
+            ) from exc
+        except urllib.error.URLError as exc:
+            raise RuntimeError(
+                f"Cannot connect to {url}: {exc.reason}"
+            ) from exc
+
+        # Try JSON parsing to extract the relevant text field
+        try:
+            parsed = json_mod.loads(body)
+            if isinstance(parsed, dict):
+                if output_field and output_field in parsed:
+                    return str(parsed[output_field])
+                # Auto-detect common response field names
+                for key in (
+                    "output", "response", "answer", "result",
+                    "text", "content", "message", "reply",
+                ):
+                    if key in parsed:
+                        return str(parsed[key])
+                return str(parsed)
+        except (json_mod.JSONDecodeError, ValueError):
+            pass
+
+        return body
+
+    # Wrap in async so _run_all_probes can run HTTP calls concurrently
+    # via asyncio.to_thread (avoids blocking the event loop).
+    async def http_agent(probe_input: str) -> str:
+        return await asyncio.to_thread(_do_request, probe_input)
+
+    return http_agent
 
 
 async def _run_probe(
@@ -276,7 +342,32 @@ def _generate_test_file(
 
 
 @click.command("scan")
-@click.argument("target")
+@click.argument("target", required=False, default=None)
+@click.option(
+    "--url", "-u",
+    type=str,
+    default=None,
+    help="Scan an HTTP endpoint instead of a Python callable.",
+)
+@click.option(
+    "--input-field",
+    type=str,
+    default="message",
+    show_default=True,
+    help="JSON field name for the probe input in HTTP requests.",
+)
+@click.option(
+    "--output-field",
+    type=str,
+    default=None,
+    help="JSON field name to extract from HTTP responses. Auto-detected if not set.",
+)
+@click.option(
+    "--header", "-H",
+    type=str,
+    multiple=True,
+    help="HTTP header as 'Name: Value'. Can be repeated (e.g. -H 'Authorization: Bearer tok').",
+)
 @click.option(
     "--category", "-c",
     type=click.Choice(list(_PROBE_SETS.keys()), case_sensitive=False),
@@ -313,7 +404,11 @@ def _generate_test_file(
     help="Generate a shields.io-style SVG badge (e.g. --badge badge.svg).",
 )
 def scan_cmd(
-    target: str,
+    target: str | None,
+    url: str | None,
+    input_field: str,
+    output_field: str | None,
+    header: tuple[str, ...],
     category: str | None,
     timeout: float,
     verbose: bool,
@@ -324,28 +419,66 @@ def scan_cmd(
     """Scan an agent for safety vulnerabilities.
 
     TARGET is a Python callable in 'module:function' format.
+    Alternatively, use --url to scan an HTTP endpoint.
 
     \b
     Examples:
         checkagent scan my_agent:run
+        checkagent scan --url http://localhost:8000/chat
+        checkagent scan --url http://localhost:8000/api -H 'Authorization: Bearer tok'
+        checkagent scan --url http://localhost:8000/chat --input-field query
         checkagent scan my_agent:run --category injection
         checkagent scan my_agent:run --json
         checkagent scan my_agent:run --badge badge.svg
-        checkagent scan my_agent:run --timeout 5 --verbose
     """
+    # Validate: exactly one of target or url must be provided
+    if not target and not url:
+        raise click.UsageError(
+            "Provide either a TARGET (module:function) or --url (HTTP endpoint)."
+        )
+    if target and url:
+        raise click.UsageError(
+            "Cannot use both TARGET and --url. Pick one."
+        )
+
+    # Parse headers
+    parsed_headers: dict[str, str] = {}
+    for h in header:
+        if ":" not in h:
+            raise click.BadParameter(
+                f"Invalid header format: '{h}'. Use 'Name: Value'.",
+                param_hint="--header",
+            )
+        name, _, value = h.partition(":")
+        parsed_headers[name.strip()] = value.strip()
+
+    # Display name for the scan target
+    display_target = target if target else url
+    assert display_target is not None
+
     # Use a quiet console for JSON mode (suppresses Rich output)
     out_console = Console(quiet=True) if json_output else console
 
     out_console.print()
     out_console.print(Panel.fit(
         "[bold]CheckAgent Safety Scan[/bold]\n"
-        f"Target: [cyan]{target}[/cyan]",
+        f"Target: [cyan]{display_target}[/cyan]",
         border_style="blue",
     ))
     out_console.print()
 
-    # Resolve the callable
-    agent_fn = _resolve_callable(target)
+    # Resolve the callable — either Python import or HTTP wrapper
+    if url:
+        agent_fn = _make_http_agent(
+            url,
+            input_field=input_field,
+            output_field=output_field,
+            headers=parsed_headers or None,
+            request_timeout=timeout,
+        )
+    else:
+        assert target is not None
+        agent_fn = _resolve_callable(target)
 
     # Collect probes
     if category:
@@ -398,7 +531,7 @@ def scan_cmd(
     if json_output:
         print(json_mod.dumps(
             _build_json_report(
-                target=target,
+                target=display_target,
                 total=total,
                 passed=passed,
                 failed=failed,
@@ -439,7 +572,7 @@ def scan_cmd(
     # Generate test file from findings
     if generate_tests and all_findings:
         out_path = Path(generate_tests)
-        _generate_test_file(target, all_findings, out_path)
+        _generate_test_file(display_target, all_findings, out_path)
         out_console.print(
             f"\n[green]Generated {len(all_findings)} test(s) → [bold]{out_path}[/bold][/green]"
         )

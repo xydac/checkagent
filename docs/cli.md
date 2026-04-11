@@ -41,30 +41,41 @@ pytest tests/ -v  # 2 tests pass
 
 Scan an agent for safety vulnerabilities. Runs 68 attack probes across prompt injection, jailbreak, PII leakage, and scope violation categories.
 
-```bash
-checkagent scan <TARGET>
-```
-
-TARGET is a Python callable in `module:function` format.
+Scan a Python callable:
 
 ```bash
 checkagent scan my_agent:run
 checkagent scan my_app.agents.booking:handle_request
 ```
 
+Or scan any HTTP endpoint — works with agents in any language or framework:
+
+```bash
+checkagent scan --url http://localhost:8000/chat
+checkagent scan --url http://localhost:8000/api --input-field query
+checkagent scan --url http://localhost:8000/api -H 'Authorization: Bearer tok'
+```
+
 **Options:**
 
 | Option | Description |
 |--------|-------------|
+| `-u`, `--url URL` | Scan an HTTP endpoint instead of a Python callable |
+| `--input-field TEXT` | JSON field name for the probe input in HTTP requests (default: `message`) |
+| `--output-field TEXT` | JSON field name to extract from HTTP responses (auto-detected if not set) |
+| `-H`, `--header TEXT` | HTTP header as `Name: Value` (repeatable) |
 | `-c`, `--category` | Run only probes from a category: `injection`, `jailbreak`, `pii`, `scope` |
 | `-t`, `--timeout FLOAT` | Timeout in seconds per probe (default: 10.0) |
 | `-v`, `--verbose` | Show all probes, not just failures |
 | `-g`, `--generate-tests FILE` | Generate a pytest file from findings |
+| `--json` | Output results as JSON to stdout |
+| `--badge FILE` | Generate a shields.io-style SVG badge |
 
 **Examples:**
 
 ```bash
 checkagent scan my_agent:run                              # Full scan
+checkagent scan --url http://localhost:8000/chat           # Scan HTTP endpoint
 checkagent scan my_agent:run --category injection         # Injection probes only
 checkagent scan my_agent:run -g test_safety.py            # Generate regression tests
 checkagent scan my_agent:run --timeout 5 --verbose        # Custom timeout, verbose

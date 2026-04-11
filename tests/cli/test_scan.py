@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import textwrap
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 from click.testing import CliRunner
@@ -14,6 +16,7 @@ from checkagent.cli.scan import (
     _build_json_report,
     _evaluate_output,
     _generate_test_file,
+    _make_http_agent,
     _resolve_callable,
     scan_cmd,
 )
@@ -614,6 +617,369 @@ class TestScanJsonOutput:
         runner = CliRunner()
         result = runner.invoke(scan_cmd, ["--help"])
         assert "--json" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Helpers: ephemeral HTTP servers for testing
+# ---------------------------------------------------------------------------
+
+
+class _EchoHandler(BaseHTTPRequestHandler):
+    """HTTP handler that echoes the 'message' field back as JSON."""
+
+    def do_POST(self):
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length)
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError:
+            data = {}
+        # Echo the input field back — mimics a vulnerable echo agent
+        msg = data.get("message", data.get("query", ""))
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps({"output": msg}).encode("utf-8"))
+
+    def log_message(self, format, *args):
+        pass  # suppress logs
+
+
+class _SafeHandler(BaseHTTPRequestHandler):
+    """HTTP handler that always returns a safe response."""
+
+    def do_POST(self):
+        length = int(self.headers.get("Content-Length", 0))
+        self.rfile.read(length)  # consume body
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps({"output": "I can help you with that."}).encode("utf-8"))
+
+    def log_message(self, format, *args):
+        pass
+
+
+class _CustomFieldHandler(BaseHTTPRequestHandler):
+    """HTTP handler that reads 'query' and responds with 'reply' field."""
+
+    def do_POST(self):
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length)
+        data = json.loads(body)
+        msg = data.get("query", "no query field")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps({"reply": f"Got: {msg[:30]}"}).encode("utf-8"))
+
+    def log_message(self, format, *args):
+        pass
+
+
+class _PlainTextHandler(BaseHTTPRequestHandler):
+    """HTTP handler that returns plain text (not JSON)."""
+
+    def do_POST(self):
+        length = int(self.headers.get("Content-Length", 0))
+        self.rfile.read(length)
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"I can help you with that.")
+
+    def log_message(self, format, *args):
+        pass
+
+
+class _ErrorHandler(BaseHTTPRequestHandler):
+    """HTTP handler that always returns 500."""
+
+    def do_POST(self):
+        self.send_response(500)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"Internal Server Error")
+
+    def log_message(self, format, *args):
+        pass
+
+
+class _HeaderCheckHandler(BaseHTTPRequestHandler):
+    """HTTP handler that checks for an auth header."""
+
+    def do_POST(self):
+        auth = self.headers.get("Authorization", "")
+        length = int(self.headers.get("Content-Length", 0))
+        self.rfile.read(length)
+        if auth != "Bearer test-token":
+            self.send_response(401)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"Unauthorized")
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps({"output": "Authenticated OK."}).encode("utf-8"))
+
+    def log_message(self, format, *args):
+        pass
+
+
+def _start_server(handler_cls) -> tuple[HTTPServer, str]:
+    """Start an HTTP server on a random port, return (server, url)."""
+    server = HTTPServer(("127.0.0.1", 0), handler_cls)
+    port = server.server_address[1]
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return server, f"http://127.0.0.1:{port}"
+
+
+# ---------------------------------------------------------------------------
+# Unit tests: _make_http_agent
+# ---------------------------------------------------------------------------
+
+
+class TestMakeHttpAgent:
+    def test_echo_agent(self) -> None:
+        import asyncio
+
+        server, url = _start_server(_EchoHandler)
+        try:
+            agent = _make_http_agent(url)
+            result = asyncio.run(agent("hello world"))
+            assert result == "hello world"
+        finally:
+            server.shutdown()
+
+    def test_custom_input_field(self) -> None:
+        import asyncio
+
+        server, url = _start_server(_CustomFieldHandler)
+        try:
+            agent = _make_http_agent(url, input_field="query")
+            result = asyncio.run(agent("test query"))
+            assert "Got: test query" in result
+        finally:
+            server.shutdown()
+
+    def test_custom_output_field(self) -> None:
+        import asyncio
+
+        server, url = _start_server(_CustomFieldHandler)
+        try:
+            agent = _make_http_agent(url, input_field="query", output_field="reply")
+            result = asyncio.run(agent("test"))
+            assert "Got:" in result
+        finally:
+            server.shutdown()
+
+    def test_plain_text_response(self) -> None:
+        import asyncio
+
+        server, url = _start_server(_PlainTextHandler)
+        try:
+            agent = _make_http_agent(url)
+            result = asyncio.run(agent("hello"))
+            assert result == "I can help you with that."
+        finally:
+            server.shutdown()
+
+    def test_server_error_raises(self) -> None:
+        import asyncio
+
+        import pytest
+
+        server, url = _start_server(_ErrorHandler)
+        try:
+            agent = _make_http_agent(url)
+            with pytest.raises(RuntimeError, match="HTTP 500"):
+                asyncio.run(agent("hello"))
+        finally:
+            server.shutdown()
+
+    def test_connection_refused_raises(self) -> None:
+        import asyncio
+
+        import pytest
+
+        agent = _make_http_agent("http://127.0.0.1:1")  # port 1 won't work
+        with pytest.raises(RuntimeError, match="Cannot connect"):
+            asyncio.run(agent("hello"))
+
+    def test_headers_sent(self) -> None:
+        import asyncio
+
+        server, url = _start_server(_HeaderCheckHandler)
+        try:
+            agent = _make_http_agent(
+                url,
+                headers={"Authorization": "Bearer test-token"},
+            )
+            result = asyncio.run(agent("hello"))
+            assert "Authenticated" in result
+        finally:
+            server.shutdown()
+
+    def test_auto_detect_response_fields(self) -> None:
+        """The agent should auto-detect common response field names."""
+        import asyncio
+
+        server, url = _start_server(_CustomFieldHandler)
+        try:
+            # "reply" is in our auto-detect list
+            agent = _make_http_agent(url, input_field="query")
+            result = asyncio.run(agent("test"))
+            assert "Got:" in result
+        finally:
+            server.shutdown()
+
+
+# ---------------------------------------------------------------------------
+# Integration tests: scan_cmd with --url
+# ---------------------------------------------------------------------------
+
+
+class TestScanHttpCommand:
+    def test_url_safe_server(self) -> None:
+        server, url = _start_server(_SafeHandler)
+        try:
+            runner = CliRunner()
+            result = runner.invoke(scan_cmd, [
+                "--url", url,
+                "--category", "injection",
+                "--timeout", "5",
+            ])
+            assert result.exit_code == 0
+            assert "No safety issues detected" in result.output
+        finally:
+            server.shutdown()
+
+    def test_url_echo_server_finds_issues(self) -> None:
+        server, url = _start_server(_EchoHandler)
+        try:
+            runner = CliRunner()
+            result = runner.invoke(scan_cmd, [
+                "--url", url,
+                "--category", "injection",
+                "--timeout", "5",
+            ])
+            assert result.exit_code == 1
+            assert "safety issue" in result.output.lower()
+        finally:
+            server.shutdown()
+
+    def test_url_json_output(self) -> None:
+        server, url = _start_server(_SafeHandler)
+        try:
+            runner = CliRunner()
+            result = runner.invoke(scan_cmd, [
+                "--url", url,
+                "--category", "injection",
+                "--timeout", "5",
+                "--json",
+            ])
+            assert result.exit_code == 0
+            data = json.loads(result.output)
+            assert data["target"] == url
+            assert data["summary"]["failed"] == 0
+        finally:
+            server.shutdown()
+
+    def test_url_with_header(self) -> None:
+        server, url = _start_server(_HeaderCheckHandler)
+        try:
+            runner = CliRunner()
+            result = runner.invoke(scan_cmd, [
+                "--url", url,
+                "--category", "injection",
+                "--timeout", "5",
+                "-H", "Authorization: Bearer test-token",
+            ])
+            assert result.exit_code == 0
+            assert "No safety issues detected" in result.output
+        finally:
+            server.shutdown()
+
+    def test_url_with_custom_input_field(self) -> None:
+        server, url = _start_server(_CustomFieldHandler)
+        try:
+            runner = CliRunner()
+            result = runner.invoke(scan_cmd, [
+                "--url", url,
+                "--category", "injection",
+                "--timeout", "5",
+                "--input-field", "query",
+            ])
+            assert "Scan Summary" in result.output
+        finally:
+            server.shutdown()
+
+    def test_url_and_target_mutually_exclusive(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "my_agent:fn",
+            "--url", "http://localhost:8000",
+        ])
+        assert result.exit_code != 0
+        assert "Cannot use both" in result.output
+
+    def test_neither_url_nor_target_fails(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [])
+        assert result.exit_code != 0
+        assert "Provide either" in result.output
+
+    def test_url_bad_header_format(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "--url", "http://localhost:8000",
+            "-H", "bad-header-no-colon",
+        ])
+        assert result.exit_code != 0
+        assert "Invalid header format" in result.output
+
+    def test_url_shows_in_panel(self) -> None:
+        server, url = _start_server(_SafeHandler)
+        try:
+            runner = CliRunner()
+            result = runner.invoke(scan_cmd, [
+                "--url", url,
+                "--category", "injection",
+                "--timeout", "5",
+            ])
+            assert "127.0.0.1" in result.output
+        finally:
+            server.shutdown()
+
+    def test_url_badge_generation(self) -> None:
+        import tempfile
+
+        server, url = _start_server(_SafeHandler)
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".svg", delete=False) as f:
+                badge_path = f.name
+            runner = CliRunner()
+            result = runner.invoke(scan_cmd, [
+                "--url", url,
+                "--category", "injection",
+                "--timeout", "5",
+                "--badge", badge_path,
+            ])
+            assert result.exit_code == 0
+            content = Path(badge_path).read_text()
+            assert "<svg" in content
+        finally:
+            server.shutdown()
+
+    def test_url_in_help(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, ["--help"])
+        assert "--url" in result.output
+        assert "--input-field" in result.output
+        assert "--output-field" in result.output
+        assert "--header" in result.output
 
 
 class TestScanBadgeOutput:
