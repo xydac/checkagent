@@ -12,6 +12,7 @@ import sys
 import click
 from rich import box
 from rich.console import Console
+from rich.markup import escape as rich_escape
 from rich.table import Table
 
 from checkagent.safety.prompt_analyzer import PromptAnalysisResult, PromptAnalyzer
@@ -88,7 +89,7 @@ def _render_result(result: PromptAnalysisResult, prompt_preview: str) -> None:
     if recs:
         _console.print("[bold]Recommendations[/bold]")
         for i, rec in enumerate(recs, 1):
-            _console.print(f"  [dim]{i}.[/dim] {rec}")
+            _console.print(f"  [dim]{i}.[/dim] {rich_escape(rec)}")
         _console.print()
     else:
         _console.print(
@@ -139,13 +140,29 @@ def analyze_prompt_cmd(prompt_source: str, output_json: bool) -> None:
     else:
         # Try as file path first, fall back to treating as literal string
         import pathlib
+
         p = pathlib.Path(prompt_source)
         try:
             is_file = p.exists() and p.is_file()
         except OSError:
             # Path too long or invalid as a filesystem path — treat as literal
             is_file = False
-        prompt_text = p.read_text(encoding="utf-8") if is_file else prompt_source
+
+        if is_file:
+            prompt_text = p.read_text(encoding="utf-8")
+        else:
+            # Warn if it looks like a file path but doesn't exist
+            _looks_like_path = (
+                "/" in prompt_source
+                or "\\" in prompt_source
+                or prompt_source.endswith((".txt", ".md", ".prompt"))
+            )
+            if _looks_like_path:
+                raise click.UsageError(
+                    f"File not found: {prompt_source}\n"
+                    "If this is a literal prompt string, it should not look like a file path."
+                )
+            prompt_text = prompt_source
 
     prompt_text = prompt_text.strip()
     if not prompt_text:

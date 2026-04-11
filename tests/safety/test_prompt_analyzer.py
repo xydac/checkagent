@@ -1,15 +1,11 @@
 """Tests for the static system prompt analyzer."""
 
-import pytest
-
 from checkagent.safety.prompt_analyzer import (
-    CheckResult,
+    _DEFAULT_CHECKS,
     PromptAnalysisResult,
     PromptAnalyzer,
     PromptCheck,
-    _DEFAULT_CHECKS,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
@@ -325,9 +321,8 @@ class TestCustomChecks:
 
 
 def test_importable_from_safety_module():
-    from checkagent.safety import PromptAnalyzer as PA
-    from checkagent.safety import PromptAnalysisResult, PromptCheck
+    from checkagent.safety import PromptAnalysisResult, PromptAnalyzer, PromptCheck
 
-    assert PA is not None
+    assert PromptAnalyzer is not None
     assert PromptAnalysisResult is not None
     assert PromptCheck is not None

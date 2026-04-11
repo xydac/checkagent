@@ -69,6 +69,11 @@ from checkagent.safety.evaluator import SafetyEvaluator, SafetyFinding, SafetyRe
 from checkagent.safety.injection import PromptInjectionDetector
 from checkagent.safety.pii import PIILeakageScanner
 from checkagent.safety.probes import Probe, ProbeSet
+from checkagent.safety.prompt_analyzer import (
+    PromptAnalysisResult,
+    PromptAnalyzer,
+    PromptCheck,
+)
 from checkagent.safety.refusal import RefusalComplianceChecker
 from checkagent.safety.system_prompt import SystemPromptLeakDetector
 from checkagent.safety.taxonomy import SafetyCategory, Severity
@@ -180,6 +185,9 @@ __all__ = [
     "PIILeakageScanner",
     "Probe",
     "ProbeSet",
+    "PromptAnalysisResult",
+    "PromptAnalyzer",
+    "PromptCheck",
     "PromptInjectionDetector",
     "RefusalComplianceChecker",
     "SafetyCategory",

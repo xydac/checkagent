@@ -2,11 +2,9 @@
 
 import json
 
-import pytest
 from click.testing import CliRunner
 
 from checkagent.cli import main
-
 
 WEAK_PROMPT = "You are a helpful assistant."
 STRONG_PROMPT = (
@@ -153,7 +151,8 @@ class TestAnalyzePromptJsonOutput:
         runner = CliRunner()
         result = runner.invoke(main, ["analyze-prompt", "--json", WEAK_PROMPT])
         data = json.loads(result.output)
-        assert data["passed_count"] + sum(1 for c in data["checks"] if not c["passed"]) == data["total_count"]
+        failed = sum(1 for c in data["checks"] if not c["passed"])
+        assert data["passed_count"] + failed == data["total_count"]
 
 
 class TestAnalyzePromptFileInput:
@@ -171,11 +170,61 @@ class TestAnalyzePromptFileInput:
         result = runner.invoke(main, ["analyze-prompt", str(f)])
         assert result.exit_code == 0
 
-    def test_nonexistent_file_treated_as_literal(self):
-        # A non-existent path is treated as a literal string
+    def test_literal_string_still_works(self):
+        # A plain string (not looking like a file path) is treated as literal
         runner = CliRunner()
         result = runner.invoke(main, ["analyze-prompt", "You are a helpful bot."])
         assert "Score:" in result.output
+
+    def test_nonexistent_file_path_errors(self):
+        # Something that looks like a file path but doesn't exist → error
+        runner = CliRunner()
+        result = runner.invoke(main, ["analyze-prompt", "/tmp/nonexistent/prompt.txt"])
+        assert result.exit_code != 0
+        assert "File not found" in result.output
+
+    def test_nonexistent_txt_extension_errors(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["analyze-prompt", "my_prompt.txt"])
+        assert result.exit_code != 0
+        assert "File not found" in result.output
+
+
+class TestAnalyzePromptRichEscaping:
+    def test_bracket_text_preserved_in_output(self):
+        """F-093: Rich should not strip [bracket] placeholders."""
+        runner = CliRunner()
+        result = runner.invoke(main, ["analyze-prompt", WEAK_PROMPT])
+        # Recommendations contain text like "[your domain]" — ensure visible
+        # The weak prompt is missing scope_boundary which recommends "[your domain]"
+        assert "[your domain]" in result.output or result.exit_code != 0
+
+    def test_bracket_text_preserved_in_json(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["analyze-prompt", "--json", WEAK_PROMPT])
+        data = json.loads(result.output)
+        # At least one recommendation should contain bracket text
+        recs = [c["recommendation"] for c in data["checks"] if c["recommendation"]]
+        bracket_recs = [r for r in recs if "[" in r]
+        assert len(bracket_recs) > 0
+
+
+class TestAnalyzePromptTopLevelImport:
+    def test_prompt_analyzer_importable_from_checkagent(self):
+        """F-095: PromptAnalyzer should be importable from top-level."""
+        from checkagent import PromptAnalyzer
+
+        assert PromptAnalyzer is not None
+
+    def test_prompt_analysis_result_importable(self):
+        from checkagent import PromptAnalysisResult
+
+        assert PromptAnalysisResult is not None
+
+    def test_prompt_check_importable(self):
+        from checkagent import PromptCheck
+
+        assert PromptCheck is not None
 
 
 class TestAnalyzePromptEdgeCases:
