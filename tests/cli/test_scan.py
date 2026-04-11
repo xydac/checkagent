@@ -51,6 +51,46 @@ def _write_agent_module(tmp_path: Path) -> Path:
             return {"output": "I can help.", "status": "ok"}
 
         not_callable = 42
+
+
+        class RunAgent:
+            def run(self, query):
+                return "run: " + query
+
+        class AsyncRunAgent:
+            async def arun(self, query):
+                return "arun: " + query
+
+        class InvokeAgent:
+            def invoke(self, query):
+                return "invoke: " + query
+
+        class KickoffAgent:
+            def kickoff(self, prompt):
+                return "kickoff: " + prompt
+
+        class AsyncInvokeAgent:
+            async def ainvoke(self, query):
+                return "ainvoke: " + query
+
+        class PreferAsyncRunAgent:
+            def run(self, query):
+                return "sync-run"
+            async def arun(self, query):
+                return "async-arun"
+
+        class NeedsArgs:
+            def __init__(self, api_key: str):
+                self.api_key = api_key
+            def run(self, query):
+                return "ok"
+
+        class CallableOnly:
+            def __call__(self, query):
+                return "called: " + query
+
+        # Pre-instantiated instance at module level
+        pre_instance = RunAgent()
     """))
     return mod
 
@@ -104,6 +144,108 @@ class TestResolveCallable:
 
         with pytest.raises(click.exceptions.BadParameter, match="Cannot parse"):
             _resolve_callable("just_a_name")
+
+
+# ---------------------------------------------------------------------------
+# Unit tests: _resolve_callable — class-based agent auto-detection
+# ---------------------------------------------------------------------------
+
+
+class TestResolveCallableClassBased:
+    """Auto-detection of class-based agents: instantiate + find run method."""
+
+    def test_class_with_run_method(self, tmp_path: Path, monkeypatch) -> None:
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        method = _resolve_callable("scan_test_agents:RunAgent")
+        assert callable(method)
+        assert method("hello") == "run: hello"
+
+    def test_class_with_async_arun_method(self, tmp_path: Path, monkeypatch) -> None:
+        import asyncio
+
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        method = _resolve_callable("scan_test_agents:AsyncRunAgent")
+        assert callable(method)
+        result = asyncio.run(method("test"))
+        assert result == "arun: test"
+
+    def test_class_with_invoke_method(self, tmp_path: Path, monkeypatch) -> None:
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        method = _resolve_callable("scan_test_agents:InvokeAgent")
+        assert callable(method)
+        assert method("hi") == "invoke: hi"
+
+    def test_class_with_kickoff_method(self, tmp_path: Path, monkeypatch) -> None:
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        method = _resolve_callable("scan_test_agents:KickoffAgent")
+        assert callable(method)
+        assert method("prompt") == "kickoff: prompt"
+
+    def test_class_with_async_ainvoke_method(self, tmp_path: Path, monkeypatch) -> None:
+        import asyncio
+
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        method = _resolve_callable("scan_test_agents:AsyncInvokeAgent")
+        assert callable(method)
+        result = asyncio.run(method("q"))
+        assert result == "ainvoke: q"
+
+    def test_prefers_arun_over_run(self, tmp_path: Path, monkeypatch) -> None:
+        """arun should be preferred over run when both are available."""
+        import asyncio
+
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        method = _resolve_callable("scan_test_agents:PreferAsyncRunAgent")
+        assert callable(method)
+        result = asyncio.run(method("x"))
+        assert result == "async-arun"
+
+    def test_class_needs_args_gives_helpful_error(self, tmp_path: Path, monkeypatch) -> None:
+        import click
+        import pytest
+
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        with pytest.raises(
+            click.exceptions.BadParameter,
+            match="cannot be instantiated without arguments",
+        ):
+            _resolve_callable("scan_test_agents:NeedsArgs")
+
+    def test_class_needs_args_error_includes_tip(self, tmp_path: Path, monkeypatch) -> None:
+        import click
+        import pytest
+
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        with pytest.raises(click.exceptions.BadParameter, match="wrap it in a function"):
+            _resolve_callable("scan_test_agents:NeedsArgs")
+
+    def test_pre_instantiated_module_level_instance(self, tmp_path: Path, monkeypatch) -> None:
+        """Module-level instance (not a class) with .run() is auto-detected."""
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        method = _resolve_callable("scan_test_agents:pre_instance")
+        assert callable(method)
+        assert method("hello") == "run: hello"
+
+    def test_callable_class_without_run_methods_falls_through(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """A class instance with only __call__ is returned as-is (callable fallback)."""
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        # CallableOnly has __call__ but none of the standard run methods.
+        # It should be instantiated and then returned as-is (callable via __call__).
+        result = _resolve_callable("scan_test_agents:CallableOnly")
+        assert callable(result)
+        assert result("test") == "called: test"
 
 
 # ---------------------------------------------------------------------------

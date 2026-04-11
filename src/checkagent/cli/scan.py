@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import inspect
 import json as json_mod
 import sys
 import time
@@ -299,8 +300,27 @@ _PROBE_SETS: dict[str, list[Probe]] = {
 }
 
 
+# Common run-method names used by agent frameworks, in preference order.
+# arun/ainvoke are async variants preferred over their sync equivalents.
+_AGENT_RUN_METHODS = ("arun", "run", "ainvoke", "invoke", "kickoff", "achat", "chat")
+
+
 def _resolve_callable(target: str) -> object:
-    """Import and return a callable from 'module:attr' or 'module.attr' syntax."""
+    """Import and return a callable from 'module:attr' or 'module.attr' syntax.
+
+    Auto-detects class-based agents: if the target resolves to a class, it is
+    instantiated with no arguments and the first matching run method is returned
+    (searched in order: arun, run, ainvoke, invoke, kickoff, achat, chat).
+
+    Pre-instantiated module-level objects with any of those methods are also
+    auto-detected — no wrapper function required.
+
+    Examples::
+
+        checkagent scan my_module:MyAgent          # class → auto-detect .run()
+        checkagent scan my_module:agent_instance   # instance → auto-detect .run()
+        checkagent scan my_module:agent_fn         # function → used directly
+    """
     if ":" in target:
         module_path, attr_name = target.rsplit(":", 1)
     elif "." in target:
@@ -332,9 +352,36 @@ def _resolve_callable(target: str) -> object:
             param_hint="TARGET",
         ) from exc
 
+    # Auto-detect class-based agents: instantiate the class first.
+    if inspect.isclass(fn):
+        try:
+            instance = fn()
+        except TypeError as exc:
+            raise click.BadParameter(
+                f"'{attr_name}' is a class but cannot be instantiated without arguments.\n"
+                f"  Error: {exc}\n"
+                "  Tip: wrap it in a function:\n"
+                f"    async def my_agent(prompt): return await {attr_name}(...).run(prompt)",
+                param_hint="TARGET",
+            ) from exc
+        fn = instance
+
+    # Auto-detect run methods on instances (including freshly instantiated classes).
+    # Skip plain functions and coroutine functions — they are used directly.
+    if not (inspect.isfunction(fn) or inspect.iscoroutinefunction(fn)):
+        for method_name in _AGENT_RUN_METHODS:
+            method = getattr(fn, method_name, None)
+            if method is not None and callable(method):
+                console.print(
+                    f"[dim]Auto-detected: {attr_name}.{method_name}() "
+                    f"— using this method for each probe[/dim]"
+                )
+                return method
+
     if not callable(fn):
         raise click.BadParameter(
-            f"'{target}' is not callable",
+            f"'{target}' is not callable and has none of the expected run methods "
+            f"({', '.join(_AGENT_RUN_METHODS)})",
             param_hint="TARGET",
         )
 
