@@ -41,3 +41,4 @@ site/
 # tests/cassettes/  # Uncomment to ignore all cassettes
 .market-signals.md
 .launch-blockers.md
+.leader-notes.md
