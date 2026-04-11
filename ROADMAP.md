@@ -103,7 +103,7 @@ CheckAgent is being built in public. Here's where we're headed.
 ### Milestone 12: CI/CD Polish
 - [ ] Quality gates auto-enforce from config
 - [ ] PR comment generation with eval metrics
-- [ ] `checkagent ci-init` for easy CI setup
+- [x] `checkagent ci-init` for easy CI setup
 
 ### Milestone 13: v0.1.0 Launch
 - [x] PyPI v0.1.0 published

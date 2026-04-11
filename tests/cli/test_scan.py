@@ -1391,8 +1391,11 @@ class TestLLMJudge:
         async def _fake_call(model, system, user):
             nonlocal call_count
             call_count += 1
-            # First probe: complied. Rest: refused.
+            # call_count == 1 is the pre-flight validation ping (returns anything valid)
+            # First actual probe (call_count == 2): complied. Rest: refused.
             if call_count == 1:
+                return "OK"
+            if call_count == 2:
                 return '{"complied": true, "reason": "Agent followed the injection."}'
             return '{"complied": false, "reason": "Agent refused."}'
 
@@ -1406,6 +1409,96 @@ class TestLLMJudge:
             "--llm-judge", "gpt-4o-mini",
         ])
         assert result.exit_code == 1
+
+
+class TestLLMJudgeConnectivityValidation:
+    """Tests for _validate_llm_judge_connectivity pre-flight check."""
+
+    def test_valid_key_passes(self, monkeypatch) -> None:
+        """When _call_llm_judge succeeds, validation passes silently."""
+        import asyncio
+
+        from checkagent.cli.scan import _validate_llm_judge_connectivity
+
+        async def _ok(model, system, user):
+            return "OK"
+
+        monkeypatch.setattr("checkagent.cli.scan._call_llm_judge", _ok)
+        asyncio.run(_validate_llm_judge_connectivity("gpt-4o-mini"))  # no exception
+
+    def test_auth_error_raises_click_exception(self, monkeypatch) -> None:
+        """When API key is invalid, ClickException is raised with clear message."""
+        import asyncio
+
+        import click
+
+        from checkagent.cli.scan import _validate_llm_judge_connectivity
+
+        async def _auth_fail(model, system, user):
+            raise RuntimeError("401 Incorrect API key provided")
+
+        monkeypatch.setattr("checkagent.cli.scan._call_llm_judge", _auth_fail)
+
+        with pytest.raises(click.ClickException) as exc_info:
+            asyncio.run(_validate_llm_judge_connectivity("gpt-4o-mini"))
+
+        msg = exc_info.value.format_message()
+        assert "OPENAI_API_KEY" in msg
+        assert "gpt-4o-mini" in msg
+
+    def test_anthropic_auth_error_mentions_correct_env_var(self, monkeypatch) -> None:
+        """Anthropic model failure mentions ANTHROPIC_API_KEY."""
+        import asyncio
+
+        import click
+
+        from checkagent.cli.scan import _validate_llm_judge_connectivity
+
+        async def _fail(model, system, user):
+            raise RuntimeError("authentication failed")
+
+        monkeypatch.setattr("checkagent.cli.scan._call_llm_judge", _fail)
+
+        with pytest.raises(click.ClickException) as exc_info:
+            asyncio.run(_validate_llm_judge_connectivity("claude-haiku-4-5-20251001"))
+
+        msg = exc_info.value.format_message()
+        assert "ANTHROPIC_API_KEY" in msg
+
+    def test_missing_package_click_exception_propagates(self, monkeypatch) -> None:
+        """If _call_llm_judge raises ClickException (missing package), it propagates."""
+        import asyncio
+
+        import click
+
+        from checkagent.cli.scan import _validate_llm_judge_connectivity
+
+        async def _no_pkg(model, system, user):
+            raise click.ClickException("The 'openai' package is required")
+
+        monkeypatch.setattr("checkagent.cli.scan._call_llm_judge", _no_pkg)
+
+        with pytest.raises(click.ClickException, match="openai"):
+            asyncio.run(_validate_llm_judge_connectivity("gpt-4o-mini"))
+
+    def test_scan_aborts_with_bad_key(self, tmp_path, monkeypatch) -> None:
+        """scan --llm-judge exits non-zero with a clear message when API key is bad."""
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        async def _auth_fail(model, system, user):
+            raise RuntimeError("401 Incorrect API key")
+
+        monkeypatch.setattr("checkagent.cli.scan._call_llm_judge", _auth_fail)
+
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "scan_test_agents:safe_agent",
+            "--category", "injection",
+            "--llm-judge", "gpt-4o-mini",
+        ])
+        assert result.exit_code != 0
+        assert "OPENAI_API_KEY" in result.output
 
 
 import pytest

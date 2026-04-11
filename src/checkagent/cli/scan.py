@@ -233,6 +233,27 @@ async def _llm_evaluate_probe(
     )]
 
 
+async def _validate_llm_judge_connectivity(model: str) -> None:
+    """Pre-flight check: verify the LLM judge API key is valid and the model reachable.
+
+    Makes one minimal API call before probe execution starts.  If the key is
+    missing or invalid the caller sees a clear error instead of a silent
+    all-pass result caused by the per-probe exception swallowing.
+    """
+    provider = _detect_llm_provider(model)
+    env_var = "OPENAI_API_KEY" if provider == "openai" else "ANTHROPIC_API_KEY"
+    try:
+        await _call_llm_judge(model, "Reply with OK.", "ping")
+    except click.ClickException:
+        raise  # missing package — already has a good message
+    except Exception as exc:
+        raise click.ClickException(
+            f"Cannot reach {model}: {exc}\n"
+            f"Make sure {env_var} is set and exported in your shell:\n"
+            f"  export {env_var}=your-key-here"
+        ) from exc
+
+
 async def _evaluate_all_with_llm(
     results: list[tuple[Probe, str | None, Exception | None]],
     model: str,
@@ -722,6 +743,8 @@ def scan_cmd(
     # Validate --llm-judge model name (detect provider early, before running probes)
     if llm_judge:
         _detect_llm_provider(llm_judge)  # raises click.BadParameter if unrecognised
+        # raises ClickException if API key missing or unreachable
+        asyncio.run(_validate_llm_judge_connectivity(llm_judge))
 
     # Parse headers
     parsed_headers: dict[str, str] = {}
