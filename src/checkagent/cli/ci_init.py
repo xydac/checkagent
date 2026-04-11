@@ -157,21 +157,21 @@ def ci_init_cmd(
         gh_path = root / ".github" / "workflows" / "checkagent.yml"
         content = _GITHUB_WORKFLOW.format(scan_target=scan_target)
         if _write_file(gh_path, content, force, root):
-            rel = str(gh_path.relative_to(root))
+            rel = gh_path.relative_to(root).as_posix()
             created.append(rel)
             console.print(f"  [green]✓[/green] {rel}")
         else:
-            skipped.append(str(gh_path.relative_to(root)))
+            skipped.append(gh_path.relative_to(root).as_posix())
 
     if platform_lower in ("gitlab", "both"):
         gl_path = root / ".gitlab-ci.yml"
         content = _GITLAB_CI.format(scan_target=scan_target)
         if _write_file(gl_path, content, force, root):
-            rel = str(gl_path.relative_to(root))
+            rel = gl_path.relative_to(root).as_posix()
             created.append(rel)
             console.print(f"  [green]✓[/green] {rel}")
         else:
-            skipped.append(str(gl_path.relative_to(root)))
+            skipped.append(gl_path.relative_to(root).as_posix())
 
     if not created and skipped:
         console.print(
