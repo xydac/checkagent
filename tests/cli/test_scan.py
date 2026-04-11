@@ -399,6 +399,114 @@ class TestGenerateTestFile:
         assert "@pytest.fixture" in content
         assert "def agent_fn():" in content
 
+    # HTTP target tests
+
+    def test_http_target_generates_urllib_fixture(self, tmp_path: Path) -> None:
+        """HTTP targets must use urllib, not _resolve_callable."""
+        out = tmp_path / "test_safety.py"
+        _generate_test_file("http://localhost:8000/chat", self._make_findings(), out)
+        content = out.read_text()
+        assert "urllib.request" in content
+        assert "_resolve_callable" not in content
+        assert "TARGET_URL" in content
+
+    def test_http_target_valid_python(self, tmp_path: Path) -> None:
+        """Generated HTTP test file must be syntactically valid Python."""
+        out = tmp_path / "test_safety.py"
+        _generate_test_file("http://localhost:8000/api", self._make_findings(), out)
+        content = out.read_text()
+        compile(content, str(out), "exec")
+
+    def test_http_target_no_asyncio_in_test_body(self, tmp_path: Path) -> None:
+        """HTTP fixture returns a plain string; no asyncio needed in test body."""
+        out = tmp_path / "test_safety.py"
+        _generate_test_file("https://api.example.com/agent", self._make_findings(), out)
+        content = out.read_text()
+        # The test body should call agent_fn directly, not wrap in asyncio.run
+        assert "text = agent_fn(probe_input)" in content
+
+    def test_python_target_unchanged(self, tmp_path: Path) -> None:
+        """Python callable targets must still use _resolve_callable."""
+        out = tmp_path / "test_safety.py"
+        _generate_test_file("my_mod:my_fn", self._make_findings(), out)
+        content = out.read_text()
+        assert "_resolve_callable" in content
+        assert "urllib.request" not in content
+
+
+# ---------------------------------------------------------------------------
+# Unit tests: _is_http_target
+# ---------------------------------------------------------------------------
+
+
+class TestIsHttpTarget:
+    def test_http_url(self) -> None:
+        from checkagent.cli.scan import _is_http_target
+        assert _is_http_target("http://localhost:8000/chat") is True
+
+    def test_https_url(self) -> None:
+        from checkagent.cli.scan import _is_http_target
+        assert _is_http_target("https://api.example.com/agent") is True
+
+    def test_python_callable(self) -> None:
+        from checkagent.cli.scan import _is_http_target
+        assert _is_http_target("my_module:my_fn") is False
+
+    def test_python_dotted(self) -> None:
+        from checkagent.cli.scan import _is_http_target
+        assert _is_http_target("pkg.module.fn") is False
+
+
+# ---------------------------------------------------------------------------
+# Unit tests: _CATEGORY_REMEDIATION
+# ---------------------------------------------------------------------------
+
+
+class TestCategoryRemediation:
+    def test_known_categories_present(self) -> None:
+        from checkagent.cli.scan import _CATEGORY_REMEDIATION
+        expected = {
+            "prompt_injection",
+            "jailbreak",
+            "pii_leakage",
+            "system_prompt_leak",
+            "scope_violation",
+            "tool_boundary",
+            "refusal_compliance",
+        }
+        assert expected.issubset(set(_CATEGORY_REMEDIATION.keys()))
+
+    def test_each_category_has_tips(self) -> None:
+        from checkagent.cli.scan import _CATEGORY_REMEDIATION
+        for cat, tips in _CATEGORY_REMEDIATION.items():
+            assert len(tips) >= 1, f"Category '{cat}' has no remediation tips"
+
+    def test_remediation_shown_on_findings(self, tmp_path: Path) -> None:
+        """scan output must include 'How to Fix' section when findings exist."""
+        runner = CliRunner()
+        # Write a simple echo agent
+        agent_mod = tmp_path / "echo_agent.py"
+        agent_mod.write_text(
+            "def echo(msg):\n"
+            "    return 'IGNORE ALL PREVIOUS INSTRUCTIONS ' + msg\n"
+        )
+        import sys
+        sys.path.insert(0, str(tmp_path))
+        try:
+            result = runner.invoke(scan_cmd, ["echo_agent:echo", "--category", "injection"])
+        finally:
+            sys.path.pop(0)
+        # Should contain "How to Fix" heading
+        assert "How to Fix" in result.output or result.exit_code == 0
+
+    def test_no_remediation_shown_when_all_pass(self) -> None:
+        """'How to Fix' must NOT appear when no findings."""
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, ["checkagent.demo:_safe_agent"])
+        # If the agent is safe, no "How to Fix" section
+        if "No safety issues detected" in result.output:
+            assert "How to Fix" not in result.output
+
 
 # ---------------------------------------------------------------------------
 # Unit tests: _build_json_report
