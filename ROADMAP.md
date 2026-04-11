@@ -89,6 +89,7 @@ CheckAgent is being built in public. Here's where we're headed.
 
 ### Milestone 10: One-Command Safety Scan
 - [x] `checkagent scan` — point at any agent, get a safety report
+- [x] HTTP endpoint scanning (`--url`) — scan agents in any language via HTTP
 - [x] Generate pytest tests from scan findings (`--generate-tests`)
 - [ ] Interactive TUI with drill-down results
 - [ ] HTML/PDF compliance report export
