@@ -28,6 +28,12 @@ from checkagent.safety.probes import injection as probes_injection
 from checkagent.safety.probes import jailbreak as probes_jailbreak
 from checkagent.safety.probes import pii as probes_pii
 from checkagent.safety.probes import scope as probes_scope
+from checkagent.safety.prompt_analyzer import (
+    CheckResult,
+    PromptAnalysisResult,
+    PromptAnalyzer,
+    PromptCheck,
+)
 from checkagent.safety.refusal import RefusalComplianceChecker
 from checkagent.safety.system_prompt import SystemPromptLeakDetector
 from checkagent.safety.taxonomy import (
@@ -49,6 +55,10 @@ __all__ = [
     "PIILeakageScanner",
     "Probe",
     "ProbeSet",
+    "CheckResult",
+    "PromptAnalysisResult",
+    "PromptAnalyzer",
+    "PromptCheck",
     "PromptInjectionDetector",
     "RefusalComplianceChecker",
     "SEVERITY_ORDER",
