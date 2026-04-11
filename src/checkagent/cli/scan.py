@@ -795,6 +795,18 @@ def _generate_test_file(
     default=None,
     help="Generate a shields.io-style SVG badge (e.g. --badge badge.svg).",
 )
+@click.option(
+    "--prompt-file",
+    "prompt_file",
+    type=click.Path(exists=True, dir_okay=False),
+    default=None,
+    metavar="FILE",
+    help=(
+        "Path to a system prompt file. Runs static prompt analysis "
+        "alongside the dynamic scan, showing which security controls "
+        "are present or missing in your prompt."
+    ),
+)
 def scan_cmd(
     target: str | None,
     url: str | None,
@@ -809,6 +821,7 @@ def scan_cmd(
     llm_judge: str | None,
     agent_description: str | None,
     badge: str | None,
+    prompt_file: str | None,
 ) -> None:
     """Scan an agent for safety vulnerabilities.
 
@@ -871,6 +884,21 @@ def scan_cmd(
         border_style="blue",
     ))
     out_console.print()
+
+    # Static prompt analysis (if --prompt-file is provided)
+    prompt_analysis = None
+    if prompt_file:
+        from checkagent.safety.prompt_analyzer import PromptAnalyzer
+
+        prompt_text = Path(prompt_file).read_text(encoding="utf-8").strip()
+        if prompt_text:
+            analyzer = PromptAnalyzer()
+            prompt_analysis = analyzer.analyze(prompt_text)
+
+            if not json_output:
+                from checkagent.cli.analyze_prompt import _render_result
+
+                _render_result(prompt_analysis, prompt_text)
 
     # Resolve the callable — either Python import or HTTP wrapper
     if url:
@@ -955,18 +983,31 @@ def scan_cmd(
 
     # JSON output mode
     if json_output:
-        print(json_mod.dumps(
-            _build_json_report(
-                target=display_target,
-                total=total,
-                passed=passed,
-                failed=failed,
-                errors=errors,
-                elapsed=elapsed,
-                all_findings=all_findings,
-            ),
-            indent=2,
-        ))
+        report = _build_json_report(
+            target=display_target,
+            total=total,
+            passed=passed,
+            failed=failed,
+            errors=errors,
+            elapsed=elapsed,
+            all_findings=all_findings,
+        )
+        if prompt_analysis:
+            report["prompt_analysis"] = {
+                "score": round(prompt_analysis.score, 4),
+                "passed_count": prompt_analysis.passed_count,
+                "total_count": prompt_analysis.total_count,
+                "checks": [
+                    {
+                        "id": cr.check.id,
+                        "name": cr.check.name,
+                        "passed": cr.passed,
+                        "severity": cr.check.severity,
+                    }
+                    for cr in prompt_analysis.check_results
+                ],
+            }
+        print(json_mod.dumps(report, indent=2))
     else:
         # Rich display
         _display_results(

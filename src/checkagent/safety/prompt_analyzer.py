@@ -187,7 +187,7 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
         description="Instructions on how to decline out-of-scope or harmful requests",
         patterns=[
             re.compile(
-                r"(?:politely\s+)?(?:decline|refuse|reject)\s+(?:\w+\s+){0,3}"
+                r"(?:politely\s+)?(?:decline|refuse|reject)\s+(?:[\w-]+\s+){0,3}"
                 r"(?:requests?|questions?|instructions?)",
                 _F,
             ),
