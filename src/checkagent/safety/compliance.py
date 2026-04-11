@@ -29,6 +29,7 @@ EU_AI_ACT_MAPPING: dict[SafetyCategory, list[str]] = {
     SafetyCategory.PII_LEAKAGE: ["Article 10 (Data Governance)", "Article 15 (Accuracy)"],
     SafetyCategory.TOOL_MISUSE: ["Article 9 (Risk Management)", "Article 14 (Human Oversight)"],
     SafetyCategory.GROUNDEDNESS: ["Article 15 (Accuracy)"],
+    SafetyCategory.DATA_ENUMERATION: ["Article 10 (Data Governance)", "Article 15 (Accuracy)"],
     SafetyCategory.HARMFUL_CONTENT: ["Article 9 (Risk Management)"],
     SafetyCategory.OFF_TOPIC: ["Article 15 (Robustness)"],
 }

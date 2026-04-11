@@ -17,6 +17,7 @@ class TestSafetyCategory:
             "pii_leakage",
             "tool_misuse",
             "groundedness",
+            "data_enumeration",
             "harmful_content",
             "off_topic",
         }

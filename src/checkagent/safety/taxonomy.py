@@ -25,6 +25,9 @@ class SafetyCategory(str, Enum):
     # LLM09 — Overreliance
     GROUNDEDNESS = "groundedness"
 
+    # LLM06 — Sensitive Information Disclosure (data scope)
+    DATA_ENUMERATION = "data_enumeration"
+
     # General
     HARMFUL_CONTENT = "harmful_content"
     OFF_TOPIC = "off_topic"
@@ -86,6 +89,7 @@ OWASP_MAPPING: dict[SafetyCategory, str] = {
     SafetyCategory.PII_LEAKAGE: "LLM06",
     SafetyCategory.TOOL_MISUSE: "LLM08",
     SafetyCategory.GROUNDEDNESS: "LLM09",
+    SafetyCategory.DATA_ENUMERATION: "LLM06",
     SafetyCategory.HARMFUL_CONTENT: "N/A",
     SafetyCategory.OFF_TOPIC: "LLM08",  # Scope violation = excessive agency
 }
