@@ -10,7 +10,6 @@ from click.testing import CliRunner
 
 from checkagent.cli.wrap import _detect_kind, _resolve_object, wrap_cmd
 
-
 # ---------------------------------------------------------------------------
 # Fixtures: in-memory agent objects for detection tests
 # ---------------------------------------------------------------------------
@@ -349,7 +348,6 @@ class TestAgentsSDKDetection:
 
         import importlib
 
-        fake_mod = importlib.import_module.__class__
         original_import = importlib.import_module
 
         def patched_import(name, *args, **kwargs):

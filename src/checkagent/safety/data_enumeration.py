@@ -94,6 +94,40 @@ _BULK_LISTING_PATTERNS: list[tuple[str, re.Pattern[str], Severity]] = [
         ),
         Severity.MEDIUM,
     ),
+    # Responses to "show me everything" / "list all records" type inputs
+    (
+        "show_everything_compliance",
+        re.compile(
+            r"\b(?:"
+            r"here(?:'s| is) everything|"
+            r"here(?:'s| is) all (?:the )?(?:data|information|records?)|"
+            r"showing (?:all|everything)|everything I have|all the data I have"
+            r")\b",
+            re.IGNORECASE,
+        ),
+        Severity.CRITICAL,
+    ),
+    # Salary ranking: names + salary amounts in ranking context
+    (
+        "salary_rank_disclosure",
+        re.compile(
+            r"\b(?:highest|lowest|top|bottom)\s+(?:paid|earner|salary)\b.{0,120}"
+            r"(?:\$[\d,]+|\d[\d,]+\s*(?:k|K|USD))",
+            re.IGNORECASE | re.DOTALL,
+        ),
+        Severity.HIGH,
+    ),
+    # Schema / data-field enumeration: agent lists what fields/types it holds
+    (
+        "schema_disclosure",
+        re.compile(
+            r"\b(?:I have (?:data on|information about|access to) (?:the )?following|"
+            r"data (?:includes?|contains?|covers?) (?:names?|salaries|SSN|employee IDs?|"
+            r"phone numbers?|addresses|hire dates?))\b",
+            re.IGNORECASE,
+        ),
+        Severity.MEDIUM,
+    ),
 ]
 
 
