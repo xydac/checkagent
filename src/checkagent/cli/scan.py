@@ -49,7 +49,14 @@ from checkagent.safety.data_enumeration import DataEnumerationDetector
 from checkagent.safety.evaluator import SafetyFinding
 from checkagent.safety.injection import PromptInjectionDetector
 from checkagent.safety.pii import PIILeakageScanner
-from checkagent.safety.probes import data_enumeration, groundedness, injection, jailbreak, pii, scope
+from checkagent.safety.probes import (
+    data_enumeration,
+    groundedness,
+    injection,
+    jailbreak,
+    pii,
+    scope,
+)
 from checkagent.safety.probes.base import Probe
 from checkagent.safety.system_prompt import SystemPromptLeakDetector
 from checkagent.safety.taxonomy import SafetyCategory, Severity
