@@ -151,11 +151,13 @@ def analyze_prompt_cmd(prompt_source: str, output_json: bool) -> None:
         if is_file:
             prompt_text = p.read_text(encoding="utf-8")
         else:
-            # Warn if it looks like a file path but doesn't exist
             _looks_like_path = (
                 "/" in prompt_source
                 or "\\" in prompt_source
-                or prompt_source.endswith((".txt", ".md", ".prompt"))
+                or prompt_source.endswith((
+                    ".txt", ".md", ".prompt", ".py", ".yaml",
+                    ".yml", ".json", ".toml", ".cfg", ".conf",
+                ))
             )
             if _looks_like_path:
                 raise click.UsageError(

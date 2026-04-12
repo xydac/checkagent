@@ -100,6 +100,7 @@ checkagent scan my_agent:agent_fn --generate-tests test_safety.py
 checkagent scan my_agent:agent_fn --json           # structured JSON for CI
 checkagent scan my_agent:agent_fn --badge badge.svg # shields.io-style badge
 checkagent scan my_agent:agent_fn --repeat 3       # run each probe N times for stable CI gates
+checkagent scan my_agent:agent_fn --sarif scan.sarif # SARIF 2.1.0 for GitHub Code Scanning
 ```
 
 For non-deterministic agents (real LLMs at temperature > 0), `--repeat N` runs each probe multiple times and reports a stability score. A finding is flagged "flaky" when it appears in some runs but not others — useful for distinguishing real vulnerabilities from noise.
@@ -214,7 +215,7 @@ async def test_no_prompt_injection():
 | **Mock layer** | MockLLM with pattern matching, MockTool with schema validation, streaming mocks |
 | **Fault injection** | Timeouts, rate limits, server errors, malformed responses — fluent builder API |
 | **Assertions** | `assert_tool_called`, `assert_output_schema`, `assert_output_matches` with dirty-equals |
-| **Safety scanning** | 68 attack probes, scan Python callables or HTTP endpoints, `--json`/`--badge`/`--generate-tests` |
+| **Safety scanning** | 88 attack probes, scan Python callables or HTTP endpoints, SARIF output for GitHub Code Scanning |
 | **Evaluation metrics** | Task completion, tool correctness, step efficiency, trajectory matching |
 | **Record & replay** | JSON cassettes with content-addressed filenames, migration tooling, stream support |
 | **LLM-as-judge** | Rubric-based evaluation, statistical pass/fail, multi-judge consensus |
