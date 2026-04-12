@@ -33,6 +33,12 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from checkagent.cli.sarif import (
+    build_sarif,
+    format_utc,
+    sarif_invocation,
+    sarif_run_properties,
+)
 from checkagent.safety.data_enumeration import DataEnumerationDetector
 from checkagent.safety.evaluator import SafetyFinding
 from checkagent.safety.injection import PromptInjectionDetector
@@ -820,6 +826,14 @@ def _generate_test_file(
         "Use for CI gates on non-deterministic (real LLM) agents."
     ),
 )
+@click.option(
+    "--sarif", "-o",
+    "sarif_file",
+    type=click.Path(dir_okay=False),
+    default=None,
+    metavar="FILE",
+    help="Write scan results as SARIF 2.1.0 to FILE (e.g. --sarif scan.sarif).",
+)
 def scan_cmd(
     target: str | None,
     url: str | None,
@@ -836,6 +850,7 @@ def scan_cmd(
     badge: str | None,
     prompt_file: str | None,
     repeat: int,
+    sarif_file: str | None,
 ) -> None:
     """Scan an agent for safety vulnerabilities.
 
@@ -853,6 +868,7 @@ def scan_cmd(
         checkagent scan my_agent:run --llm-judge gpt-4o-mini \
             --agent-description "Customer support bot. Must refuse instruction overrides."
         checkagent scan my_agent:run --json
+        checkagent scan my_agent:run --sarif scan.sarif
         checkagent scan my_agent:run --badge badge.svg
         checkagent scan my_agent:run --category data_enumeration
     """
@@ -950,6 +966,7 @@ def scan_cmd(
     out_console.print()
 
     # Run probes (potentially multiple times with --repeat)
+    start_wall_time = time.time()
     start_time = time.monotonic()
 
     if repeat > 1:
@@ -1050,6 +1067,29 @@ def scan_cmd(
             passed += 1
             stable_pass += 1
 
+    # Build SARIF — the internal data model for all output paths
+    end_wall_time = time.time()
+    sarif_doc = build_sarif(
+        target=display_target,
+        total=total,
+        passed=passed,
+        failed=failed,
+        errors=errors,
+        elapsed=elapsed,
+        start_time_utc=format_utc(start_wall_time),
+        end_time_utc=format_utc(end_wall_time),
+        all_findings=all_findings,
+    )
+
+    # Write SARIF file if --sarif is given
+    if sarif_file:
+        sarif_path = Path(sarif_file)
+        sarif_path.write_text(json_mod.dumps(sarif_doc, indent=2), encoding="utf-8")
+        if not json_output:
+            out_console.print(
+                f"\n[green]SARIF written → [bold]{sarif_path}[/bold][/green]"
+            )
+
     # JSON output mode
     if json_output:
         report = _build_json_report(
@@ -1082,13 +1122,9 @@ def scan_cmd(
             }
         print(json_mod.dumps(report, indent=2))
     else:
-        # Rich display
+        # Rich display — reads from SARIF structure
         _display_results(
-            total=total,
-            passed=passed,
-            failed=failed,
-            errors=errors,
-            elapsed=elapsed,
+            sarif_doc=sarif_doc,
             all_findings=all_findings,
             findings_by_category=findings_by_category,
             verbose=verbose,
@@ -1211,11 +1247,7 @@ def _build_json_report(
 
 def _display_results(
     *,
-    total: int,
-    passed: int,
-    failed: int,
-    errors: int,
-    elapsed: float,
+    sarif_doc: dict,
     all_findings: list[tuple[Probe, str | None, SafetyFinding]],
     findings_by_category: dict[str, list[tuple[Probe, str | None, SafetyFinding]]],
     verbose: bool,
@@ -1224,7 +1256,18 @@ def _display_results(
     stable_pass: int = 0,
     stable_fail: int = 0,
 ) -> None:
-    """Render scan results to the console."""
+    """Render scan results to the console, reading stats from the SARIF document."""
+    # Extract stats from SARIF — this is the single source of truth
+    inv = sarif_invocation(sarif_doc)
+    inv_props = inv.get("properties", {})
+    run_props = sarif_run_properties(sarif_doc)
+
+    total = inv_props.get("probesRun", 0)
+    passed = inv_props.get("probesPassed", 0)
+    failed = inv_props.get("probesFailed", 0)
+    errors = inv_props.get("probesErrored", 0)
+    elapsed = inv_props.get("elapsedSeconds", 0.0)
+    score = run_props.get("passRate", 1.0)
 
     # Summary table
     summary = Table(title="Scan Summary", show_header=False, border_style="blue")
@@ -1244,6 +1287,12 @@ def _display_results(
     if errors:
         summary.add_row("Errors", f"[yellow]{errors}[/yellow]")
     summary.add_row("Time", f"{elapsed:.2f}s")
+    score_style = (
+        "green" if score >= 0.8
+        else "yellow" if score >= 0.6
+        else "red"
+    )
+    summary.add_row("Score", f"[{score_style}]{score:.0%}[/{score_style}]")
     if repeat > 1:
         consistent = stable_pass + stable_fail
         stability = consistent / total if total > 0 else 1.0
