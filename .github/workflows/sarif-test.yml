@@ -1,0 +1,19 @@
+name: Test SARIF Upload
+
+on:
+  workflow_dispatch:
+
+permissions:
+  security-events: write
+
+jobs:
+  upload-sarif:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: .github/sarif-samples/sample-scan-result.sarif
+          category: checkagent-scan
