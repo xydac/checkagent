@@ -339,6 +339,7 @@ _PROBE_SETS: dict[str, list[Probe]] = {
     "pii": pii.all_probes.all() if hasattr(pii, "all_probes") else [],
     "scope": scope.all_probes.all() if hasattr(scope, "all_probes") else [],
     "data_enumeration": data_enumeration.all_probes.all(),
+    "groundedness": groundedness.all_probes.all() if hasattr(groundedness, "all_probes") else [],
 }
 
 

@@ -19,7 +19,7 @@ echo
 checkagent demo 2>&1
 sleep 1
 
-# Act 2: Safety scan (68 probes, instant results)
+# Act 2: Safety scan (101 probes, instant results)
 printf '\n$ '
 sleep 0.15
 cmd="checkagent scan demo_agent:my_agent"

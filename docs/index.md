@@ -17,7 +17,7 @@ CheckAgent is a pytest plugin for testing AI agent workflows. It provides layere
 - **Zero telemetry** — nothing is phoned home, ever. The code is Apache-2.0 and fully auditable. Read it yourself.
 - **Apache-2.0 forever** — no open-core, no bait-and-switch, no "community edition" restrictions. The license is in the repo.
 - **Framework-agnostic** — works with LangChain, OpenAI Agents SDK, CrewAI, PydanticAI, Anthropic SDK, or any Python callable.
-- **Safety testing built-in** — 68 attack probes covering prompt injection, PII leakage, jailbreak attempts, and tool scope violations ship as core, not an add-on.
+- **Safety testing built-in** — 101 attack probes covering prompt injection, PII leakage, jailbreak attempts, tool scope violations, data enumeration, and groundedness ship as core, not an add-on.
 - **Cost tracking built-in** — every test run tracks token usage and estimated cost. Set budget limits so eval and judge layers don't surprise you.
 - **Async-first** — most agent frameworks are async; CheckAgent is too. `async def test_*` just works.
 
@@ -52,12 +52,14 @@ Start with **MOCK** — free, milliseconds, deterministic, no API calls. Add **R
 
 ## Safety Testing
 
-CheckAgent ships 68 attack probes across four categories:
+CheckAgent ships 101 attack probes across six categories:
 
 - **Prompt injection** — direct and indirect injection via tool outputs, user messages, and system prompt overrides
 - **PII leakage** — tests whether your agent exposes names, emails, phone numbers, SSNs, and other sensitive data
 - **Jailbreak** — role-play attacks, encoding tricks, and instruction-override attempts
 - **Scope violations** — tool boundary tests checking whether your agent calls tools it shouldn't
+- **Data enumeration** — attempts to extract or enumerate data beyond authorized scope
+- **Groundedness** — tests whether your agent fabricates or hallucinates information not grounded in context
 
 ```python
 @pytest.mark.agent_test(layer="mock")

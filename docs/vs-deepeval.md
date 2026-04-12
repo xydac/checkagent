@@ -13,7 +13,7 @@ CheckAgent and DeepEval are both open-source frameworks for testing AI systems, 
 | **Setup time (full)** | ~5 min | ~25 min (API key + optional Confident AI account) |
 | **RAG evaluation** | Basic groundedness metric | Deep: faithfulness, contextual precision/recall, answer relevancy, and more |
 | **Agent tool-call tracing** | Full: per-step traces, tool boundary validation | Limited |
-| **Safety probes** | 68 probes, OWASP LLM Top 10 mapped | Not a primary focus |
+| **Safety probes** | 101 probes, OWASP LLM Top 10 mapped | Not a primary focus |
 | **Cost tracking** | Built-in; per-test token usage and budget assertions | Not built-in |
 | **Self-hosted** | Fully self-hosted; zero telemetry | Open-source core; Confident AI is a hosted platform |
 | **Dashboard** | None (SARIF + CI annotations) | Confident AI hosted dashboard |
@@ -39,7 +39,7 @@ CheckAgent and DeepEval are both open-source frameworks for testing AI systems, 
 
 - **Full agent lifecycle coverage.** CheckAgent covers the testing pyramid from deterministic unit tests (Mock) through record-and-replay regression (Replay), metric evaluation (Eval), and LLM-judged assertions (Judge) — with explicit cost and frequency guidance for each layer. The framework is designed around the question: "which tests should I run, when, and at what cost?"
 
-- **Safety testing as a first-class feature.** 68 attack probes covering OWASP LLM Top 10 categories — prompt injection, PII leakage, jailbreak, and tool scope violations — ship as part of the core framework, not as an add-on. Probes produce SARIF output that integrates directly with GitHub Advanced Security.
+- **Safety testing as a first-class feature.** 101 attack probes covering OWASP LLM Top 10 categories — prompt injection, PII leakage, jailbreak, tool scope violations, data enumeration, and groundedness — ship as part of the core framework, not as an add-on. Probes produce SARIF output that integrates directly with GitHub Advanced Security.
 
 - **Agent tool-call tracing and boundary validation.** CheckAgent captures per-step execution traces including which tools were called, with what arguments, and what they returned. Tool boundary tests (`ToolCallBoundaryValidator`) let you assert that your agent never calls tools outside its permitted scope — a concern that output quality metrics do not cover.
 

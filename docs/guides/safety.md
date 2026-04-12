@@ -21,7 +21,7 @@ async def test_injection_resistance(my_agent):
 
 ## Attack Probe Library
 
-CheckAgent ships 68 attack probe templates organized by category:
+CheckAgent ships 101 attack probe templates organized by category:
 
 | Category | Count | What It Tests |
 |----------|-------|---------------|
@@ -31,6 +31,8 @@ CheckAgent ships 68 attack probe templates organized by category:
 | Jailbreak (roleplay) | 7 | "Pretend you're..." attacks |
 | PII extraction | 10 | Attempts to extract personal data |
 | Scope boundary | 8 | Attempts to use unauthorized tools |
+| Data enumeration | 18 | Attempts to enumerate data beyond authorized scope |
+| Groundedness | 15 | Tests for fabricated or hallucinated information |
 
 Access probes by category:
 

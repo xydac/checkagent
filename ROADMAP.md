@@ -106,14 +106,14 @@ CheckAgent is being built in public. Here's where we're headed.
 - [ ] PR comment generation with eval metrics
 - [x] `checkagent ci-init` for easy CI setup
 
-### Milestone 13: v0.1.0 Launch
-- [x] PyPI v0.1.0 published
+### Milestone 13: v0.2.0 Launch
+- [x] PyPI v0.2.0 published
 - [x] All README examples verified working
 - [x] Docs site live
 - [x] 3+ framework adapters validated with real agents
 - [x] Fixture naming matches branding (`ca_` prefix)
 - [x] Async auto-configuration (zero-config pytest-asyncio)
-- [ ] PyPI v0.1.1 published with asyncio fix
+- [ ] PyPI v0.2.1 published with asyncio fix
 - [x] Demo animation on README (terminal recording)
 - [ ] End-to-end validation from clean `pip install`
 

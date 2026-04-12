@@ -205,7 +205,7 @@ Run the OWASP LLM Top 10 probe suite against your agent with one command:
 checkagent scan --agent support_agent:run_support_agent
 ```
 
-CheckAgent fires 68 attack probes covering prompt injection, jailbreaks, PII extraction, and scope boundary violations, then prints a pass/fail report mapped to OWASP categories. No API key setup is needed for the probe runner itself; your agent's LLM key is used only if you point the scan at a live agent.
+CheckAgent fires 101 attack probes covering prompt injection, jailbreaks, PII extraction, scope boundary violations, data enumeration, and groundedness, then prints a pass/fail report mapped to OWASP categories. No API key setup is needed for the probe runner itself; your agent's LLM key is used only if you point the scan at a live agent.
 
 See [OWASP Mapping](../owasp-mapping.md) for the full category-to-probe breakdown.
 

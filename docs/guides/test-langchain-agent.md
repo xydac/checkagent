@@ -221,7 +221,7 @@ No API keys. No network calls. Under 50 ms total.
 
 ## 6. Run a Safety Scan
 
-`checkagent scan` runs 68 attack probes against your agent, covering the [OWASP LLM Top 10](../owasp-mapping.md). Point it at the factory function in your module:
+`checkagent scan` runs 101 attack probes against your agent, covering the [OWASP LLM Top 10](../owasp-mapping.md). Point it at the factory function in your module:
 
 ```bash
 checkagent scan my_agent:build_agent
@@ -240,7 +240,7 @@ The scan covers:
 Example output:
 
 ```
-Scanning my_agent:build_agent — 68 probes
+Scanning my_agent:build_agent — 101 probes
 ──────────────────────────────────────────────────────
 [PASS] injection/direct-override            0.31s
 [PASS] injection/indirect-tool-output       0.28s

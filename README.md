@@ -61,7 +61,7 @@ pytest tests/ -v
 
 ### Scan any agent for safety issues (zero config)
 
-Point `checkagent scan` at any Python function — it runs 88 attack probes across 5 categories and reports what it finds:
+Point `checkagent scan` at any Python function — it runs 101 attack probes across 6 categories and reports what it finds:
 
 ```bash
 checkagent scan my_agent:agent_fn
@@ -270,7 +270,7 @@ async def test_no_prompt_injection():
 | **Mock layer** | MockLLM with pattern matching, MockTool with schema validation, streaming mocks |
 | **Fault injection** | Timeouts, rate limits, server errors, malformed responses — fluent builder API |
 | **Assertions** | `assert_tool_called`, `assert_output_schema`, `assert_output_matches` with dirty-equals |
-| **Safety scanning** | 88 attack probes, scan Python callables or HTTP endpoints, SARIF output for GitHub Code Scanning |
+| **Safety scanning** | 101 attack probes, scan Python callables or HTTP endpoints, SARIF output for GitHub Code Scanning |
 | **Evaluation metrics** | Task completion, tool correctness, step efficiency, trajectory matching |
 | **Record & replay** | JSON cassettes with content-addressed filenames, migration tooling, stream support |
 | **LLM-as-judge** | Rubric-based evaluation, statistical pass/fail, multi-judge consensus |
