@@ -243,3 +243,33 @@ class TestAnalyzePromptEdgeCases:
         runner = CliRunner()
         result = runner.invoke(main, ["--help"])
         assert "analyze-prompt" in result.output
+
+    def test_nonexistent_txt_file_raises_error(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["analyze-prompt", "nonexistent.txt"])
+        assert result.exit_code != 0
+        assert "File not found" in result.output
+
+    def test_nonexistent_yaml_file_raises_error(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["analyze-prompt", "config.yaml"])
+        assert result.exit_code != 0
+        assert "File not found" in result.output
+
+    def test_nonexistent_py_file_raises_error(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["analyze-prompt", "prompt.py"])
+        assert result.exit_code != 0
+        assert "File not found" in result.output
+
+    def test_nonexistent_path_with_slash_raises_error(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["analyze-prompt", "/tmp/no_such_prompt.txt"])
+        assert result.exit_code != 0
+        assert "File not found" in result.output
+
+    def test_literal_string_not_mistaken_for_file(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["analyze-prompt", "You are a helpful assistant"])
+        assert result.exit_code in (0, 1)
+        assert "System Prompt Analysis" in result.output
