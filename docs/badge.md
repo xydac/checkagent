@@ -1,6 +1,6 @@
 # Safety Badge
 
-CheckAgent can generate an SVG badge showing the result of a safety scan. The badge displays the number of probes that passed out of the total probes run — for example, **safety · 64/68 passed**.
+CheckAgent can generate an SVG badge showing the result of a safety scan. The badge displays the number of probes that passed out of the total probes run — for example, **CheckAgent · 64/68 safe**.
 
 Add it to your project's README so contributors and users can see the current safety posture at a glance.
 
@@ -8,8 +8,8 @@ Add it to your project's README so contributors and users can see the current sa
 
 The badge reflects the most recent `checkagent scan` run:
 
-- **Left label:** `safety` (dark gray background)
-- **Right value:** `N/M passed` where N is the number of passing probes and M is the total
+- **Left label:** `CheckAgent` (dark gray background)
+- **Right value:** `N/M safe` where N is the number of passing probes and M is the total
 - **Color:**
   - Green (`#44cc11`) — all or nearly all probes passed
   - Yellow (`#dfb317`) — partial failures (some probes failed)
@@ -59,7 +59,7 @@ git push
 Reference it in your README:
 
 ```markdown
-![Safety](./badge.svg)
+![CheckAgent](./badge.svg)
 ```
 
 ### Option 2: Serve via GitHub Actions artifact URL
@@ -82,7 +82,7 @@ Generate the badge in CI and upload it as a workflow artifact. GitHub provides a
 Reference the badge in your README using the artifact download URL:
 
 ```markdown
-![Safety](https://github.com/<owner>/<repo>/actions/workflows/<workflow-file>/badge.svg)
+![CheckAgent](https://github.com/<owner>/<repo>/actions/workflows/<workflow-file>/badge.svg)
 ```
 
 > Note: GitHub's built-in workflow status badge (`/badge.svg`) shows workflow pass/fail, not the CheckAgent probe count. To serve the CheckAgent SVG badge via a stable public URL, use Option 1 (commit to repo) or a separate badge hosting service.
@@ -138,7 +138,7 @@ jobs:
 After the first run, add the badge to your `README.md`:
 
 ```markdown
-![Safety](./badge.svg)
+![CheckAgent](./badge.svg)
 ```
 
 The `[skip ci]` tag in the commit message prevents the push from triggering another workflow run.
