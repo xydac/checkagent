@@ -71,6 +71,7 @@ plugins:
 nav:
   - Home: index.md
   - Quickstart: quickstart.md
+  - Testing Pyramid: testing-pyramid.md
   - Testing Layers:
     - Overview: layers/index.md
     - Mock: layers/mock.md
@@ -81,6 +82,9 @@ nav:
     - Safety Testing: guides/safety.md
     - Fault Injection: guides/faults.md
     - Multi-Agent Testing: guides/multiagent.md
+    - Test a LangChain Agent: guides/test-langchain-agent.md
+    - Test an OpenAI Agent: guides/test-openai-agent.md
+    - Data Enumeration (Case Study): guides/data-enumeration.md
   - API Reference:
     - Overview: api/index.md
     - Core Types: api/types.md
@@ -96,3 +100,7 @@ nav:
   - OWASP Mapping: owasp-mapping.md
   - Badges: badge.md
   - Limitations: limitations.md
+  - Trust & Privacy: trust.md
+  - Comparisons:
+    - vs. DeepEval: vs-deepeval.md
+    - vs. Braintrust: vs-braintrust.md
