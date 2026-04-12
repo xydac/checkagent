@@ -39,6 +39,12 @@ from checkagent.cli.sarif import (
     sarif_invocation,
     sarif_run_properties,
 )
+from checkagent.core.tracer import (
+    begin_probe_trace,
+    end_probe_trace,
+    install_patches,
+    uninstall_patches,
+)
 from checkagent.safety.data_enumeration import DataEnumerationDetector
 from checkagent.safety.evaluator import SafetyFinding
 from checkagent.safety.injection import PromptInjectionDetector
@@ -491,8 +497,9 @@ async def _run_probe(
     agent_fn: object,
     probe: Probe,
     timeout: float,
-) -> tuple[Probe, str | None, Exception | None]:
-    """Run a single probe against the agent, returning (probe, output, error)."""
+) -> tuple[Probe, str | None, Exception | None, list[dict]]:
+    """Run a single probe against the agent, returning (probe, output, error, trace_events)."""
+    begin_probe_trace()
     try:
         coro = agent_fn(probe.input)  # type: ignore[operator]
         if asyncio.iscoroutine(coro):
@@ -518,12 +525,12 @@ async def _run_probe(
         else:
             output = str(result)
 
-        return probe, output, None
+        return probe, output, None, end_probe_trace()
 
     except asyncio.TimeoutError:
-        return probe, None, TimeoutError(f"Timed out after {timeout}s")
+        return probe, None, TimeoutError(f"Timed out after {timeout}s"), end_probe_trace()
     except Exception as exc:
-        return probe, None, exc
+        return probe, None, exc, end_probe_trace()
 
 
 def _evaluate_output(output: str) -> list[SafetyFinding]:
@@ -975,7 +982,8 @@ def scan_cmd(
             f"({len(probes) * repeat} total executions)...[/blue]"
         )
 
-    all_runs: list[list[tuple[Probe, str | None, Exception | None]]] = []
+    install_patches()
+    all_runs: list[list[tuple[Probe, str | None, Exception | None, list[dict]]]] = []
     for run_idx in range(repeat):
         run_results = asyncio.run(_run_all_probes(agent_fn, probes, timeout))
         all_runs.append(run_results)
@@ -984,6 +992,7 @@ def scan_cmd(
                 f"[dim]  Round {run_idx + 1}/{repeat} complete[/dim]"
             )
 
+    uninstall_patches()
     elapsed = time.monotonic() - start_time
 
     # Evaluate results — aggregate across repeats
@@ -996,6 +1005,7 @@ def scan_cmd(
     stable_pass = 0
     stable_fail = 0
     all_findings: list[tuple[Probe, str | None, SafetyFinding]] = []
+    all_traces: list[list[dict]] = []  # parallel to all_findings
     findings_by_category: dict[
         str, list[tuple[Probe, str | None, SafetyFinding]]
     ] = defaultdict(list)
@@ -1004,10 +1014,11 @@ def scan_cmd(
         probe_had_error = False
         probe_pass_count = 0
         probe_fail_count = 0
-        probe_findings: list[tuple[str | None, SafetyFinding]] = []
+        # (output, finding, trace_events) per failing run
+        probe_findings: list[tuple[str | None, SafetyFinding, list[dict]]] = []
 
         for run_results in all_runs:
-            _p, output, error = run_results[probe_idx]
+            _p, output, error, trace_events = run_results[probe_idx]
             if error is not None:
                 probe_had_error = True
                 continue
@@ -1028,7 +1039,7 @@ def scan_cmd(
             if run_findings:
                 probe_fail_count += 1
                 for f in run_findings:
-                    probe_findings.append((output, f))
+                    probe_findings.append((output, f, trace_events))
             else:
                 probe_pass_count += 1
 
@@ -1044,7 +1055,7 @@ def scan_cmd(
                 stable_fail += 1
             # Deduplicate findings — keep one per category
             seen_cats: set[str] = set()
-            for output, finding in probe_findings:
+            for output, finding, trace in probe_findings:
                 cat_key = finding.category.value
                 if cat_key not in seen_cats:
                     seen_cats.add(cat_key)
@@ -1060,6 +1071,7 @@ def scan_cmd(
                             probe=finding.probe,
                         )
                     all_findings.append((probe, output, finding))
+                    all_traces.append(trace)
                     findings_by_category[cat_key].append(
                         (probe, output, finding)
                     )
@@ -1079,6 +1091,7 @@ def scan_cmd(
         start_time_utc=format_utc(start_wall_time),
         end_time_utc=format_utc(end_wall_time),
         all_findings=all_findings,
+        all_traces=all_traces,
     )
 
     # Write SARIF file if --sarif is given
@@ -1179,11 +1192,13 @@ async def _run_all_probes(
     agent_fn: object,
     probes: list[Probe],
     timeout: float,
-) -> list[tuple[Probe, str | None, Exception | None]]:
+) -> list[tuple[Probe, str | None, Exception | None, list[dict]]]:
     """Run all probes concurrently with bounded parallelism."""
     sem = asyncio.Semaphore(10)
 
-    async def _limited(probe: Probe) -> tuple[Probe, str | None, Exception | None]:
+    async def _limited(
+        probe: Probe,
+    ) -> tuple[Probe, str | None, Exception | None, list[dict]]:
         async with sem:
             return await _run_probe(agent_fn, probe, timeout)
 

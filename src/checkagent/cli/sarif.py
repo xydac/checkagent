@@ -453,6 +453,74 @@ def _target_uri(target: str) -> str:
     return file_path
 
 
+def _build_code_flows(
+    probe: Probe,
+    agent_output: str | None,
+    trace_events: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Build SARIF codeFlows from execution trace events.
+
+    When *trace_events* are present, each event (LLM call, tool call, etc.)
+    becomes a ``threadFlowLocation``.  The probe input is always the first
+    location and the agent response (if any) is always the last.
+
+    Falls back to a minimal probe→response flow when no trace is recorded.
+    """
+    # Skip entirely when there is nothing meaningful to show
+    if agent_output is None and not trace_events:
+        return []
+
+    locations: list[dict[str, Any]] = []
+
+    # Always start with the probe
+    locations.append({
+        "location": {"message": {"text": f"Probe sent: {probe.input[:200]}"}},
+        "nestingLevel": 0,
+    })
+
+    for event in trace_events:
+        event_type = event.get("type", "")
+        if event_type == "llm_call":
+            provider = event.get("provider", "?")
+            model = event.get("model", "?")
+            prompt = event.get("prompt_preview", "")
+            response = event.get("response_preview", "")
+            in_tok = event.get("input_tokens", 0)
+            out_tok = event.get("output_tokens", 0)
+            latency = event.get("latency_ms", 0)
+            text = (
+                f"LLM call [{provider}/{model}] "
+                f"in={in_tok}tok out={out_tok}tok {latency}ms | "
+                f"prompt: {prompt[:100]} | response: {response[:100]}"
+            )
+            locations.append({
+                "location": {"message": {"text": text}},
+                "nestingLevel": 1,
+            })
+        elif event_type == "tool_call":
+            name = event.get("name", "?")
+            args = event.get("arguments_preview", "")
+            source = event.get("source", "")
+            text = f"Tool call [{name}]({args[:100]})"
+            if source:
+                text = f"{text} — requested by {source}"
+            locations.append({
+                "location": {"message": {"text": text}},
+                "nestingLevel": 2,
+            })
+
+    # Always end with the agent response
+    if agent_output is not None:
+        locations.append({
+            "location": {
+                "message": {"text": f"Agent response: {agent_output[:200]}"}
+            },
+            "nestingLevel": 0,
+        })
+
+    return [{"threadFlows": [{"locations": locations}]}]
+
+
 def build_sarif(
     *,
     target: str,
@@ -464,6 +532,7 @@ def build_sarif(
     start_time_utc: str,
     end_time_utc: str,
     all_findings: list[tuple[Probe, str | None, SafetyFinding]],
+    all_traces: list[list[dict[str, Any]]] | None = None,
 ) -> dict[str, Any]:
     """Build a SARIF 2.1.0 document from scan results.
 
@@ -496,39 +565,15 @@ def build_sarif(
 
     # Build results list
     results: list[dict[str, Any]] = []
-    for probe, agent_output, finding in all_findings:
+    for idx, (probe, agent_output, finding) in enumerate(all_findings):
         rule = _get_rule(finding.category.value)
         level = _SEVERITY_TO_LEVEL.get(finding.severity, "warning")
 
-        # Basic codeFlow: probe → response (real traces come in Cycle 2)
-        code_flows: list[dict[str, Any]] = []
-        if agent_output is not None:
-            code_flows = [
-                {
-                    "threadFlows": [
-                        {
-                            "locations": [
-                                {
-                                    "location": {
-                                        "message": {
-                                            "text": f"Probe sent: {probe.input[:200]}"
-                                        }
-                                    },
-                                    "nestingLevel": 0,
-                                },
-                                {
-                                    "location": {
-                                        "message": {
-                                            "text": f"Agent response: {agent_output[:200]}"
-                                        }
-                                    },
-                                    "nestingLevel": 1,
-                                },
-                            ]
-                        }
-                    ]
-                }
-            ]
+        # Build codeFlows from execution trace (or fallback to probe→response)
+        trace_events: list[dict[str, Any]] = (
+            all_traces[idx] if all_traces and idx < len(all_traces) else []
+        )
+        code_flows = _build_code_flows(probe, agent_output, trace_events)
 
         result: dict[str, Any] = {
             "ruleId": rule["id"],
