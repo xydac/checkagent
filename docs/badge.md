@@ -19,24 +19,9 @@ The badge does not embed any API keys or secrets — it is a static SVG file saf
 
 ## Example badge
 
-```svg
-<svg xmlns="http://www.w3.org/2000/svg" width="136" height="20">
-  <linearGradient id="s" x2="0" y2="100%">
-    <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
-    <stop offset="1" stop-opacity=".1"/>
-  </linearGradient>
-  <rect rx="3" width="136" height="20" fill="#555"/>
-  <rect rx="3" x="47" width="89" height="20" fill="#44cc11"/>
-  <rect x="47" width="4" height="20" fill="#44cc11"/>
-  <rect rx="3" width="136" height="20" fill="url(#s)"/>
-  <g fill="#fff" text-anchor="middle" font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="11">
-    <text x="24" y="15" fill="#010101" fill-opacity=".3">safety</text>
-    <text x="24" y="14">safety</text>
-    <text x="90.5" y="15" fill="#010101" fill-opacity=".3">64/68 passed</text>
-    <text x="90.5" y="14">64/68 passed</text>
-  </g>
-</svg>
-```
+![CheckAgent Safety Badge](https://img.shields.io/badge/safety-64%2F68_passed-44cc11?style=flat-square)
+
+This is what a generated badge looks like. The color changes based on your score: green (90%+), yellow (70-89%), red (below 70%).
 
 ## Generating the badge
 
