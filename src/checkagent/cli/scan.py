@@ -1100,7 +1100,8 @@ def scan_cmd(
         sarif_path.write_text(json_mod.dumps(sarif_doc, indent=2), encoding="utf-8")
         if not json_output:
             out_console.print(
-                f"\n[green]SARIF written → [bold]{sarif_path}[/bold][/green]"
+                f"\n[green]SARIF written → [bold]{sarif_path}[/bold][/green]",
+                soft_wrap=True,
             )
 
     # JSON output mode
