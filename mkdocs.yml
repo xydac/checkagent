@@ -92,3 +92,7 @@ nav:
     - Judge: api/judge.md
   - CLI Reference: cli.md
   - Configuration: configuration.md
+  - GitHub Action: github-action.md
+  - OWASP Mapping: owasp-mapping.md
+  - Badges: badge.md
+  - Limitations: limitations.md
