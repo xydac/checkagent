@@ -128,6 +128,61 @@ Combine with scan for a complete security picture:
 checkagent scan my_agent:run --prompt-file system_prompt.txt
 ```
 
+## GitHub Action
+
+Add safety scanning to any CI workflow in two lines. Findings appear in **GitHub Code Scanning** (Security tab) as SARIF alerts.
+
+```yaml
+- uses: xydac/checkagent@v0.2
+  with:
+    target: my_agent:run          # module:function or --url http://...
+    sarif-file: results.sarif     # default
+    llm-judge: false              # set true to use LLM for borderline findings
+    requirements: requirements.txt
+```
+
+Full workflow example:
+
+```yaml
+name: Agent safety scan
+
+on: [push, pull_request]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write   # required to upload SARIF
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: xydac/checkagent@v0.2
+        with:
+          target: src/my_agent:run
+          sarif-file: results.sarif
+```
+
+### SARIF and GitHub Code Scanning
+
+`checkagent scan --sarif results.sarif` writes a [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html) file. The GitHub Action automatically uploads it via `github/codeql-action/upload-sarif`, which:
+
+- Surfaces findings as **code scanning alerts** on PRs and in the Security tab
+- Links each alert to the relevant file/line when a source location is known
+- Lets you dismiss, triage, and track findings with GitHub's native UI
+
+You can also generate SARIF manually and upload it yourself:
+
+```bash
+checkagent scan my_agent:run --sarif results.sarif
+```
+
+```yaml
+- uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: results.sarif
+    category: checkagent-scan
+```
+
 ## Example Test
 
 ```python

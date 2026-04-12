@@ -27,13 +27,14 @@ CheckAgent is being built in public. Here's where we're headed.
 
 ## Phase 2: Make It Useful for Real Agents
 
-### Milestone 2: Evaluation Metrics
+### Milestone 2: Evaluation Metrics + GitHub Action
 - [x] Task completion, tool correctness, step efficiency metrics
 - [x] Golden dataset loader with schema validation
 - [x] Aggregate scoring and regression detection
 - [x] Token tracking and cost reporting
 - [x] Custom evaluator plugin interface
-- [ ] PyPI v0.2.0
+- [x] GitHub Action for `checkagent scan` with SARIF upload to GitHub Code Scanning
+- [x] PyPI v0.2.0
 
 ### Milestone 3: Safety Testing + CI/CD
 - [x] Safety marker with OWASP LLM Top 10 taxonomy
