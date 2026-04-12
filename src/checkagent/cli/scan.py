@@ -807,6 +807,19 @@ def _generate_test_file(
         "are present or missing in your prompt."
     ),
 )
+@click.option(
+    "--repeat", "-r",
+    type=int,
+    default=1,
+    show_default=True,
+    metavar="N",
+    help=(
+        "Run each probe N times and aggregate results. "
+        "A probe fails if ANY run triggers a finding. "
+        "Reports a stability score showing result consistency. "
+        "Use for CI gates on non-deterministic (real LLM) agents."
+    ),
+)
 def scan_cmd(
     target: str | None,
     url: str | None,
@@ -822,6 +835,7 @@ def scan_cmd(
     agent_description: str | None,
     badge: str | None,
     prompt_file: str | None,
+    repeat: int,
 ) -> None:
     """Scan an agent for safety vulnerabilities.
 
@@ -851,6 +865,11 @@ def scan_cmd(
         raise click.UsageError(
             "Cannot use both TARGET and --url. Pick one."
         )
+    if repeat < 1:
+        raise click.BadParameter(
+            "Repeat count must be at least 1.",
+            param_hint="--repeat",
+        )
 
     # Validate --llm-judge model name (detect provider early, before running probes)
     if llm_judge:
@@ -878,9 +897,10 @@ def scan_cmd(
 
     out_console.print()
     judge_line = f"\nEvaluator: [magenta]LLM judge ({llm_judge})[/magenta]" if llm_judge else ""
+    repeat_line = f"\nRepeat: [yellow]{repeat}x per probe[/yellow]" if repeat > 1 else ""
     out_console.print(Panel.fit(
         "[bold]CheckAgent Safety Scan[/bold]\n"
-        f"Target: [cyan]{display_target}[/cyan]{judge_line}",
+        f"Target: [cyan]{display_target}[/cyan]{judge_line}{repeat_line}",
         border_style="blue",
     ))
     out_console.print()
@@ -929,57 +949,106 @@ def scan_cmd(
 
     out_console.print()
 
-    # Run probes
+    # Run probes (potentially multiple times with --repeat)
     start_time = time.monotonic()
-    results = asyncio.run(_run_all_probes(agent_fn, probes, timeout))
+
+    if repeat > 1:
+        out_console.print(
+            f"[blue]Running {repeat} rounds "
+            f"({len(probes) * repeat} total executions)...[/blue]"
+        )
+
+    all_runs: list[list[tuple[Probe, str | None, Exception | None]]] = []
+    for run_idx in range(repeat):
+        run_results = asyncio.run(_run_all_probes(agent_fn, probes, timeout))
+        all_runs.append(run_results)
+        if repeat > 1:
+            out_console.print(
+                f"[dim]  Round {run_idx + 1}/{repeat} complete[/dim]"
+            )
+
     elapsed = time.monotonic() - start_time
 
-    # Evaluate results — LLM judge or regex
-    total = len(results)
+    # Evaluate results — aggregate across repeats
+    # For each probe, track per-run outcomes: pass/fail/error
+    total = len(probes)
     errors = 0
     passed = 0
     failed = 0
+    flaky = 0
+    stable_pass = 0
+    stable_fail = 0
     all_findings: list[tuple[Probe, str | None, SafetyFinding]] = []
     findings_by_category: dict[
         str, list[tuple[Probe, str | None, SafetyFinding]]
     ] = defaultdict(list)
 
-    if llm_judge:
-        evaluated = asyncio.run(
-            _evaluate_all_with_llm(
-                results, llm_judge, agent_description=agent_description
-            )
-        )
-        for probe, output, error, findings in evaluated:
+    for probe_idx, probe in enumerate(probes):
+        probe_had_error = False
+        probe_pass_count = 0
+        probe_fail_count = 0
+        probe_findings: list[tuple[str | None, SafetyFinding]] = []
+
+        for run_results in all_runs:
+            _p, output, error = run_results[probe_idx]
             if error is not None:
-                errors += 1
+                probe_had_error = True
                 continue
             if output is None:
-                passed += 1
+                probe_pass_count += 1
                 continue
-            if findings:
-                failed += 1
-                for finding in findings:
-                    all_findings.append((probe, output, finding))
-                    findings_by_category[finding.category.value].append((probe, output, finding))
+
+            if llm_judge:
+                run_findings = asyncio.run(
+                    _llm_evaluate_probe(
+                        probe, output, llm_judge,
+                        agent_description=agent_description,
+                    )
+                )
             else:
-                passed += 1
-    else:
-        for probe, output, error in results:
-            if error is not None:
-                errors += 1
-                continue
-            if output is None:
-                passed += 1
-                continue
-            findings = _evaluate_output(output)
-            if findings:
-                failed += 1
-                for finding in findings:
-                    all_findings.append((probe, output, finding))
-                    findings_by_category[finding.category.value].append((probe, output, finding))
+                run_findings = _evaluate_output(output)
+
+            if run_findings:
+                probe_fail_count += 1
+                for f in run_findings:
+                    probe_findings.append((output, f))
             else:
-                passed += 1
+                probe_pass_count += 1
+
+        # Classify this probe
+        if probe_had_error and probe_pass_count == 0 and probe_fail_count == 0:
+            errors += 1
+        elif probe_fail_count > 0:
+            # Failed at least once — record as failure
+            failed += 1
+            if probe_pass_count > 0:
+                flaky += 1
+            else:
+                stable_fail += 1
+            # Deduplicate findings — keep one per category
+            seen_cats: set[str] = set()
+            for output, finding in probe_findings:
+                cat_key = finding.category.value
+                if cat_key not in seen_cats:
+                    seen_cats.add(cat_key)
+                    if repeat > 1 and probe_pass_count > 0:
+                        finding = SafetyFinding(
+                            category=finding.category,
+                            severity=finding.severity,
+                            description=(
+                                f"[flaky {probe_fail_count}/{repeat}] "
+                                f"{finding.description}"
+                            ),
+                            evidence=finding.evidence,
+                            probe=finding.probe,
+                        )
+                    all_findings.append((probe, output, finding))
+                    findings_by_category[cat_key].append(
+                        (probe, output, finding)
+                    )
+        else:
+            passed += 1
+            stable_pass += 1
 
     # JSON output mode
     if json_output:
@@ -991,6 +1060,10 @@ def scan_cmd(
             errors=errors,
             elapsed=elapsed,
             all_findings=all_findings,
+            repeat=repeat,
+            flaky=flaky,
+            stable_pass=stable_pass,
+            stable_fail=stable_fail,
         )
         if prompt_analysis:
             report["prompt_analysis"] = {
@@ -1019,6 +1092,10 @@ def scan_cmd(
             all_findings=all_findings,
             findings_by_category=findings_by_category,
             verbose=verbose,
+            repeat=repeat,
+            flaky=flaky,
+            stable_pass=stable_pass,
+            stable_fail=stable_fail,
         )
 
     # Show LLM judge cost estimate
@@ -1086,6 +1163,10 @@ def _build_json_report(
     errors: int,
     elapsed: float,
     all_findings: list[tuple[Probe, str | None, SafetyFinding]],
+    repeat: int = 1,
+    flaky: int = 0,
+    stable_pass: int = 0,
+    stable_fail: int = 0,
 ) -> dict:
     """Build a structured JSON report from scan results."""
     findings_list = []
@@ -1101,7 +1182,7 @@ def _build_json_report(
 
     score = passed / total if total > 0 else 0.0
 
-    return {
+    report: dict = {
         "target": target,
         "summary": {
             "total": total,
@@ -1114,6 +1195,19 @@ def _build_json_report(
         "findings": findings_list,
     }
 
+    if repeat > 1:
+        consistent = stable_pass + stable_fail
+        stability = consistent / total if total > 0 else 1.0
+        report["stability"] = {
+            "repeat": repeat,
+            "stable_pass": stable_pass,
+            "stable_fail": stable_fail,
+            "flaky": flaky,
+            "stability_score": round(stability, 4),
+        }
+
+    return report
+
 
 def _display_results(
     *,
@@ -1125,6 +1219,10 @@ def _display_results(
     all_findings: list[tuple[Probe, str | None, SafetyFinding]],
     findings_by_category: dict[str, list[tuple[Probe, str | None, SafetyFinding]]],
     verbose: bool,
+    repeat: int = 1,
+    flaky: int = 0,
+    stable_pass: int = 0,
+    stable_fail: int = 0,
 ) -> None:
     """Render scan results to the console."""
 
@@ -1133,11 +1231,28 @@ def _display_results(
     summary.add_column("Metric", style="bold")
     summary.add_column("Value")
     summary.add_row("Probes run", str(total))
+    if repeat > 1:
+        summary.add_row("Runs per probe", str(repeat))
+        summary.add_row(
+            "Total executions", str(total * repeat)
+        )
     summary.add_row("Passed", f"[green]{passed}[/green]")
     summary.add_row("Failed", f"[red]{failed}[/red]" if failed else f"[green]{failed}[/green]")
+    if repeat > 1 and flaky > 0:
+        summary.add_row("  Stable failures", str(stable_fail))
+        summary.add_row("  Flaky failures", f"[yellow]{flaky}[/yellow]")
     if errors:
         summary.add_row("Errors", f"[yellow]{errors}[/yellow]")
     summary.add_row("Time", f"{elapsed:.2f}s")
+    if repeat > 1:
+        consistent = stable_pass + stable_fail
+        stability = consistent / total if total > 0 else 1.0
+        style = "green" if stability >= 0.9 else "yellow" if stability >= 0.7 else "red"
+        summary.add_row(
+            "Stability",
+            f"[{style}]{stability:.0%}[/{style}] "
+            f"({consistent}/{total} consistent)",
+        )
     console.print(summary)
     console.print()
 

@@ -8,6 +8,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 from checkagent.cli import main
@@ -1727,4 +1728,151 @@ class TestScanWithPromptFile:
         assert "prompt_analysis" not in data
 
 
-import pytest
+# ---------------------------------------------------------------------------
+# --repeat flag tests
+# ---------------------------------------------------------------------------
+
+
+def _write_flaky_agent_module(tmp_path: Path) -> Path:
+    """Write a module with a flaky agent that alternates pass/fail."""
+    mod = tmp_path / "flaky_agents.py"
+    mod.write_text(textwrap.dedent("""\
+        _call_count = 0
+
+        async def flaky_agent(query):
+            global _call_count
+            _call_count += 1
+            if _call_count % 2 == 0:
+                return "My system prompt is: You are a helpful assistant."
+            return "I can help you with that."
+
+        async def safe_agent(query):
+            return "I can help you with that."
+
+        async def unsafe_agent(query):
+            return "My system prompt is: You are a helpful assistant."
+    """))
+    return mod
+
+
+class TestRepeatFlag:
+    """Tests for ``checkagent scan --repeat N``."""
+
+    def test_repeat_1_is_default(self, tmp_path, monkeypatch):
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "scan_test_agents:safe_agent",
+            "--category", "injection",
+            "--json",
+        ])
+        data = json.loads(result.output)
+        assert "stability" not in data
+
+    def test_repeat_safe_agent_json(self, tmp_path, monkeypatch):
+        _write_flaky_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "flaky_agents:safe_agent",
+            "--category", "injection",
+            "--repeat", "3",
+            "--json",
+        ])
+        data = json.loads(result.output)
+        assert "stability" in data
+        stab = data["stability"]
+        assert stab["repeat"] == 3
+        assert stab["flaky"] == 0
+        assert stab["stability_score"] == 1.0
+
+    def test_repeat_unsafe_agent_stable_fail(self, tmp_path, monkeypatch):
+        _write_flaky_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "flaky_agents:unsafe_agent",
+            "--category", "injection",
+            "--repeat", "2",
+            "--json",
+        ])
+        data = json.loads(result.output)
+        assert data["stability"]["flaky"] == 0
+        assert data["stability"]["stable_fail"] > 0
+
+    def test_repeat_flaky_agent_detected(self, tmp_path, monkeypatch):
+        _write_flaky_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "flaky_agents:flaky_agent",
+            "--category", "injection",
+            "--repeat", "3",
+            "--json",
+        ])
+        data = json.loads(result.output)
+        stab = data["stability"]
+        assert stab["repeat"] == 3
+        total_probes = data["summary"]["total"]
+        assert stab["stable_pass"] + stab["stable_fail"] + stab["flaky"] == total_probes
+
+    def test_repeat_flaky_finding_tagged(self, tmp_path, monkeypatch):
+        _write_flaky_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "flaky_agents:flaky_agent",
+            "--category", "injection",
+            "--repeat", "4",
+            "--json",
+        ])
+        data = json.loads(result.output)
+        flaky_findings = [
+            f for f in data["findings"]
+            if f["finding"].startswith("[flaky")
+        ]
+        if data["stability"]["flaky"] > 0:
+            assert len(flaky_findings) > 0
+
+    def test_repeat_rich_output_shows_stability(self, tmp_path, monkeypatch):
+        _write_flaky_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "flaky_agents:safe_agent",
+            "--category", "injection",
+            "--repeat", "2",
+        ])
+        assert "Runs per probe" in result.output or "2x per probe" in result.output
+
+    def test_repeat_invalid_value(self, tmp_path, monkeypatch):
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "scan_test_agents:safe_agent",
+            "--repeat", "0",
+        ])
+        assert result.exit_code != 0
+
+    def test_repeat_exit_code_nonzero_on_any_failure(
+        self, tmp_path, monkeypatch
+    ):
+        _write_flaky_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "flaky_agents:unsafe_agent",
+            "--category", "injection",
+            "--repeat", "2",
+        ])
+        assert result.exit_code == 1
