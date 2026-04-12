@@ -301,7 +301,7 @@ result = await adapter.run("Hello")
 
 ## Documentation
 
-Full guides, API reference, and examples at **[checkagent docs](https://xydac.github.io/checkagent)**.
+Full guides, API reference, and examples at **[checkagent docs](https://checkagent.xydac.com)**.
 
 ## Contributing
 
