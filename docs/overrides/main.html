@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block extrahead %}
+<script defer src="https://analytics.loki.xydac.com/script.js" data-website-id="c05ab7f2-4a3c-4b39-a697-db49511a33fd"></script>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+// CTA tracking via Umami custom events
+document.addEventListener('DOMContentLoaded', function() {
+  // Track pip install copy
+  document.querySelectorAll('pre code').forEach(function(block) {
+    if (block.textContent.includes('pip install checkagent')) {
+      block.closest('pre').addEventListener('click', function() {
+        if (typeof umami !== 'undefined') umami.track('copy-pip-install');
+      });
+    }
+  });
+
+  // Track all external link clicks
+  document.querySelectorAll('a[href^="http"]').forEach(function(link) {
+    link.addEventListener('click', function() {
+      if (typeof umami !== 'undefined') umami.track('external-link', { url: link.href });
+    });
+  });
+
+  // Track GitHub repo link
+  document.querySelectorAll('a[href*="github.com/xydac/checkagent"]').forEach(function(link) {
+    link.addEventListener('click', function() {
+      if (typeof umami !== 'undefined') umami.track('click-github');
+    });
+  });
+
+  // Track nav sections (which docs pages get visited most)
+  if (typeof umami !== 'undefined') {
+    var path = window.location.pathname;
+    if (path.includes('/quickstart')) umami.track('view-quickstart');
+    if (path.includes('/vs-')) umami.track('view-comparison', { page: path });
+    if (path.includes('/guides/')) umami.track('view-guide', { page: path });
+    if (path.includes('/owasp')) umami.track('view-owasp');
+    if (path.includes('/badge')) umami.track('view-badge');
+    if (path.includes('/github-action')) umami.track('view-github-action');
+    if (path.includes('/trust')) umami.track('view-trust');
+    if (path.includes('/limitations')) umami.track('view-limitations');
+  }
+});
+</script>
+{% endblock %}
