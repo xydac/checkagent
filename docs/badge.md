@@ -19,9 +19,9 @@ The badge does not embed any API keys or secrets — it is a static SVG file saf
 
 ## Example badge
 
-![CheckAgent Safety Badge](https://img.shields.io/badge/safety-64%2F68_passed-44cc11?style=flat-square)
+![CheckAgent Badge](https://img.shields.io/badge/CheckAgent-64%2F68_safe-44cc11?style=flat-square&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik05IDE2LjE3TDQuODMgMTJsLTEuNDIgMS40MUw5IDE5IDIxIDdsLTEuNDEtMS40MXoiLz48L3N2Zz4=)
 
-This is what a generated badge looks like. The color changes based on your score: green (90%+), yellow (70-89%), red (below 70%).
+This is what a generated badge looks like. The color changes based on your score: green (90%+), yellow (70-89%), red (below 70%). The badge includes the CheckAgent name so it's recognizable across repos.
 
 ## Generating the badge
 
