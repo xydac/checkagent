@@ -179,12 +179,14 @@ def _detect_kind(obj: object) -> str:
     """
     # Rule 4: OpenAI Agents SDK Agent — checked first because Agent objects
     # also expose a .run() method (async), so order matters.
+    # Catch AttributeError too: a local `agents/` directory can shadow the SDK,
+    # importing successfully but lacking the `Agent` class.
     try:
         import agents  # noqa: PLC0415
 
         if isinstance(obj, agents.Agent):
             return "agents_runner"
-    except ImportError:
+    except (ImportError, AttributeError):
         pass
 
     # Rules 1-3: duck-type method detection

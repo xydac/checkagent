@@ -1299,6 +1299,33 @@ class TestScanHttpCommand:
         assert "--output-field" in result.output
         assert "--header" in result.output
 
+    def test_server_down_shows_clear_message(self) -> None:
+        """When server is unreachable, show an actionable error not just score 0.0."""
+        runner = CliRunner()
+        # Port 1 is never open — guaranteed connection refused
+        result = runner.invoke(scan_cmd, [
+            "--url", "http://127.0.0.1:1",
+            "--category", "injection",
+            "--timeout", "2",
+        ])
+        # Should exit 0 (no findings, only errors) but show a clear warning
+        assert result.exit_code == 0
+        assert "Cannot reach" in result.output or "unreachable" in result.output.lower()
+
+    def test_server_down_json_includes_warning(self) -> None:
+        """JSON output for unreachable server includes a 'warning' key."""
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "--url", "http://127.0.0.1:1",
+            "--category", "injection",
+            "--timeout", "2",
+            "--json",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "warning" in data
+        assert "unreachable" in data["warning"].lower() or "connection" in data["warning"].lower()
+
 
 class TestScanBadgeOutput:
     def test_badge_flag_generates_svg(self, tmp_path: Path, monkeypatch) -> None:

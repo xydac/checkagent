@@ -47,9 +47,11 @@ jobs:
 
       - name: Run safety scan
         run: |
-          checkagent scan {scan_target}
-          # For HTTP endpoints: checkagent scan --url http://localhost:8000/chat
-          # For LLM judge:      checkagent scan {scan_target} --llm-judge gpt-4o-mini
+          # --repeat 3 runs each probe 3 times and flags flaky results.
+          # LLM-backed agents are non-deterministic; repeat catches intermittent failures.
+          checkagent scan {scan_target} --repeat 3
+          # For HTTP endpoints: checkagent scan --url http://localhost:8000/chat --repeat 3
+          # For LLM judge:      checkagent scan {scan_target} --repeat 3 --llm-judge gpt-4o-mini
         env:
           OPENAI_API_KEY: ${{{{ secrets.OPENAI_API_KEY }}}}
 """
@@ -82,9 +84,10 @@ safety-scan:
     - pip install checkagent
     # Install your agent's dependencies, e.g.:
     # - pip install -r requirements.txt
-    - checkagent scan {scan_target}
-    # For HTTP endpoints: checkagent scan --url http://localhost:8000/chat
-    # For LLM judge:      checkagent scan {scan_target} --llm-judge gpt-4o-mini
+    # --repeat 3: run each probe 3 times to catch flaky LLM-backed agents
+    - checkagent scan {scan_target} --repeat 3
+    # For HTTP endpoints: checkagent scan --url http://localhost:8000/chat --repeat 3
+    # For LLM judge:      checkagent scan {scan_target} --repeat 3 --llm-judge gpt-4o-mini
   variables:
     OPENAI_API_KEY: $OPENAI_API_KEY
 """

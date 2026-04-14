@@ -905,8 +905,7 @@ def scan_cmd(
     # Validate --llm-judge model name (detect provider early, before running probes)
     if llm_judge:
         _detect_llm_provider(llm_judge)  # raises click.BadParameter if unrecognised
-        # raises ClickException if API key missing or unreachable
-        asyncio.run(_validate_llm_judge_connectivity(llm_judge))
+        # Connectivity check happens inside _scan_probes_async (single event loop)
 
     # Parse headers
     parsed_headers: dict[str, str] = {}
@@ -991,15 +990,17 @@ def scan_cmd(
         )
 
     install_patches()
-    all_runs: list[list[tuple[Probe, str | None, Exception | None, list[dict]]]] = []
-    for run_idx in range(repeat):
-        run_results = asyncio.run(_run_all_probes(agent_fn, probes, timeout))
-        all_runs.append(run_results)
-        if repeat > 1:
-            out_console.print(
-                f"[dim]  Round {run_idx + 1}/{repeat} complete[/dim]"
-            )
-
+    all_runs, all_llm_findings = asyncio.run(
+        _scan_probes_async(
+            agent_fn,
+            probes,
+            timeout,
+            repeat,
+            llm_judge,
+            agent_description,
+            out_console,
+        )
+    )
     uninstall_patches()
     elapsed = time.monotonic() - start_time
 
@@ -1025,7 +1026,7 @@ def scan_cmd(
         # (output, finding, trace_events) per failing run
         probe_findings: list[tuple[str | None, SafetyFinding, list[dict]]] = []
 
-        for run_results in all_runs:
+        for run_idx_loop, run_results in enumerate(all_runs):
             _p, output, error, trace_events = run_results[probe_idx]
             if error is not None:
                 probe_had_error = True
@@ -1034,13 +1035,8 @@ def scan_cmd(
                 probe_pass_count += 1
                 continue
 
-            if llm_judge:
-                run_findings = asyncio.run(
-                    _llm_evaluate_probe(
-                        probe, output, llm_judge,
-                        agent_description=agent_description,
-                    )
-                )
+            if all_llm_findings is not None:
+                run_findings = all_llm_findings[run_idx_loop][probe_idx]
             else:
                 run_findings = _evaluate_output(output)
 
@@ -1086,6 +1082,23 @@ def scan_cmd(
         else:
             passed += 1
             stable_pass += 1
+
+    # Detect server-unreachable scenario for HTTP targets: all probes errored,
+    # no findings, score would be 0.0.  Surface a clear diagnostic rather than
+    # a silent zero score.
+    if url and errors == total and total > 0 and not all_findings:
+        msg = (
+            f"[bold red]Cannot reach {url}[/bold red]\n"
+            f"All {total} probes failed with connection errors.\n"
+            "Check that the server is running and the URL is correct."
+        )
+        if json_output:
+            # Inject a top-level warning key before printing
+            pass  # handled below when building the report
+        else:
+            out_console.print()
+            out_console.print(Panel.fit(msg, border_style="red"))
+            out_console.print()
 
     # Build SARIF — the internal data model for all output paths
     end_wall_time = time.time()
@@ -1142,6 +1155,11 @@ def scan_cmd(
                     for cr in prompt_analysis.check_results
                 ],
             }
+        if url and errors == total and total > 0 and not all_findings:
+            report["warning"] = (
+                f"All {total} probes failed with connection errors. "
+                f"Server at {url} may be unreachable."
+            )
         print(json_mod.dumps(report, indent=2))
     else:
         # Rich display — reads from SARIF structure
@@ -1212,6 +1230,56 @@ async def _run_all_probes(
             return await _run_probe(agent_fn, probe, timeout)
 
     return await asyncio.gather(*[_limited(p) for p in probes])
+
+
+async def _scan_probes_async(
+    agent_fn: object,
+    probes: list[Probe],
+    timeout: float,
+    repeat: int,
+    llm_judge: str | None,
+    agent_description: str | None,
+    out_console: Console,
+    *,
+    validate_judge: bool = True,
+) -> tuple[
+    list[list[tuple[Probe, str | None, Exception | None, list[dict]]]],
+    list[list[list[SafetyFinding]]] | None,
+]:
+    """Run all probe rounds and LLM judge evaluation in a single event loop.
+
+    Consolidating everything into one asyncio.run() call prevents
+    "RuntimeError: Event loop is closed" noise from httpx connection-pool
+    teardown when --llm-judge is active.
+
+    Returns (all_runs, all_llm_findings):
+    - all_runs[run_idx][probe_idx] = (probe, output, error, traces)
+    - all_llm_findings[run_idx][probe_idx] = list[SafetyFinding]
+      (None when --llm-judge is not used)
+    """
+    if validate_judge and llm_judge:
+        await _validate_llm_judge_connectivity(llm_judge)
+
+    all_runs: list[list[tuple[Probe, str | None, Exception | None, list[dict]]]] = []
+    for run_idx in range(repeat):
+        run_results = await _run_all_probes(agent_fn, probes, timeout)
+        all_runs.append(run_results)
+        if repeat > 1:
+            out_console.print(f"[dim]  Round {run_idx + 1}/{repeat} complete[/dim]")
+
+    if not llm_judge:
+        return all_runs, None
+
+    # LLM evaluation — batch per run so all judge calls share one event loop.
+    all_llm_findings: list[list[list[SafetyFinding]]] = []
+    for run_results in all_runs:
+        simplified = [(p, o, e) for p, o, e, _traces in run_results]
+        evaluated = await _evaluate_all_with_llm(
+            simplified, llm_judge, agent_description=agent_description
+        )
+        all_llm_findings.append([findings for _, _, _, findings in evaluated])
+
+    return all_runs, all_llm_findings
 
 
 def _build_json_report(

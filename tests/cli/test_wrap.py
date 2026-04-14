@@ -80,6 +80,21 @@ class TestDetectKind:
         with pytest.raises(click.ClickException, match="Cannot determine"):
             _detect_kind(NotAnAgent())
 
+    def test_agents_attribute_error_falls_through(self, monkeypatch):
+        """When 'agents' imports but lacks Agent class, should fall through to duck typing."""
+        import types
+
+        fake_agents = types.ModuleType("agents")
+        # No 'Agent' attribute — simulates a local agents/ directory shadowing the SDK
+        monkeypatch.setitem(__import__("sys").modules, "agents", fake_agents)
+
+        class MyRunAgent:
+            def run(self, prompt: str) -> str:
+                return prompt
+
+        # Should not raise AttributeError — should fall through to .run() detection
+        assert _detect_kind(MyRunAgent()) == "run"
+
 
 # ---------------------------------------------------------------------------
 # Helper: write a temp module for _resolve_object / wrap_cmd tests

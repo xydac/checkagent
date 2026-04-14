@@ -129,3 +129,17 @@ class TestCiInitCommand:
         runner.invoke(ci_init_cmd, ["--directory", str(tmp_path)])
         wf = tmp_path / ".github" / "workflows" / "checkagent.yml"
         assert "OPENAI_API_KEY" in wf.read_text()
+
+    def test_repeat_flag_in_github_workflow(self, tmp_path: Path) -> None:
+        """Generated GitHub workflow should include --repeat for LLM-backed agents."""
+        runner = CliRunner()
+        runner.invoke(ci_init_cmd, ["--directory", str(tmp_path)])
+        wf = (tmp_path / ".github" / "workflows" / "checkagent.yml").read_text()
+        assert "--repeat 3" in wf
+
+    def test_repeat_flag_in_gitlab_ci(self, tmp_path: Path) -> None:
+        """Generated GitLab CI should include --repeat for LLM-backed agents."""
+        runner = CliRunner()
+        runner.invoke(ci_init_cmd, ["--directory", str(tmp_path), "--platform", "gitlab"])
+        ci = (tmp_path / ".gitlab-ci.yml").read_text()
+        assert "--repeat 3" in ci
