@@ -11,12 +11,18 @@ from checkagent.trace_import.base import TraceImporter
 from checkagent.trace_import.json_importer import JsonFileImporter
 from checkagent.trace_import.otel_importer import OtelJsonImporter
 from checkagent.trace_import.pii import PiiScrubber
-from checkagent.trace_import.testcase_gen import generate_test_cases
+from checkagent.trace_import.testcase_gen import (
+    TraceScreeningResult,
+    generate_test_cases,
+    screen_trace_output,
+)
 
 __all__ = [
     "TraceImporter",
     "JsonFileImporter",
     "OtelJsonImporter",
     "PiiScrubber",
+    "TraceScreeningResult",
     "generate_test_cases",
+    "screen_trace_output",
 ]

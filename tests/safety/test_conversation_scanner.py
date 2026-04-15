@@ -318,6 +318,57 @@ class TestFalsePositives:
 # ---------------------------------------------------------------------------
 
 
+class TestIterTurnFindings:
+    """F-101: per_turn_findings is a dict, not a list — enumerate() traps users."""
+
+    @pytest.mark.asyncio
+    async def test_iter_turn_findings_yields_tuples(self):
+        agent = await _scripted_agent([
+            "Safe response.",
+            "Your SSN is 123-45-6789.",
+            "Another safe response.",
+        ])
+        conv = Conversation(agent)
+        await conv.say("q1")
+        await conv.say("q2")
+        await conv.say("q3")
+
+        scanner = ConversationSafetyScanner([PIILeakageScanner()])
+        result = scanner.scan(conv)
+
+        pairs = result.iter_turn_findings()
+        assert isinstance(pairs, list)
+        assert len(pairs) >= 1
+        for turn_idx, findings in pairs:
+            assert isinstance(turn_idx, int)
+            assert isinstance(findings, list)
+            assert len(findings) > 0
+
+    @pytest.mark.asyncio
+    async def test_iter_turn_findings_sorted_by_index(self):
+        agent = await _scripted_agent([
+            "SSN: 999-88-7777.",
+            "Safe.",
+            "Email: test@example.com.",
+        ])
+        conv = Conversation(agent)
+        await conv.say("q1")
+        await conv.say("q2")
+        await conv.say("q3")
+
+        scanner = ConversationSafetyScanner([PIILeakageScanner()])
+        result = scanner.scan(conv)
+
+        pairs = result.iter_turn_findings()
+        indices = [idx for idx, _ in pairs]
+        assert indices == sorted(indices)
+
+    def test_iter_turn_findings_empty_when_clean(self):
+        from checkagent.safety.conversation_scanner import ConversationSafetyResult
+        result = ConversationSafetyResult(passed=True)
+        assert result.iter_turn_findings() == []
+
+
 class TestImports:
     def test_import_from_safety(self):
         from checkagent.safety import ConversationSafetyScanner as Scanner

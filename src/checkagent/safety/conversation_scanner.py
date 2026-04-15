@@ -55,6 +55,14 @@ class ConversationSafetyResult:
     def turns_with_findings(self) -> list[int]:
         return sorted(k for k, v in self.per_turn_findings.items() if v)
 
+    def iter_turn_findings(self) -> list[tuple[int, list[SafetyFinding]]]:
+        """Iterate over per-turn findings as (turn_index, findings) pairs.
+
+        Use this instead of ``enumerate(per_turn_findings)`` which yields
+        dict keys, not (index, findings) tuples.
+        """
+        return sorted(self.per_turn_findings.items())
+
 
 class ConversationSafetyScanner:
     """Scans multi-turn conversations with multiple safety evaluators.
