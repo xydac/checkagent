@@ -175,6 +175,33 @@ class TestGenerateTestCases:
         assert dataset.description == "Auto-generated from 5 imported production traces"
 
 
+class TestBackwardCompat:
+    """Backward-compatibility tests for parameter aliases."""
+
+    def test_name_alias_accepted(self):
+        runs = [_make_run(query="Compat test")]
+        import warnings
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            dataset, _ = generate_test_cases(runs, scrub_pii=False, name="my-dataset")
+        assert dataset.name == "my-dataset"
+        assert len(w) == 1
+        assert issubclass(w[0].category, DeprecationWarning)
+        assert "dataset_name" in str(w[0].message)
+
+    def test_dataset_name_takes_precedence_over_name(self):
+        runs = [_make_run(query="Precedence test")]
+        import warnings
+
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter("always")
+            dataset, _ = generate_test_cases(
+                runs, scrub_pii=False, dataset_name="winner", name="loser"
+            )
+        assert dataset.name == "winner"
+
+
 class TestSafetyScreening:
     """Tests for safety screening of imported trace outputs."""
 

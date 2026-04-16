@@ -1112,7 +1112,7 @@ class TestMakeHttpAgent:
         server, url = _start_server(_ErrorHandler)
         try:
             agent = _make_http_agent(url)
-            with pytest.raises(RuntimeError, match="HTTP 500"):
+            with pytest.raises(RuntimeError, match="HTTP 500|HTTP error"):
                 asyncio.run(agent("hello"))
         finally:
             server.shutdown()

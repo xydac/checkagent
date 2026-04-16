@@ -59,7 +59,8 @@ def generate_test_cases(
     *,
     scrub_pii: bool = True,
     pii_scrubber: PiiScrubber | None = None,
-    dataset_name: str = "imported",
+    dataset_name: str | None = None,
+    name: str | None = None,
     tags: list[str] | None = None,
     safety_check: bool = True,
     safety_evaluators: list[SafetyEvaluator] | None = None,
@@ -71,6 +72,7 @@ def generate_test_cases(
         scrub_pii: Whether to scrub PII from inputs/outputs.
         pii_scrubber: Custom PiiScrubber instance. Uses default if None.
         dataset_name: Name for the generated dataset.
+        name: Deprecated alias for ``dataset_name``.
         tags: Additional tags to add to all generated test cases.
         safety_check: Screen outputs for security issues before encoding
             them as expected assertions. Enabled by default.
@@ -80,6 +82,19 @@ def generate_test_cases(
     Returns:
         A tuple of (GoldenDataset, TraceScreeningResult).
     """
+    if name is not None:
+        import warnings
+
+        warnings.warn(
+            "The 'name' parameter is deprecated; use 'dataset_name' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if dataset_name is None:
+            dataset_name = name
+    if dataset_name is None:
+        dataset_name = "imported"
+
     scrubber = pii_scrubber or PiiScrubber() if scrub_pii else None
     extra_tags = tags or []
     screeners = safety_evaluators or _default_screeners() if safety_check else []

@@ -473,6 +473,13 @@ def _make_http_agent(
             raise RuntimeError(
                 f"Cannot connect to {url}: {exc.reason}"
             ) from exc
+        except OSError as exc:
+            # Windows raises ConnectionAbortedError (WinError 10053) when the
+            # server closes the connection after sending an error response,
+            # before urllib can parse the HTTP status code.
+            raise RuntimeError(
+                f"HTTP error from {url}: {exc}"
+            ) from exc
 
         # Try JSON parsing to extract the relevant text field
         try:
