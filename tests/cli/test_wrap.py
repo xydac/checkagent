@@ -384,3 +384,65 @@ class TestAgentsSDKDetection:
         content = (tmp_path / "checkagent_target.py").read_text()
         assert "Runner.run(" in content
         assert "Runner.run()" in result.output
+
+
+# ---------------------------------------------------------------------------
+# F-105 regression: class-based agents must generate instantiating wrappers
+# ---------------------------------------------------------------------------
+
+
+class TestClassBasedAgentWrap:
+    """Wrappers generated for a class (not an instance) must instantiate first.
+
+    Prior to the fix, `_target.invoke(prompt)` was generated — this calls an
+    unbound method and raises TypeError in Python 3.  The correct pattern is:
+        _agent = _target()
+        result = _agent.invoke(prompt)
+    """
+
+    def _run(self, tmp_path, monkeypatch, target):
+        _write_agent_module(tmp_path)
+        monkeypatch.chdir(tmp_path)
+        runner = CliRunner()
+        return runner.invoke(wrap_cmd, [target, "--force"], catch_exceptions=False)
+
+    def test_invoke_class_generates_instantiation(self, tmp_path, monkeypatch):
+        result = self._run(tmp_path, monkeypatch, "wrap_agents:InvokeAgent")
+        assert result.exit_code == 0
+        content = (tmp_path / "checkagent_target.py").read_text()
+        assert "_agent = _target()" in content
+        assert "_agent.invoke(" in content
+        assert "_target.invoke(" not in content  # the old broken pattern
+
+    def test_run_class_generates_instantiation(self, tmp_path, monkeypatch):
+        result = self._run(tmp_path, monkeypatch, "wrap_agents:RunAgent")
+        assert result.exit_code == 0
+        content = (tmp_path / "checkagent_target.py").read_text()
+        assert "_agent = _target()" in content
+        assert "_agent.run(" in content
+        assert "_target.run(" not in content
+
+    def test_kickoff_class_generates_instantiation(self, tmp_path, monkeypatch):
+        result = self._run(tmp_path, monkeypatch, "wrap_agents:KickoffAgent")
+        assert result.exit_code == 0
+        content = (tmp_path / "checkagent_target.py").read_text()
+        assert "_agent = _target()" in content
+        assert "_agent.kickoff(" in content
+        assert "_target.kickoff(" not in content
+
+    def test_invoke_class_label_shows_class(self, tmp_path, monkeypatch):
+        result = self._run(tmp_path, monkeypatch, "wrap_agents:InvokeAgent")
+        assert "(class)" in result.output
+
+    def test_instance_does_not_generate_instantiation(self, tmp_path, monkeypatch):
+        """Instance-based targets should NOT get module-level _agent = _target()."""
+        result = self._run(tmp_path, monkeypatch, "wrap_agents:invoke_instance")
+        assert result.exit_code == 0
+        content = (tmp_path / "checkagent_target.py").read_text()
+        assert "_agent = _target()" not in content
+        assert "_target.invoke(" in content
+
+    def test_class_generated_wrapper_is_valid_python(self, tmp_path, monkeypatch):
+        self._run(tmp_path, monkeypatch, "wrap_agents:InvokeAgent")
+        code = (tmp_path / "checkagent_target.py").read_text()
+        compile(code, "checkagent_target.py", "exec")

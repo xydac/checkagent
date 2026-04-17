@@ -856,6 +856,14 @@ def _generate_test_file(
     metavar="FILE",
     help="Write scan results as SARIF 2.1.0 to FILE (e.g. --sarif scan.sarif).",
 )
+@click.option(
+    "--report",
+    "report_file",
+    type=click.Path(dir_okay=False),
+    default=None,
+    metavar="FILE",
+    help="Write an HTML compliance report to FILE (e.g. --report report.html).",
+)
 def scan_cmd(
     target: str | None,
     url: str | None,
@@ -873,6 +881,7 @@ def scan_cmd(
     prompt_file: str | None,
     repeat: int,
     sarif_file: str | None,
+    report_file: str | None,
 ) -> None:
     """Scan an agent for safety vulnerabilities.
 
@@ -1216,6 +1225,28 @@ def scan_cmd(
         out_console.print(f"  Run with: [cyan]pytest {out_path} -v[/cyan]\n")
     elif generate_tests and not all_findings:
         out_console.print("\n[dim]No findings to generate tests from.[/dim]\n")
+
+    # Generate HTML compliance report
+    if report_file:
+        from checkagent.safety.compliance import (
+            generate_compliance_report,
+            render_compliance_html,
+        )
+        from checkagent.safety.evaluator import SafetyResult
+
+        safety_results: list[SafetyResult] = []
+        for _probe, _output, finding in all_findings:
+            safety_results.append(SafetyResult(passed=False, findings=[finding]))
+        for _ in range(passed):
+            safety_results.append(SafetyResult(passed=True))
+        compliance = generate_compliance_report(safety_results)
+        html = render_compliance_html(compliance)
+        report_path = Path(report_file)
+        report_path.write_text(html, encoding="utf-8")
+        if not json_output:
+            out_console.print(
+                f"\n[green]Compliance report written → [bold]{report_path}[/bold][/green]"
+            )
 
     # Exit with non-zero if any findings
     if all_findings:

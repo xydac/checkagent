@@ -22,6 +22,7 @@ Usage::
 from __future__ import annotations
 
 import importlib
+import inspect
 import sys
 from pathlib import Path
 
@@ -120,11 +121,89 @@ async def checkagent_target(prompt: str) -> str:
     return str(result.final_output)
 '''
 
+_TEMPLATE_CLASS_RUN = '''\
+"""Generated CheckAgent wrapper — instantiates {target} and calls .run()."""
+
+from __future__ import annotations
+
+import asyncio
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+
+from {module} import {name} as _target
+
+# Instantiate the agent class — pass constructor arguments here if required
+_agent = _target()
+
+
+async def checkagent_target(prompt: str) -> str:
+    """Async wrapper: instantiates {name} and delegates to .run()."""
+    result = _agent.run(prompt)
+    if asyncio.iscoroutine(result):
+        result = await result
+    return str(result)
+'''
+
+_TEMPLATE_CLASS_INVOKE = '''\
+"""Generated CheckAgent wrapper — instantiates {target} and calls .invoke()."""
+
+from __future__ import annotations
+
+import asyncio
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+
+from {module} import {name} as _target
+
+# Instantiate the agent class — pass constructor arguments here if required
+_agent = _target()
+
+
+async def checkagent_target(prompt: str) -> str:
+    """Async wrapper: instantiates {name} and delegates to .invoke()."""
+    result = _agent.invoke(prompt)
+    if asyncio.iscoroutine(result):
+        result = await result
+    return str(result)
+'''
+
+_TEMPLATE_CLASS_KICKOFF = '''\
+"""Generated CheckAgent wrapper — instantiates {target} and calls .kickoff() (CrewAI)."""
+
+from __future__ import annotations
+
+import asyncio
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+
+from {module} import {name} as _target
+
+# Instantiate the agent class — pass constructor arguments here if required
+_agent = _target()
+
+
+async def checkagent_target(prompt: str) -> str:
+    """Async wrapper: instantiates {name} and delegates to .kickoff(inputs={{"prompt": ...}})."""
+    result = _agent.kickoff(inputs={{"prompt": prompt}})
+    if asyncio.iscoroutine(result):
+        result = await result
+    return str(result)
+'''
+
 _TEMPLATE_MAP = {
     "run": _TEMPLATE_RUN,
     "invoke": _TEMPLATE_INVOKE,
     "kickoff": _TEMPLATE_KICKOFF,
     "agents_runner": _TEMPLATE_AGENTS_RUNNER,
+    "run_class": _TEMPLATE_CLASS_RUN,
+    "invoke_class": _TEMPLATE_CLASS_INVOKE,
+    "kickoff_class": _TEMPLATE_CLASS_KICKOFF,
 }
 
 _METHOD_LABEL = {
@@ -132,6 +211,9 @@ _METHOD_LABEL = {
     "invoke": ".invoke()",
     "kickoff": ".kickoff()",
     "agents_runner": "Runner.run()",
+    "run_class": ".run() (class)",
+    "invoke_class": ".invoke() (class)",
+    "kickoff_class": ".kickoff() (class)",
 }
 
 # ---------------------------------------------------------------------------
@@ -254,7 +336,11 @@ def wrap_cmd(target: str, output: str, force: bool) -> None:
         )
         return
 
-    content = _TEMPLATE_MAP[kind].format(
+    # Use class-specific template when the target is a class (not an instance)
+    is_class = inspect.isclass(obj)
+    template_key = f"{kind}_class" if is_class and kind in ("run", "invoke", "kickoff") else kind
+
+    content = _TEMPLATE_MAP[template_key].format(
         target=target,
         module=module_path,
         name=attr_name,
@@ -268,7 +354,7 @@ def wrap_cmd(target: str, output: str, force: bool) -> None:
 
     out_path.write_text(content, encoding="utf-8")
 
-    method = _METHOD_LABEL[kind]
+    method = _METHOD_LABEL[template_key]
     console.print(
         f"[green]✓[/green] Detected [bold]{method}[/bold] on [cyan]{target}[/cyan]"
     )

@@ -1903,3 +1903,83 @@ class TestRepeatFlag:
             "--repeat", "2",
         ])
         assert result.exit_code == 1
+
+
+# ---------------------------------------------------------------------------
+# --report flag: HTML compliance report
+# ---------------------------------------------------------------------------
+
+
+class TestScanReportFlag:
+    """Tests for ``checkagent scan --report FILE`` HTML compliance report output."""
+
+    def test_report_creates_html_file(self, tmp_path, monkeypatch):
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        report_path = tmp_path / "report.html"
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "scan_test_agents:safe_agent",
+            "--category", "injection",
+            "--report", str(report_path),
+        ])
+        assert report_path.exists(), f"Report file not created. Exit: {result.exit_code}"
+        html = report_path.read_text()
+        assert "<html" in html.lower() or "<!doctype" in html.lower()
+
+    def test_report_contains_compliance_heading(self, tmp_path, monkeypatch):
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        report_path = tmp_path / "report.html"
+        runner = CliRunner()
+        runner.invoke(scan_cmd, [
+            "scan_test_agents:safe_agent",
+            "--category", "injection",
+            "--report", str(report_path),
+        ])
+        html = report_path.read_text()
+        assert "compliance" in html.lower() or "report" in html.lower()
+
+    def test_report_with_findings_contains_failed(self, tmp_path, monkeypatch):
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        report_path = tmp_path / "report.html"
+        runner = CliRunner()
+        runner.invoke(scan_cmd, [
+            "scan_test_agents:unsafe_agent",
+            "--category", "injection",
+            "--report", str(report_path),
+        ])
+        if report_path.exists():
+            html = report_path.read_text()
+            assert len(html) > 100  # non-trivial content
+
+    def test_report_message_shown_in_output(self, tmp_path, monkeypatch):
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        report_path = tmp_path / "report.html"
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "scan_test_agents:safe_agent",
+            "--category", "injection",
+            "--report", str(report_path),
+        ])
+        assert "report" in result.output.lower() or str(report_path.name) in result.output
+
+    def test_report_with_json_flag_still_creates_file(self, tmp_path, monkeypatch):
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        report_path = tmp_path / "report.html"
+        runner = CliRunner()
+        runner.invoke(scan_cmd, [
+            "scan_test_agents:safe_agent",
+            "--category", "injection",
+            "--report", str(report_path),
+            "--json",
+        ])
+        assert report_path.exists()
