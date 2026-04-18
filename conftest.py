@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import importlib.util
 import os
-import warnings
 
 
 def pytest_configure(config):
@@ -13,9 +12,9 @@ def pytest_configure(config):
     origin = spec.origin or ""
     src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "src"))
     if not origin.startswith(src_dir):
-        warnings.warn(
-            f"Tests are running against an installed checkagent package at "
-            f"{origin!r}, NOT the local source in src/. "
-            "Run 'pip install -e . --break-system-packages' to fix this.",
-            stacklevel=1,
+        raise SystemExit(
+            f"\n[checkagent] Tests must run against the LOCAL source, not the installed package.\n"
+            f"  Installed: {origin!r}\n"
+            f"  Expected:  {src_dir!r}\n"
+            f"  Fix: pip install -e . --break-system-packages\n"
         )

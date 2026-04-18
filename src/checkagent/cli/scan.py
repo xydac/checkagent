@@ -62,6 +62,7 @@ from checkagent.safety.system_prompt import SystemPromptLeakDetector
 from checkagent.safety.taxonomy import SafetyCategory, Severity
 
 console = Console()
+diag_console = Console(stderr=True)
 
 # ---------------------------------------------------------------------------
 # Remediation guidance — per safety category
@@ -422,7 +423,7 @@ def _resolve_callable(target: str) -> object:
         for method_name in _AGENT_RUN_METHODS:
             method = getattr(fn, method_name, None)
             if method is not None and callable(method):
-                console.print(
+                diag_console.print(
                     f"[dim]Auto-detected: {attr_name}.{method_name}() "
                     f"— using this method for each probe[/dim]"
                 )

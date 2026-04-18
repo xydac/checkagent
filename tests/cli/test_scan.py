@@ -1983,3 +1983,95 @@ class TestScanReportFlag:
             "--json",
         ])
         assert report_path.exists()
+
+
+# ---------------------------------------------------------------------------
+# F-106: Auto-detected diagnostic must go to stderr, not stdout
+# ---------------------------------------------------------------------------
+
+
+class TestAutoDetectStderr:
+    """Verify that 'Auto-detected' diagnostic goes to stderr, not stdout (F-106)."""
+
+    def test_auto_detect_json_output_contains_valid_json(self, tmp_path, monkeypatch):
+        """--json output must contain a valid JSON object (parseable after diagnostic line)."""
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "scan_test_agents:RunAgent",
+            "--category", "injection",
+            "--json",
+        ])
+        # CliRunner mixes stderr+stdout; find the JSON portion starting at '{'
+        output = result.output
+        json_start = output.find("{")
+        assert json_start >= 0, f"No JSON object found in output: {output[:200]!r}"
+        try:
+            parsed = json.loads(output[json_start:])
+        except json.JSONDecodeError as exc:
+            pytest.fail(
+                f"JSON portion of --json output is not parseable: {exc}\n"
+                f"output: {output[:300]!r}"
+            )
+        assert "summary" in parsed or "findings" in parsed
+
+    def test_auto_detect_scan_completes_not_crash(self, tmp_path, monkeypatch):
+        """Scanning a class-based agent via auto-detect must not crash (UsageError=2)."""
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "scan_test_agents:RunAgent",
+            "--category", "injection",
+        ])
+        # exit 0 = all pass, exit 1 = findings found — both are valid; 2 = crash/usage error
+        assert result.exit_code in (0, 1), (
+            f"Unexpected exit code {result.exit_code}; output: {result.output[:200]}"
+        )
+
+    def test_diag_console_uses_stderr(self):
+        """diag_console must be configured to write to stderr, not stdout."""
+        from checkagent.cli.scan import diag_console
+        assert diag_console.stderr is True, (
+            "diag_console must use stderr=True so diagnostics don't contaminate --json stdout"
+        )
+
+
+# ---------------------------------------------------------------------------
+# F-107: GroundednessEvaluator and ConversationSafetyScanner at top-level
+# ---------------------------------------------------------------------------
+
+
+class TestTopLevelExports:
+    """GroundednessEvaluator and ConversationSafetyScanner importable from checkagent."""
+
+    def test_groundedness_evaluator_importable(self):
+        import checkagent
+        assert hasattr(checkagent, "GroundednessEvaluator"), (
+            "GroundednessEvaluator not exported from checkagent top-level (F-107)"
+        )
+
+    def test_conversation_safety_scanner_importable(self):
+        import checkagent
+        assert hasattr(checkagent, "ConversationSafetyScanner"), (
+            "ConversationSafetyScanner not exported from checkagent top-level (F-107)"
+        )
+
+    def test_groundedness_evaluator_is_correct_class(self):
+        import checkagent
+        from checkagent.safety.groundedness import GroundednessEvaluator
+        assert checkagent.GroundednessEvaluator is GroundednessEvaluator
+
+    def test_conversation_safety_scanner_is_correct_class(self):
+        import checkagent
+        from checkagent.safety.conversation_scanner import ConversationSafetyScanner
+        assert checkagent.ConversationSafetyScanner is ConversationSafetyScanner
+
+    def test_groundedness_evaluator_in_all(self):
+        import checkagent
+        assert "GroundednessEvaluator" in checkagent.__all__
+
+    def test_conversation_safety_scanner_in_all(self):
+        import checkagent
+        assert "ConversationSafetyScanner" in checkagent.__all__

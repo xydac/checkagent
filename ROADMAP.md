@@ -43,7 +43,7 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] GitHub Action with quality gates and PR comments
 - [x] Compliance report generation
 - [x] JUnit XML output for CI dashboards
-- [ ] PyPI v0.3.0
+- [x] PyPI v0.3.0
 
 ## Phase 3: Make It Complete
 

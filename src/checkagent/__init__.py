@@ -1,6 +1,6 @@
 """CheckAgent — The open-source testing framework for AI agents."""
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 from checkagent.adapters.generic import GenericAdapter, wrap
 from checkagent.ci.quality_gate import QualityGateEntry
@@ -65,7 +65,9 @@ from checkagent.mock.mcp import MockMCPServer
 from checkagent.mock.tool import MockTool, literal
 from checkagent.multiagent import HandoffType, MultiAgentTrace
 from checkagent.replay import Cassette, ReplayEngine
+from checkagent.safety.conversation_scanner import ConversationSafetyScanner
 from checkagent.safety.evaluator import SafetyEvaluator, SafetyFinding, SafetyResult
+from checkagent.safety.groundedness import GroundednessEvaluator
 from checkagent.safety.injection import PromptInjectionDetector
 from checkagent.safety.pii import PIILeakageScanner
 from checkagent.safety.probes import Probe, ProbeSet
@@ -182,6 +184,8 @@ __all__ = [
     "Cassette",
     "ReplayEngine",
     # Safety
+    "ConversationSafetyScanner",
+    "GroundednessEvaluator",
     "PIILeakageScanner",
     "Probe",
     "ProbeSet",
