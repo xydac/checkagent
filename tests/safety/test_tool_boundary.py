@@ -324,3 +324,81 @@ class TestEdgeCases:
         )
         result = validator.evaluate_run(run)
         assert result.passed
+
+
+class TestF109LegacyKwargsCompat:
+    """F-109 regression: ToolCallBoundaryValidator accepts old kwargs with DeprecationWarning."""
+
+    def test_legacy_allowed_tools_set_emits_deprecation(self):
+        import warnings
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            v = ToolCallBoundaryValidator(allowed_tools={"search", "read_file"})
+        assert len(w) == 1
+        assert issubclass(w[0].category, DeprecationWarning)
+        assert "ToolBoundary" in str(w[0].message)
+        assert v.boundary.allowed_tools == {"search", "read_file"}
+
+    def test_legacy_forbidden_tools_list_coerced_to_set(self):
+        import warnings
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            v = ToolCallBoundaryValidator(forbidden_tools=["delete", "drop_table"])
+        assert len(w) == 1
+        assert v.boundary.forbidden_tools == {"delete", "drop_table"}
+
+    def test_legacy_allowed_paths(self):
+        import warnings
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            v = ToolCallBoundaryValidator(allowed_paths=["/data"])
+        assert len(w) == 1
+        assert v.boundary.allowed_paths == ["/data"]
+
+    def test_legacy_forbidden_argument_patterns(self):
+        import warnings
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            v = ToolCallBoundaryValidator(
+                forbidden_argument_patterns={"command": r"rm\s+-rf"}
+            )
+        assert len(w) == 1
+        assert "command" in v.boundary.forbidden_argument_patterns
+
+    def test_legacy_kwargs_actually_enforce_boundaries(self):
+        """Old kwargs must not just be accepted — they must work correctly."""
+        import warnings
+
+        with warnings.catch_warnings(record=True):
+            warnings.simplefilter("always")
+            v = ToolCallBoundaryValidator(
+                allowed_tools={"search"},
+                forbidden_tools={"delete"},
+            )
+        run = _make_run(ToolCall(name="delete", arguments={}))
+        result = v.evaluate_run(run)
+        assert not result.passed
+        assert any("delete" in f.description for f in result.findings)
+
+    def test_boundary_and_legacy_kwargs_raises(self):
+        import pytest
+
+        with pytest.raises(ValueError, match="not both"):
+            ToolCallBoundaryValidator(
+                boundary=ToolBoundary(forbidden_tools={"x"}),
+                forbidden_tools={"y"},
+            )
+
+    def test_no_legacy_kwargs_no_warning(self):
+        """New API emits no warning."""
+        import warnings
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            ToolCallBoundaryValidator(boundary=ToolBoundary(forbidden_tools={"x"}))
+        dep_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
+        assert len(dep_warnings) == 0

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import posixpath
 import re
+import warnings
 from dataclasses import dataclass, field
 
 from checkagent.core.types import AgentRun
@@ -86,7 +87,46 @@ class ToolCallBoundaryValidator(SafetyEvaluator):
     name = "tool_call_boundary_validator"
     category = SafetyCategory.TOOL_MISUSE
 
-    def __init__(self, boundary: ToolBoundary | None = None) -> None:
+    def __init__(
+        self,
+        boundary: ToolBoundary | None = None,
+        *,
+        allowed_tools: set[str] | list[str] | None = None,
+        forbidden_tools: set[str] | list[str] | None = None,
+        allowed_paths: list[str] | None = None,
+        forbidden_argument_patterns: dict[str, str] | None = None,
+    ) -> None:
+        _legacy = {
+            k: v
+            for k, v in {
+                "allowed_tools": allowed_tools,
+                "forbidden_tools": forbidden_tools,
+                "allowed_paths": allowed_paths,
+                "forbidden_argument_patterns": forbidden_argument_patterns,
+            }.items()
+            if v is not None
+        }
+        if _legacy and boundary is not None:
+            raise ValueError(
+                "Pass either boundary= or legacy kwargs (allowed_tools, forbidden_tools, …), "
+                "not both. Legacy kwargs are deprecated — migrate to ToolBoundary."
+            )
+        if _legacy:
+            warnings.warn(
+                "ToolCallBoundaryValidator kwargs API is deprecated. "
+                "Use ToolCallBoundaryValidator(boundary=ToolBoundary(...)) instead. "
+                "Legacy kwargs will be removed in a future release.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            boundary = ToolBoundary(
+                allowed_tools=set(_legacy.get("allowed_tools") or []),
+                forbidden_tools=set(_legacy.get("forbidden_tools") or []),
+                allowed_paths=list(_legacy.get("allowed_paths") or []),
+                forbidden_argument_patterns=dict(
+                    _legacy.get("forbidden_argument_patterns") or {}
+                ),
+            )
         self._boundary = boundary or ToolBoundary()
         self._compiled_patterns: dict[str, re.Pattern[str]] = {
             arg_name: re.compile(pattern)
