@@ -36,6 +36,16 @@ class CheckResult:
     passed: bool
     evidence: str | None = None  # the matched text snippet, if any
 
+    @property
+    def name(self) -> str:
+        """Convenience accessor for ``self.check.name``."""
+        return self.check.name
+
+    @property
+    def severity(self) -> str:
+        """Convenience accessor for ``self.check.severity``."""
+        return self.check.severity
+
 
 @dataclass
 class PromptAnalysisResult:

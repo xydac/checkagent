@@ -184,16 +184,16 @@ async def _call_llm_judge(model: str, system: str, user: str) -> str:
                 "The 'openai' package is required for --llm-judge with OpenAI models.\n"
                 "Install it with:  pip install openai"
             ) from exc
-        client = openai.AsyncOpenAI()
-        response = await client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            max_tokens=120,
-            temperature=0,
-        )
+        async with openai.AsyncOpenAI() as client:
+            response = await client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                max_tokens=120,
+                temperature=0,
+            )
         return response.choices[0].message.content or ""
 
     # provider == "anthropic"
@@ -204,13 +204,13 @@ async def _call_llm_judge(model: str, system: str, user: str) -> str:
             "The 'anthropic' package is required for --llm-judge with Claude models.\n"
             "Install it with:  pip install anthropic"
         ) from exc
-    client = anthropic.AsyncAnthropic()
-    response = await client.messages.create(
-        model=model,
-        max_tokens=120,
-        system=system,
-        messages=[{"role": "user", "content": user}],
-    )
+    async with anthropic.AsyncAnthropic() as client:
+        response = await client.messages.create(
+            model=model,
+            max_tokens=120,
+            system=system,
+            messages=[{"role": "user", "content": user}],
+        )
     return response.content[0].text if response.content else ""
 
 

@@ -41,6 +41,14 @@ class ToolBoundary:
     allowed_paths: list[str] = field(default_factory=list)
     forbidden_argument_patterns: dict[str, str] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.forbidden_argument_patterns, dict):
+            raise TypeError(
+                "ToolBoundary.forbidden_argument_patterns must be a dict mapping "
+                "argument names to regex patterns, e.g. {'path': r'\\.\\.'}.  "
+                f"Got {type(self.forbidden_argument_patterns).__name__!r} instead."
+            )
+
 
 def _is_path_within(path: str, allowed_prefixes: list[str]) -> bool:
     """Check if *path* is under one of the *allowed_prefixes*.

@@ -2075,3 +2075,87 @@ class TestTopLevelExports:
     def test_conversation_safety_scanner_in_all(self):
         import checkagent
         assert "ConversationSafetyScanner" in checkagent.__all__
+
+
+# ---------------------------------------------------------------------------
+# LLM judge client lifecycle — async context manager (event loop cleanup fix)
+# ---------------------------------------------------------------------------
+
+
+class TestLLMJudgeClientLifecycle:
+    """_call_llm_judge must use async context managers so httpx pools close cleanly."""
+
+    def test_openai_client_uses_async_context_manager(self, monkeypatch) -> None:
+        """AsyncOpenAI must be entered as an async context manager so it closes on exit."""
+        import asyncio
+
+        aclose_called = []
+
+        _fake_msg = type("Msg", (), {"content": "ok"})()
+        _fake_choice = type("Choice", (), {"message": _fake_msg})()
+
+        class _FakeResponse:
+            choices = [_fake_choice]
+
+        class _FakeChatCompletions:
+            async def create(self, **kwargs):
+                return _FakeResponse()
+
+        class _FakeChat:
+            completions = _FakeChatCompletions()
+
+        class _FakeOpenAI:
+            chat = _FakeChat()
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                aclose_called.append(True)
+
+        import types
+        fake_openai = types.ModuleType("openai")
+        fake_openai.AsyncOpenAI = _FakeOpenAI
+        monkeypatch.setitem(__import__("sys").modules, "openai", fake_openai)
+
+        from checkagent.cli.scan import _call_llm_judge
+
+        asyncio.run(_call_llm_judge("gpt-4o-mini", "system", "user"))
+        assert aclose_called, "AsyncOpenAI was not used as async context manager (event loop leak)"
+
+    def test_anthropic_client_uses_async_context_manager(self, monkeypatch) -> None:
+        """AsyncAnthropic must be entered as an async context manager so it closes on exit."""
+        import asyncio
+
+        aclose_called = []
+
+        class _FakeContent:
+            text = "ok"
+
+        class _FakeMessage:
+            content = [_FakeContent()]
+
+        class _FakeMessages:
+            async def create(self, **kwargs):
+                return _FakeMessage()
+
+        class _FakeAnthropic:
+            messages = _FakeMessages()
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                aclose_called.append(True)
+
+        import types
+        fake_anthropic = types.ModuleType("anthropic")
+        fake_anthropic.AsyncAnthropic = _FakeAnthropic
+        monkeypatch.setitem(__import__("sys").modules, "anthropic", fake_anthropic)
+
+        from checkagent.cli.scan import _call_llm_judge
+
+        asyncio.run(_call_llm_judge("claude-haiku-4-5-20251001", "system", "user"))
+        assert aclose_called, (
+            "AsyncAnthropic was not used as async context manager (event loop leak)"
+        )

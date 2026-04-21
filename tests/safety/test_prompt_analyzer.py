@@ -326,3 +326,54 @@ def test_importable_from_safety_module():
     assert PromptAnalyzer is not None
     assert PromptAnalysisResult is not None
     assert PromptCheck is not None
+
+
+# ---------------------------------------------------------------------------
+# F-110: CheckResult convenience properties (severity, name)
+# ---------------------------------------------------------------------------
+
+
+class TestF110CheckResultConvenienceProperties:
+    """CheckResult.severity and CheckResult.name delegate to .check."""
+
+    def _analyze(self, prompt: str) -> PromptAnalysisResult:
+        return PromptAnalyzer().analyze(prompt)
+
+    def test_severity_property_returns_string(self):
+        result = self._analyze("You are a helpful assistant.")
+        cr = result.check_results[0]
+        assert isinstance(cr.severity, str)
+        assert cr.severity in ("high", "medium", "low")
+
+    def test_name_property_returns_string(self):
+        result = self._analyze("You are a helpful assistant.")
+        cr = result.check_results[0]
+        assert isinstance(cr.name, str)
+        assert len(cr.name) > 0
+
+    def test_severity_matches_check_severity(self):
+        result = self._analyze("You are a helpful assistant.")
+        for cr in result.check_results:
+            assert cr.severity == cr.check.severity
+
+    def test_name_matches_check_name(self):
+        result = self._analyze("You are a helpful assistant.")
+        for cr in result.check_results:
+            assert cr.name == cr.check.name
+
+    def test_filter_by_severity_via_property(self):
+        result = self._analyze("You are a helpful assistant.")
+        high_failures = [
+            cr for cr in result.check_results if cr.severity == "high" and not cr.passed
+        ]
+        # Weak prompt should have at least one high failure
+        assert len(high_failures) > 0
+
+    def test_consistent_with_missing_high(self):
+        result = self._analyze("You are a helpful assistant.")
+        high_fail_names_via_property = {
+            cr.name for cr in result.check_results
+            if cr.severity == "high" and not cr.passed
+        }
+        missing_high_names = {pc.name for pc in result.missing_high}
+        assert high_fail_names_via_property == missing_high_names

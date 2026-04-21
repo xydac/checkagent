@@ -402,3 +402,61 @@ class TestF109LegacyKwargsCompat:
             ToolCallBoundaryValidator(boundary=ToolBoundary(forbidden_tools={"x"}))
         dep_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
         assert len(dep_warnings) == 0
+
+
+# ---------------------------------------------------------------------------
+# F-111: ToolBoundary.forbidden_argument_patterns type validation
+# ---------------------------------------------------------------------------
+
+
+class TestF111ForbiddenArgumentPatternsTypeValidation:
+    """ToolBoundary rejects non-dict forbidden_argument_patterns at construction."""
+
+    def test_dict_is_accepted(self):
+        b = ToolBoundary(forbidden_argument_patterns={"path": r"\.\."})
+        assert b.forbidden_argument_patterns == {"path": r"\.\."}
+
+    def test_empty_dict_is_accepted(self):
+        b = ToolBoundary(forbidden_argument_patterns={})
+        assert b.forbidden_argument_patterns == {}
+
+    def test_set_raises_type_error(self):
+        import pytest
+
+        with pytest.raises(TypeError, match="dict"):
+            ToolBoundary(forbidden_argument_patterns={"../", "passwd"})  # type: ignore[arg-type]
+
+    def test_set_error_mentions_expected_type(self):
+        import pytest
+
+        with pytest.raises(TypeError, match="dict mapping argument names"):
+            ToolBoundary(forbidden_argument_patterns={"../", "passwd"})  # type: ignore[arg-type]
+
+    def test_list_raises_type_error(self):
+        import pytest
+
+        with pytest.raises(TypeError, match="dict"):
+            ToolBoundary(forbidden_argument_patterns=["../"])  # type: ignore[arg-type]
+
+    def test_error_message_mentions_got_type(self):
+        import pytest
+
+        with pytest.raises(TypeError, match="set"):
+            ToolBoundary(forbidden_argument_patterns={"../", "passwd"})  # type: ignore[arg-type]
+
+    def test_valid_dict_enforces_pattern(self):
+        """A dict-constructed ToolBoundary actually blocks the right calls."""
+        from checkagent.core.types import AgentRun, Step, ToolCall
+
+        b = ToolBoundary(forbidden_argument_patterns={"path": r"\.\."})
+        v = ToolCallBoundaryValidator(boundary=b)
+        run = AgentRun(
+            input=AgentInput(query="test"),
+            steps=[Step(
+                input_text="test",
+                tool_calls=[ToolCall(name="read_file", arguments={"path": "../../etc/passwd"})]
+            )],
+        )
+        result = v.evaluate_run(run)
+        assert not result.passed
+        assert len(result.findings) == 1
