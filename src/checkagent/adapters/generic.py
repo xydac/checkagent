@@ -2,6 +2,9 @@
 
 Supports both sync and async callables. Sync functions are executed
 in a thread pool executor to avoid blocking the event loop.
+
+Non-callable framework agent objects (PydanticAI, LangChain, CrewAI,
+OpenAI Agents) are auto-detected and routed to the correct adapter.
 """
 
 from __future__ import annotations
@@ -15,6 +18,51 @@ from typing import Any, overload
 
 from checkagent.core.types import AgentInput, AgentRun, Step, StreamEvent, StreamEventType
 
+# Maps module prefix → (adapter class name, import path, constructor arg name)
+_FRAMEWORK_ADAPTERS: list[tuple[str, str, str]] = [
+    ("pydantic_ai", "PydanticAIAdapter", "checkagent.adapters.pydantic_ai"),
+    ("langchain", "LangChainAdapter", "checkagent.adapters.langchain"),
+    ("crewai", "CrewAIAdapter", "checkagent.adapters.crewai"),
+    ("agents", "OpenAIAgentsAdapter", "checkagent.adapters.openai_agents"),
+]
+
+
+def _try_framework_adapter(obj: Any) -> Any | None:
+    """Return a framework-specific adapter if obj's type is recognised.
+
+    Checks the object's module against known framework prefixes and
+    lazily imports the matching adapter. Returns None if unrecognised.
+    """
+    module = getattr(type(obj), "__module__", None) or ""
+    for prefix, adapter_name, import_path in _FRAMEWORK_ADAPTERS:
+        # Match: exact, dot-separated subpackage (langchain.chains), or
+        # underscore-separated variant (langchain_core, langchain_community)
+        if module == prefix or module.startswith(prefix + ".") or module.startswith(prefix + "_"):
+            import importlib
+            mod = importlib.import_module(import_path)
+            adapter_cls = getattr(mod, adapter_name)
+            return adapter_cls(obj)
+    return None
+
+
+def _non_callable_error(obj: Any) -> TypeError:
+    """Build a descriptive TypeError for non-callable objects."""
+    type_name = f"{type(obj).__module__}.{type(obj).__qualname__}"
+    lines = [
+        f"wrap() requires a callable, but got {type_name!r}.",
+        "",
+        "Framework agent objects are not directly callable.",
+        "Use a framework-specific adapter instead:",
+        "  from checkagent.adapters.pydantic_ai import PydanticAIAdapter",
+        "  from checkagent.adapters.langchain import LangChainAdapter",
+        "  from checkagent.adapters.crewai import CrewAIAdapter",
+        "  from checkagent.adapters.openai_agents import OpenAIAgentsAdapter",
+        "",
+        "Or pass a plain function/lambda:",
+        "  wrap(lambda query: agent.run_sync(query).output)",
+    ]
+    return TypeError("\n".join(lines))
+
 
 class GenericAdapter:
     """Wraps any Python callable to conform to the AgentAdapter protocol.
@@ -25,6 +73,14 @@ class GenericAdapter:
     """
 
     def __init__(self, fn: Callable[..., Any]) -> None:
+        if not callable(fn):
+            adapter = _try_framework_adapter(fn)
+            if adapter is not None:
+                raise TypeError(
+                    f"wrap() auto-detected {type(fn).__qualname__!r} — "
+                    "use the returned adapter directly, not GenericAdapter"
+                )
+            raise _non_callable_error(fn)
         self._fn = fn
         self._is_async = inspect.iscoroutinefunction(fn)
         self._accepts_kwargs = any(
@@ -93,17 +149,29 @@ def wrap() -> Callable[[Callable[..., Any]], GenericAdapter]: ...
 
 
 def wrap(
-    fn: Callable[..., Any] | None = None,
-) -> GenericAdapter | Callable[[Callable[..., Any]], GenericAdapter]:
+    fn: Any | None = None,
+) -> Any:
     """Wrap a callable as a GenericAdapter. Usable as decorator or function.
 
-    @wrap
-    async def my_agent(query: str) -> str:
-        ...
+    For plain callables, returns a GenericAdapter:
 
-    # or
-    adapter = wrap(my_sync_function)
+        @wrap
+        async def my_agent(query: str) -> str: ...
+
+        adapter = wrap(my_sync_function)
+
+    For framework agent objects (PydanticAI, LangChain, CrewAI, OpenAI Agents),
+    auto-detects the framework and returns the appropriate adapter:
+
+        from pydantic_ai import Agent
+        agent = Agent(model="openai:gpt-4o-mini")
+        adapter = wrap(agent)  # returns PydanticAIAdapter(agent)
     """
     if fn is not None:
+        if not callable(fn):
+            adapter = _try_framework_adapter(fn)
+            if adapter is not None:
+                return adapter
+            raise _non_callable_error(fn)
         return GenericAdapter(fn)
     return GenericAdapter  # type: ignore[return-value]

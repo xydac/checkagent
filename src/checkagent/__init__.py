@@ -79,7 +79,7 @@ from checkagent.safety.prompt_analyzer import (
 from checkagent.safety.refusal import RefusalComplianceChecker
 from checkagent.safety.system_prompt import SystemPromptLeakDetector
 from checkagent.safety.taxonomy import SafetyCategory, Severity
-from checkagent.safety.tool_boundary import ToolCallBoundaryValidator
+from checkagent.safety.tool_boundary import ToolBoundary, ToolCallBoundaryValidator
 from checkagent.streaming.collector import StreamCollector
 
 _LAZY_ADAPTER_IMPORTS: dict[str, tuple[str, str]] = {
@@ -200,6 +200,7 @@ __all__ = [
     "SafetyResult",
     "Severity",
     "SystemPromptLeakDetector",
+    "ToolBoundary",
     "ToolCallBoundaryValidator",
     # Streaming
     "StreamCollector",
