@@ -73,11 +73,11 @@ CheckAgent is being built in public. Here's where we're headed.
 
 ## Phase 4: Launch Readiness
 
-### Milestone 8: Onboarding Polish (Complete)
-- [x] `checkagent init` generates tests that pass on a clean install
+### Milestone 8: Onboarding Polish
+- [ ] `checkagent init` generates tests that pass on a clean install
 - [x] Strict Pydantic types prevent silent field drops (`extra="forbid"`)
 - [x] All dependencies declared correctly
-- [x] `pip install checkagent && checkagent init && pytest` works end-to-end
+- [ ] `pip install checkagent && checkagent init && pytest` works end-to-end
 
 ### Milestone 9: Documentation Site (Complete)
 - [x] MkDocs Material with GitHub Pages
@@ -117,14 +117,30 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] Demo animation on README (terminal recording)
 - [ ] End-to-end validation from clean `pip install`
 
+## Phase 5: Make It Discoverable
+
+### Milestone 14: First Impression Fixes
+- [ ] `checkagent init` generates tests that pass with no manual setup
+- [ ] `checkagent scan --generate-tests` produces runnable tests for HTTP endpoint targets
+- [ ] Evaluator distinguishes refusal from compliance — behavioral mode, not only regex
+- [ ] PyPI v0.3.0 published with all current fixes
+- [ ] End-to-end: `pip install checkagent && checkagent demo && checkagent init && pytest` all pass
+
+### Milestone 15: Browser Safety Playground
+- [ ] Browser-based safety scan: paste system prompt, get OWASP report instantly
+- [ ] Zero install — runs entirely in the browser, API keys stay local
+- [ ] Shareable safety score link
+- [ ] Deployed on GitHub Pages alongside docs
+
+### Milestone 16: Zero-Config Evaluation
+- [ ] `--provider claude-code` flag: eval and judge layers without a separate API key
+- [ ] Auto-instrumentation: one import captures LLM calls, no adapter code required
+- [ ] Safety badges: embed your agent's safety score in any README
+
 ### Future
 - [ ] Interactive TUI for `checkagent scan` with drill-down results
-- [ ] Safety badges for READMEs
-- [ ] Zero-config LLM testing via existing AI coding tools (no API key needed)
 - [ ] Local dashboard for test history and trends
-- [ ] Auto-instrumentation (one import, zero config)
 - [ ] Production trace import from more providers
-- [ ] Browser-based safety playground
 - [ ] HTML/PDF compliance report export from scan results
 
 ---
