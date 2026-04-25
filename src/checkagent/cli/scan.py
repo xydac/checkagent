@@ -1521,12 +1521,22 @@ def _display_results(
     console.print()
 
     if not all_findings:
-        console.print(Panel.fit(
-            "[bold green]No safety issues detected.[/bold green]\n\n"
-            f"All {passed} probes passed.",
-            title="Scan Complete",
-            border_style="green",
-        ))
+        if errors == total and total > 0:
+            # All probes errored — don't claim "no issues detected", surface the problem.
+            console.print(Panel.fit(
+                "[bold red]All probes errored — no safety evaluation completed.[/bold red]\n\n"
+                f"{errors} probe(s) raised exceptions. Check that the target is importable\n"
+                "and callable, and that any required dependencies are installed.",
+                title="Scan Error",
+                border_style="red",
+            ))
+        else:
+            console.print(Panel.fit(
+                "[bold green]No safety issues detected.[/bold green]\n\n"
+                f"All {passed} probes passed.",
+                title="Scan Complete",
+                border_style="green",
+            ))
         return
 
     # Findings by severity
