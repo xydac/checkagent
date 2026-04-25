@@ -172,8 +172,13 @@ def _detect_llm_provider(model: str) -> str:
     )
 
 
-async def _call_llm_judge(model: str, system: str, user: str) -> str:
-    """Call an LLM and return the raw text response."""
+async def _call_llm_judge(model: str, system: str, user: str, *, _client: object = None) -> str:
+    """Call an LLM and return the raw text response.
+
+    Pass *_client* to reuse an existing async client (avoids per-call connection
+    overhead and prevents event-loop-closed teardown noise when many probes share
+    one asyncio.run() invocation).  If omitted, a short-lived client is created.
+    """
     provider = _detect_llm_provider(model)
 
     if provider == "openai":
@@ -184,6 +189,17 @@ async def _call_llm_judge(model: str, system: str, user: str) -> str:
                 "The 'openai' package is required for --llm-judge with OpenAI models.\n"
                 "Install it with:  pip install openai"
             ) from exc
+        if _client is not None:
+            response = await _client.chat.completions.create(  # type: ignore[union-attr]
+                model=model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                max_tokens=120,
+                temperature=0,
+            )
+            return response.choices[0].message.content or ""
         async with openai.AsyncOpenAI() as client:
             response = await client.chat.completions.create(
                 model=model,
@@ -204,6 +220,14 @@ async def _call_llm_judge(model: str, system: str, user: str) -> str:
             "The 'anthropic' package is required for --llm-judge with Claude models.\n"
             "Install it with:  pip install anthropic"
         ) from exc
+    if _client is not None:
+        response = await _client.messages.create(  # type: ignore[union-attr]
+            model=model,
+            max_tokens=120,
+            system=system,
+            messages=[{"role": "user", "content": user}],
+        )
+        return response.content[0].text if response.content else ""
     async with anthropic.AsyncAnthropic() as client:
         response = await client.messages.create(
             model=model,
@@ -219,6 +243,8 @@ async def _llm_evaluate_probe(
     output: str,
     model: str,
     agent_description: str | None = None,
+    *,
+    _client: object = None,
 ) -> list[SafetyFinding]:
     """Ask an LLM to judge whether the agent complied with an adversarial probe.
 
@@ -229,6 +255,8 @@ async def _llm_evaluate_probe(
     When *agent_description* is provided it is injected into the system prompt
     so the judge knows what the agent should and shouldn't do — improving
     accuracy on generic-compliance false negatives.
+
+    Pass *_client* to reuse an existing async client across many concurrent probes.
     """
     system = _LLM_JUDGE_SYSTEM_PROMPT
     if agent_description:
@@ -244,7 +272,7 @@ async def _llm_evaluate_probe(
         "Did the agent comply with the adversarial instruction?"
     )
     try:
-        raw = await _call_llm_judge(model, system, user_prompt)
+        raw = await _call_llm_judge(model, system, user_prompt, _client=_client)
         raw = raw.strip()
         # Strip markdown fences if the model wraps output anyway
         if raw.startswith("```"):
@@ -300,30 +328,67 @@ async def _validate_llm_judge_connectivity(model: str) -> None:
         ) from exc
 
 
+def _make_llm_client(model: str) -> object:
+    """Instantiate an async LLM client for *model* without a surrounding context.
+
+    Extracted as a top-level function so tests can monkeypatch it to avoid
+    requiring real API keys.  Callers are responsible for calling ``aclose()``.
+    """
+    provider = _detect_llm_provider(model)
+    if provider == "openai":
+        try:
+            import openai  # noqa: PLC0415
+        except ImportError as exc:
+            raise click.ClickException(
+                "The 'openai' package is required for --llm-judge with OpenAI models.\n"
+                "Install it with:  pip install openai"
+            ) from exc
+        return openai.AsyncOpenAI()
+    # provider == "anthropic"
+    try:
+        import anthropic  # noqa: PLC0415
+    except ImportError as exc:
+        raise click.ClickException(
+            "The 'anthropic' package is required for --llm-judge with Claude models.\n"
+            "Install it with:  pip install anthropic"
+        ) from exc
+    return anthropic.AsyncAnthropic()
+
+
 async def _evaluate_all_with_llm(
     results: list[tuple[Probe, str | None, Exception | None]],
     model: str,
     concurrency: int = 5,
     agent_description: str | None = None,
 ) -> list[tuple[Probe, str | None, Exception | None, list[SafetyFinding]]]:
-    """Run LLM evaluation concurrently for all successful probe outputs."""
+    """Run LLM evaluation concurrently for all successful probe outputs.
+
+    A single async client is created for the duration of all probe evaluations and
+    closed before returning.  This avoids per-probe connection overhead and prevents
+    "Event loop is closed" teardown noise from httpx GC finalizers.
+    """
     sem = asyncio.Semaphore(concurrency)
+    shared_client = _make_llm_client(model)
 
-    async def _one(
-        probe: Probe,
-        output: str | None,
-        error: Exception | None,
-    ) -> tuple[Probe, str | None, Exception | None, list[SafetyFinding]]:
-        if error is not None or output is None:
-            return probe, output, error, []
-        async with sem:
-            findings = await _llm_evaluate_probe(
-                probe, output, model, agent_description=agent_description
-            )
-        return probe, output, error, findings
+    try:
+        async def _one(
+            probe: Probe,
+            output: str | None,
+            error: Exception | None,
+        ) -> tuple[Probe, str | None, Exception | None, list[SafetyFinding]]:
+            if error is not None or output is None:
+                return probe, output, error, []
+            async with sem:
+                findings = await _llm_evaluate_probe(
+                    probe, output, model, agent_description=agent_description,
+                    _client=shared_client,
+                )
+            return probe, output, error, findings
 
-    tasks = [_one(p, o, e) for p, o, e in results]
-    return list(await asyncio.gather(*tasks))
+        tasks = [_one(p, o, e) for p, o, e in results]
+        return list(await asyncio.gather(*tasks))
+    finally:
+        await shared_client.aclose()  # type: ignore[union-attr]
 
 
 # ---------------------------------------------------------------------------
@@ -1007,17 +1072,36 @@ def scan_cmd(
         )
 
     install_patches()
-    all_runs, all_llm_findings = asyncio.run(
-        _scan_probes_async(
-            agent_fn,
-            probes,
-            timeout,
-            repeat,
-            llm_judge,
-            agent_description,
-            out_console,
+
+    # Suppress "RuntimeError: Event loop is closed" that httpx raises during GC
+    # teardown after asyncio.run() closes the loop.  The shared-client refactor in
+    # _evaluate_all_with_llm eliminates most sources; this hook catches any stragglers
+    # (e.g. from the connectivity pre-flight check).
+    _orig_unraisablehook = sys.unraisablehook
+
+    def _suppress_loop_closed(exc_info: sys.UnraisableHookArgs) -> None:
+        if exc_info.exc_type is RuntimeError and "Event loop is closed" in str(
+            exc_info.exc_value
+        ):
+            return
+        _orig_unraisablehook(exc_info)
+
+    sys.unraisablehook = _suppress_loop_closed
+    try:
+        all_runs, all_llm_findings = asyncio.run(
+            _scan_probes_async(
+                agent_fn,
+                probes,
+                timeout,
+                repeat,
+                llm_judge,
+                agent_description,
+                out_console,
+            )
         )
-    )
+    finally:
+        sys.unraisablehook = _orig_unraisablehook
+
     uninstall_patches()
     elapsed = time.monotonic() - start_time
 

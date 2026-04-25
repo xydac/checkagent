@@ -1424,7 +1424,7 @@ class TestLLMJudge:
 
         from checkagent.cli.scan import _llm_evaluate_probe
 
-        async def _fake_call(model, system, user):
+        async def _fake_call(model, system, user, **kwargs):
             return '{"complied": true, "reason": "Agent revealed the requested information."}'
 
         monkeypatch.setattr("checkagent.cli.scan._call_llm_judge", _fake_call)
@@ -1449,7 +1449,7 @@ class TestLLMJudge:
 
         from checkagent.cli.scan import _llm_evaluate_probe
 
-        async def _fake_call(model, system, user):
+        async def _fake_call(model, system, user, **kwargs):
             return '{"complied": false, "reason": "Agent refused the adversarial request."}'
 
         monkeypatch.setattr("checkagent.cli.scan._call_llm_judge", _fake_call)
@@ -1471,7 +1471,7 @@ class TestLLMJudge:
 
         from checkagent.cli.scan import _llm_evaluate_probe
 
-        async def _fake_call(model, system, user):
+        async def _fake_call(model, system, user, **kwargs):
             return "not valid json at all"
 
         monkeypatch.setattr("checkagent.cli.scan._call_llm_judge", _fake_call)
@@ -1494,11 +1494,19 @@ class TestLLMJudge:
 
         called_inputs: list[str] = []
 
-        async def _fake_call(model, system, user):
+        async def _fake_call(model, system, user, **kwargs):
             called_inputs.append(user)
             return '{"complied": false, "reason": "Refused."}'
 
         monkeypatch.setattr("checkagent.cli.scan._call_llm_judge", _fake_call)
+
+        # _evaluate_all_with_llm creates a shared client via _make_llm_client.
+        # Patch it with a no-op so the test doesn't require OPENAI_API_KEY.
+        class _FakeClient:
+            async def aclose(self) -> None:
+                pass
+
+        monkeypatch.setattr("checkagent.cli.scan._make_llm_client", lambda model: _FakeClient())
 
         probe_ok = Probe(
             name="ok",
@@ -1533,10 +1541,16 @@ class TestLLMJudge:
         _write_agent_module(tmp_path)
         monkeypatch.syspath_prepend(str(tmp_path))
 
-        async def _fake_call(model, system, user):
+        async def _fake_call(model, system, user, **kwargs):
             return '{"complied": false, "reason": "Agent refused."}'
 
         monkeypatch.setattr("checkagent.cli.scan._call_llm_judge", _fake_call)
+
+        class _FakeClient:
+            async def aclose(self) -> None:
+                pass
+
+        monkeypatch.setattr("checkagent.cli.scan._make_llm_client", lambda model: _FakeClient())
 
         runner = CliRunner()
         result = runner.invoke(scan_cmd, [
@@ -1558,7 +1572,7 @@ class TestLLMJudge:
 
         call_count = 0
 
-        async def _fake_call(model, system, user):
+        async def _fake_call(model, system, user, **kwargs):
             nonlocal call_count
             call_count += 1
             # call_count == 1 is the pre-flight validation ping (returns anything valid)
@@ -1570,6 +1584,12 @@ class TestLLMJudge:
             return '{"complied": false, "reason": "Agent refused."}'
 
         monkeypatch.setattr("checkagent.cli.scan._call_llm_judge", _fake_call)
+
+        class _FakeClient:
+            async def aclose(self) -> None:
+                pass
+
+        monkeypatch.setattr("checkagent.cli.scan._make_llm_client", lambda model: _FakeClient())
 
         runner = CliRunner()
         result = runner.invoke(scan_cmd, [
@@ -1590,7 +1610,7 @@ class TestLLMJudgeConnectivityValidation:
 
         from checkagent.cli.scan import _validate_llm_judge_connectivity
 
-        async def _ok(model, system, user):
+        async def _ok(model, system, user, **kwargs):
             return "OK"
 
         monkeypatch.setattr("checkagent.cli.scan._call_llm_judge", _ok)
@@ -1604,7 +1624,7 @@ class TestLLMJudgeConnectivityValidation:
 
         from checkagent.cli.scan import _validate_llm_judge_connectivity
 
-        async def _auth_fail(model, system, user):
+        async def _auth_fail(model, system, user, **kwargs):
             raise RuntimeError("401 Incorrect API key provided")
 
         monkeypatch.setattr("checkagent.cli.scan._call_llm_judge", _auth_fail)
@@ -1624,7 +1644,7 @@ class TestLLMJudgeConnectivityValidation:
 
         from checkagent.cli.scan import _validate_llm_judge_connectivity
 
-        async def _fail(model, system, user):
+        async def _fail(model, system, user, **kwargs):
             raise RuntimeError("authentication failed")
 
         monkeypatch.setattr("checkagent.cli.scan._call_llm_judge", _fail)
@@ -1643,7 +1663,7 @@ class TestLLMJudgeConnectivityValidation:
 
         from checkagent.cli.scan import _validate_llm_judge_connectivity
 
-        async def _no_pkg(model, system, user):
+        async def _no_pkg(model, system, user, **kwargs):
             raise click.ClickException("The 'openai' package is required")
 
         monkeypatch.setattr("checkagent.cli.scan._call_llm_judge", _no_pkg)
@@ -1656,7 +1676,7 @@ class TestLLMJudgeConnectivityValidation:
         _write_agent_module(tmp_path)
         monkeypatch.syspath_prepend(str(tmp_path))
 
-        async def _auth_fail(model, system, user):
+        async def _auth_fail(model, system, user, **kwargs):
             raise RuntimeError("401 Incorrect API key")
 
         monkeypatch.setattr("checkagent.cli.scan._call_llm_judge", _auth_fail)
