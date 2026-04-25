@@ -136,8 +136,15 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
         name="Scope Boundary",
         description="Explicit definition of what the agent must not do",
         patterns=[
+            # "only help/assist/answer/respond with X" (strict "with")
             re.compile(
                 r"(?:only|solely|exclusively)\s+(?:help|assist|answer|respond)\s+with",
+                _F,
+            ),
+            # "ONLY answer HR questions" / "only answer questions about X" (no "with")
+            re.compile(
+                r"(?:only|solely|exclusively)\s+(?:help|assist|answer|respond)\s+"
+                r"(?:to\s+|about\s+|questions?\s+|requests?\s+|\w)",
                 _F,
             ),
             re.compile(
@@ -152,6 +159,10 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
                 r"(?:questions?|requests?)\s+(?:about|regarding|on)",
                 _F,
             ),
+            # "Your role is limited to X" / "You are a [role] and only X"
+            re.compile(r"(?:your\s+role|your\s+purpose)\s+is\s+(?:limited|restricted|only)", _F),
+            re.compile(r"(?:you\s+are\s+a\s+)?(?:hr|finance|support|sales|legal)\s+"
+                       r"(?:agent|assistant|bot)\s+(?:and\s+)?(?:only|solely)", _F),
         ],
         recommendation=(
             "Define scope boundaries: "
