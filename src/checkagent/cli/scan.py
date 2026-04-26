@@ -45,6 +45,7 @@ from checkagent.core.tracer import (
     install_patches,
     uninstall_patches,
 )
+from checkagent.safety.behavioral import check_behavioral_compliance
 from checkagent.safety.data_enumeration import DataEnumerationDetector
 from checkagent.safety.evaluator import SafetyFinding
 from checkagent.safety.injection import PromptInjectionDetector
@@ -574,6 +575,34 @@ def _make_http_agent(
     return http_agent
 
 
+_BASELINE_QUERY = "Hello, how can you help me?"
+
+
+async def _run_baseline(
+    agent_fn: object,
+    timeout: float,
+) -> str | None:
+    """Send a benign query to the agent and return its response.
+
+    Returns None if the agent errors or times out.  The response is used
+    as a structural baseline for behavioral compliance detection.
+    """
+    try:
+        coro = agent_fn(_BASELINE_QUERY)  # type: ignore[operator]
+        if asyncio.iscoroutine(coro):
+            result = await asyncio.wait_for(coro, timeout=timeout)
+        else:
+            result = coro
+
+        if isinstance(result, str):
+            return result
+        if hasattr(result, "final_output"):
+            return str(result.final_output) if result.final_output is not None else ""
+        return str(result)
+    except Exception:
+        return None
+
+
 async def _run_probe(
     agent_fn: object,
     probe: Probe,
@@ -1088,7 +1117,7 @@ def scan_cmd(
 
     sys.unraisablehook = _suppress_loop_closed
     try:
-        all_runs, all_llm_findings = asyncio.run(
+        all_runs, all_llm_findings, baseline_response = asyncio.run(
             _scan_probes_async(
                 agent_fn,
                 probes,
@@ -1104,6 +1133,15 @@ def scan_cmd(
 
     uninstall_patches()
     elapsed = time.monotonic() - start_time
+
+    if baseline_response is not None:
+        bl_preview = baseline_response[:60].replace("\n", " ")
+        out_console.print(
+            f"[dim]Baseline captured ({len(baseline_response)} chars): "
+            f"{bl_preview!r}...[/dim]"
+        )
+    else:
+        out_console.print("[dim]Baseline: skipped (agent errored on benign query)[/dim]")
 
     # Evaluate results — aggregate across repeats
     # For each probe, track per-run outcomes: pass/fail/error
@@ -1140,6 +1178,10 @@ def scan_cmd(
                 run_findings = all_llm_findings[run_idx_loop][probe_idx]
             else:
                 run_findings = _evaluate_output(output)
+                if baseline_response is not None:
+                    run_findings.extend(
+                        check_behavioral_compliance(output, baseline_response, probe)
+                    )
 
             if run_findings:
                 probe_fail_count += 1
@@ -1368,6 +1410,7 @@ async def _scan_probes_async(
 ) -> tuple[
     list[list[tuple[Probe, str | None, Exception | None, list[dict]]]],
     list[list[list[SafetyFinding]]] | None,
+    str | None,
 ]:
     """Run all probe rounds and LLM judge evaluation in a single event loop.
 
@@ -1375,13 +1418,16 @@ async def _scan_probes_async(
     "RuntimeError: Event loop is closed" noise from httpx connection-pool
     teardown when --llm-judge is active.
 
-    Returns (all_runs, all_llm_findings):
+    Returns (all_runs, all_llm_findings, baseline_response):
     - all_runs[run_idx][probe_idx] = (probe, output, error, traces)
     - all_llm_findings[run_idx][probe_idx] = list[SafetyFinding]
       (None when --llm-judge is not used)
+    - baseline_response = agent's response to a benign query (None on error)
     """
     if validate_judge and llm_judge:
         await _validate_llm_judge_connectivity(llm_judge)
+
+    baseline_response = await _run_baseline(agent_fn, timeout)
 
     all_runs: list[list[tuple[Probe, str | None, Exception | None, list[dict]]]] = []
     for run_idx in range(repeat):
@@ -1391,7 +1437,7 @@ async def _scan_probes_async(
             out_console.print(f"[dim]  Round {run_idx + 1}/{repeat} complete[/dim]")
 
     if not llm_judge:
-        return all_runs, None
+        return all_runs, None, baseline_response
 
     # LLM evaluation — batch per run so all judge calls share one event loop.
     all_llm_findings: list[list[list[SafetyFinding]]] = []
@@ -1402,7 +1448,7 @@ async def _scan_probes_async(
         )
         all_llm_findings.append([findings for _, _, _, findings in evaluated])
 
-    return all_runs, all_llm_findings
+    return all_runs, all_llm_findings, baseline_response
 
 
 def _build_json_report(
