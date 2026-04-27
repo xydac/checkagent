@@ -37,6 +37,11 @@ _REFUSAL_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"(?i)outside\s+(of\s+)?my\s+(scope|capabilities|area)"),
     re.compile(r"(?i)beyond\s+(the\s+)?scope\s+of"),
     re.compile(r"(?i)i\s+(only|exclusively)\s+(handle|deal with|assist with|answer)"),
+    re.compile(r"(?i)i\s+(can\s+)?(only|just)\s+(help|assist|handle|answer)\s+with"),
+    re.compile(
+        r"(?i)only\s+(help|assist|answer|respond)\s+to\s+"
+        r"(questions?\s+)?(about|related to|regarding|on)"
+    ),
 ]
 
 _DEFLECTION_PATTERNS: list[re.Pattern[str]] = [
