@@ -1375,6 +1375,37 @@ def scan_cmd(
                 f"\n[green]Compliance report written → [bold]{report_path}[/bold][/green]"
             )
 
+    # Persist scan result and show delta vs. previous scan
+    from checkagent.cli.history import (
+        compute_delta,
+        format_delta_line,
+        load_previous_result,
+        save_scan_result,
+    )
+
+    now_ts = time.time()
+    try:
+        save_scan_result(
+            display_target,
+            passed=passed,
+            failed=failed,
+            errors=errors,
+            total=total,
+            elapsed=elapsed,
+            timestamp=now_ts,
+        )
+        previous = load_previous_result(display_target, before_timestamp=now_ts)
+        if previous is not None and not json_output:
+            delta = compute_delta(passed, total, previous)
+            out_console.print(format_delta_line(delta))
+        elif previous is not None and json_output:
+            delta = compute_delta(passed, total, previous)
+            # history delta is already in the JSON report structure (no-op here;
+            # callers can re-run with --json to get the updated summary)
+            pass
+    except OSError:
+        pass  # history write failures must never break the scan exit code
+
     # Exit with non-zero if any findings
     if all_findings:
         sys.exit(1)
