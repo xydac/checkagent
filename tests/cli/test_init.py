@@ -118,3 +118,35 @@ class TestInitCommand:
         )
         assert proc.returncode == 0, f"Generated tests failed:\n{proc.stdout}\n{proc.stderr}"
         assert "passed" in proc.stdout
+
+    def test_gitignore_created_with_checkagent_dir(self, tmp_path: Path) -> None:
+        """init creates .gitignore containing .checkagent/ when none exists."""
+        runner = CliRunner()
+        runner.invoke(init_cmd, [str(tmp_path)])
+
+        gitignore = tmp_path / ".gitignore"
+        assert gitignore.exists()
+        assert ".checkagent/" in gitignore.read_text()
+
+    def test_gitignore_updated_when_existing(self, tmp_path: Path) -> None:
+        """init appends .checkagent/ to an existing .gitignore."""
+        gitignore = tmp_path / ".gitignore"
+        gitignore.write_text("*.pyc\n__pycache__/\n", encoding="utf-8")
+
+        runner = CliRunner()
+        runner.invoke(init_cmd, [str(tmp_path)])
+
+        content = gitignore.read_text()
+        assert ".checkagent/" in content
+        assert "*.pyc" in content  # original content preserved
+
+    def test_gitignore_not_duplicated(self, tmp_path: Path) -> None:
+        """init does not add .checkagent/ a second time if already present."""
+        gitignore = tmp_path / ".gitignore"
+        gitignore.write_text(".checkagent/\n", encoding="utf-8")
+
+        runner = CliRunner()
+        runner.invoke(init_cmd, [str(tmp_path)])
+
+        content = gitignore.read_text()
+        assert content.count(".checkagent/") == 1

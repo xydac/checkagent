@@ -18,6 +18,7 @@ Implements Milestone 10 (F11.3 scan CLI).
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import importlib
 import inspect
 import json as json_mod
@@ -1268,6 +1269,18 @@ def scan_cmd(
                 soft_wrap=True,
             )
 
+    # Load history before output so delta can be included in --json mode
+    from checkagent.cli.history import (
+        compute_delta,
+        format_delta_line,
+        load_previous_result,
+        save_scan_result,
+    )
+    _scan_now_ts = time.time()
+    _scan_previous = None
+    with contextlib.suppress(OSError):
+        _scan_previous = load_previous_result(display_target, before_timestamp=_scan_now_ts)
+
     # JSON output mode
     if json_output:
         report = _build_json_report(
@@ -1303,6 +1316,14 @@ def scan_cmd(
                 f"All {total} probes failed with connection errors. "
                 f"Server at {url} may be unreachable."
             )
+        if _scan_previous is not None:
+            _delta = compute_delta(passed, total, _scan_previous)
+            report["history"] = {
+                "previous_date": _delta["previous_date"],
+                "previous_score": _delta["previous_score"],
+                "current_score": _delta["current_score"],
+                "score_delta": _delta["score_delta"],
+            }
         print(json_mod.dumps(report, indent=2))
     else:
         # Rich display — reads from SARIF structure
@@ -1375,15 +1396,7 @@ def scan_cmd(
                 f"\n[green]Compliance report written → [bold]{report_path}[/bold][/green]"
             )
 
-    # Persist scan result and show delta vs. previous scan
-    from checkagent.cli.history import (
-        compute_delta,
-        format_delta_line,
-        load_previous_result,
-        save_scan_result,
-    )
-
-    now_ts = time.time()
+    # Persist scan result and show delta vs. previous scan (history already loaded above)
     try:
         save_scan_result(
             display_target,
@@ -1392,17 +1405,11 @@ def scan_cmd(
             errors=errors,
             total=total,
             elapsed=elapsed,
-            timestamp=now_ts,
+            timestamp=_scan_now_ts,
         )
-        previous = load_previous_result(display_target, before_timestamp=now_ts)
-        if previous is not None and not json_output:
-            delta = compute_delta(passed, total, previous)
-            out_console.print(format_delta_line(delta))
-        elif previous is not None and json_output:
-            delta = compute_delta(passed, total, previous)
-            # history delta is already in the JSON report structure (no-op here;
-            # callers can re-run with --json to get the updated summary)
-            pass
+        if _scan_previous is not None and not json_output:
+            _rich_delta = compute_delta(passed, total, _scan_previous)
+            out_console.print(format_delta_line(_rich_delta))
     except OSError:
         pass  # history write failures must never break the scan exit code
 

@@ -75,7 +75,8 @@ class ProbeSet:
         """
         result = self._probes
         if tags:
-            result = [p for p in result if tags & p.tags]
+            lower_tags = {t.lower() for t in tags}
+            result = [p for p in result if lower_tags & {t.lower() for t in p.tags}]
         if category is not None:
             if isinstance(category, str) and not isinstance(category, SafetyCategory):
                 category = SafetyCategory(category.lower())

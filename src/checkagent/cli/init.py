@@ -130,6 +130,21 @@ def init_cmd(directory: str, force: bool) -> None:
         gitkeep.touch()
         created.append(str(gitkeep.relative_to(root)))
 
+    # Protect .checkagent/ from accidental commits (scan history, local state)
+    gitignore_path = root / ".gitignore"
+    checkagent_ignore = ".checkagent/"
+    if gitignore_path.exists():
+        existing = gitignore_path.read_text(encoding="utf-8")
+        if checkagent_ignore not in existing:
+            gitignore_path.write_text(
+                existing.rstrip("\n") + "\n" + checkagent_ignore + "\n",
+                encoding="utf-8",
+            )
+            created.append(".gitignore (updated)")
+    else:
+        gitignore_path.write_text(checkagent_ignore + "\n", encoding="utf-8")
+        created.append(".gitignore")
+
     if created:
         console.print("[green]Created:[/green]")
         for f in created:

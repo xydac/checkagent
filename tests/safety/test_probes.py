@@ -118,6 +118,15 @@ class TestProbeSet:
         assert all("even" in p.tags for p in even)
         assert len(even) == 3
 
+    def test_probe_set_filter_tags_case_insensitive(self):
+        ps = ProbeSet(self._make_probes(6))
+        lower = ps.filter(tags={"even"})
+        upper = ps.filter(tags={"EVEN"})
+        mixed = ps.filter(tags={"Even"})
+        assert len(upper) == len(lower)
+        assert len(mixed) == len(lower)
+        assert len(lower) == 3
+
     def test_probe_set_filter_by_severity(self):
         ps = ProbeSet(self._make_probes(6))
         high = ps.filter(severity=Severity.HIGH)

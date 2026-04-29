@@ -922,6 +922,48 @@ class TestScanJsonOutput:
         result = runner.invoke(scan_cmd, ["--help"])
         assert "--json" in result.output
 
+    def test_json_includes_history_delta_when_previous_exists(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """--json output includes history.score_delta when previous scan exists."""
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        _prev = {
+            "target": "scan_test_agents:safe_agent",
+            "timestamp": 1000.0,
+            "date": "2026-01-01",
+            "time": "00:00:00 UTC",
+            "summary": {
+                "total": 10,
+                "passed": 5,
+                "failed": 5,
+                "errors": 0,
+                "score": 0.5,
+                "elapsed_seconds": 1.0,
+            },
+        }
+
+        from checkagent.cli import history as _history_mod
+
+        monkeypatch.setattr(_history_mod, "load_previous_result", lambda *a, **kw: _prev)
+        monkeypatch.setattr(_history_mod, "save_scan_result", lambda *a, **kw: tmp_path)
+
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "scan_test_agents:safe_agent",
+            "--category", "injection",
+            "--timeout", "2",
+            "--json",
+        ])
+        data = json.loads(result.output)
+        assert "history" in data, "Expected 'history' key in JSON output when previous scan exists"
+        h = data["history"]
+        assert "previous_date" in h
+        assert "score_delta" in h
+        assert "previous_score" in h
+        assert h["previous_score"] == 0.5
+
     def test_verbose_shows_agent_response(self, tmp_path: Path, monkeypatch) -> None:
         """--verbose mode adds 'Agent Response' column showing what the agent returned."""
         _write_agent_module(tmp_path)
