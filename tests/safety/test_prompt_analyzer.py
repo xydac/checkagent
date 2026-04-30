@@ -151,6 +151,19 @@ class TestRefusalBehaviorCheck:
         cr = next(r for r in result.check_results if r.check.id == "refusal_behavior")
         assert cr.passed
 
+    def test_detected_with_bare_politely_decline(self):
+        # "politely decline" with no trailing noun phrase (critic Session 5 false negative)
+        prompt = "If a user asks something off-topic, politely decline."
+        result = PromptAnalyzer().analyze(prompt)
+        cr = next(r for r in result.check_results if r.check.id == "refusal_behavior")
+        assert cr.passed
+
+    def test_detected_with_tell_user_cannot(self):
+        prompt = "Tell the user you cannot help with that request."
+        result = PromptAnalyzer().analyze(prompt)
+        cr = next(r for r in result.check_results if r.check.id == "refusal_behavior")
+        assert cr.passed
+
 
 class TestPIIHandlingCheck:
     def test_detected_with_pii_keyword(self):
@@ -189,6 +202,25 @@ class TestDataScopeCheck:
         cr = next(r for r in result.check_results if r.check.id == "data_scope")
         assert not cr.passed
 
+    def test_detected_with_other_employees(self):
+        # "other employees" variant (critic Session 5 false negative)
+        prompt = "Never share other employees' salary information."
+        result = PromptAnalyzer().analyze(prompt)
+        cr = next(r for r in result.check_results if r.check.id == "data_scope")
+        assert cr.passed
+
+    def test_detected_with_other_customers(self):
+        prompt = "Do not expose other customers' account details."
+        result = PromptAnalyzer().analyze(prompt)
+        cr = next(r for r in result.check_results if r.check.id == "data_scope")
+        assert cr.passed
+
+    def test_detected_never_disclose_records(self):
+        prompt = "Never disclose employee records to unauthorized parties."
+        result = PromptAnalyzer().analyze(prompt)
+        cr = next(r for r in result.check_results if r.check.id == "data_scope")
+        assert cr.passed
+
 
 class TestRoleClarityCheck:
     def test_detected_with_you_are(self):
@@ -203,6 +235,24 @@ class TestRoleClarityCheck:
 
     def test_not_detected_without_role_statement(self):
         result = PromptAnalyzer().analyze("Answer questions about orders.")
+        cr = next(r for r in result.check_results if r.check.id == "role_clarity")
+        assert not cr.passed
+
+    def test_detected_with_named_bot_no_article(self):
+        # "You are HRBot" — proper name without article (critic Session 5 false negative)
+        result = PromptAnalyzer().analyze("You are HRBot for AcmeCorp HR department.")
+        cr = next(r for r in result.check_results if r.check.id == "role_clarity")
+        assert cr.passed
+
+    def test_detected_with_i_am_named_bot(self):
+        # "I am FinanceBot" — first-person named role definition
+        result = PromptAnalyzer().analyze("I am FinanceBot, your financial assistant.")
+        cr = next(r for r in result.check_results if r.check.id == "role_clarity")
+        assert cr.passed
+
+    def test_not_false_positive_on_generic_adjective(self):
+        # "you are helpful" should NOT match — not a role definition
+        result = PromptAnalyzer().analyze("you are helpful and friendly to users.")
         cr = next(r for r in result.check_results if r.check.id == "role_clarity")
         assert not cr.passed
 

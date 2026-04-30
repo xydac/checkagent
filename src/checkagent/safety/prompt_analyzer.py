@@ -220,6 +220,14 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
             ),
             re.compile(r"you\s+(?:should|must|will)\s+(?:not|never)\s+comply", _F),
             re.compile(r"(?:decline|refuse)\s+(?:and|to)", _F),
+            # Bare "politely decline/refuse" without a trailing noun phrase
+            re.compile(r"politely\s+(?:decline|refuse|reject)", _F),
+            # "tell the user you cannot help" / "inform them you are unable"
+            re.compile(
+                r"(?:tell|inform)\s+(?:the\s+)?(?:user|them)\s+"
+                r"(?:you\s+)?(?:cannot|can't|are\s+unable)",
+                _F,
+            ),
         ],
         recommendation=(
             "Add refusal behavior: "
@@ -265,13 +273,20 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
                 _F,
             ),
             re.compile(
-                r"(?:do\s+not|never)\s+(?:access|retrieve|expose|share)\s+"
-                r"(?:other\s+users?'?|another\s+user'?s?)",
+                r"(?:do\s+not|never)\s+(?:access|retrieve|expose|share|disclose|reveal)\s+"
+                r"(?:other\s+(?:users?|employees?|customers?|people)'?s?|another\s+(?:user|employee|customer)'?s?)",
                 _F,
             ),
             re.compile(r"(?:user'?s?\s+own|their\s+own)\s+(?:data|records?|account)", _F),
             re.compile(r"authorized\s+(?:to\s+)?(?:access|view|retrieve)\s+(?:only|specific)", _F),
             re.compile(r"data\s+(?:access\s+)?(?:is\s+)?(?:restricted|limited)\s+to", _F),
+            # "never share employees' salaries" / "don't disclose customer records"
+            re.compile(
+                r"(?:do\s+not|never|don't)\s+(?:share|disclose|reveal|expose)\s+"
+                r"(?:[\w']+\s+){0,4}"
+                r"(?:salary|salaries|records?|account|data|information)\b",
+                _F,
+            ),
         ],
         recommendation=(
             "Add data scope: "
@@ -285,7 +300,10 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
         name="Role Clarity",
         description="Clear definition of the agent's role and purpose",
         patterns=[
+            # "You are a/an/the <role>"
             re.compile(r"you\s+are\s+(?:a|an|the)\s+\w", _F),
+            # "You are <ProperName>" — named bots without article (e.g. "You are HRBot")
+            re.compile(r"[Yy]ou\s+are\s+[A-Z][A-Za-z0-9_-]+"),
             re.compile(r"your\s+(?:role|purpose|job|task|function)\s+is", _F),
             re.compile(r"you\s+(?:serve|work|act)\s+as", _F),
             re.compile(
@@ -293,6 +311,8 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
                 _F,
             ),
             re.compile(r"your\s+name\s+is", _F),
+            # "I am [Name]" for first-person role definition
+            re.compile(r"I\s+am\s+[A-Z][A-Za-z0-9_-]+"),
         ],
         recommendation=(
             "Add role clarity: "

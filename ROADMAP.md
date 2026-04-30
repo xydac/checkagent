@@ -120,9 +120,9 @@ CheckAgent is being built in public. Here's where we're headed.
 ## Phase 5: Make It Discoverable
 
 ### Milestone 14: First Impression Fixes
-- [ ] `checkagent init` generates tests that pass with no manual setup
-- [ ] `checkagent scan --generate-tests` produces runnable tests for HTTP endpoint targets
-- [ ] Evaluator distinguishes refusal from compliance — behavioral mode, not only regex
+- [x] `checkagent init` generates tests that pass with no manual setup
+- [x] `checkagent scan --generate-tests` produces runnable tests for HTTP endpoint targets
+- [x] Evaluator distinguishes refusal from compliance — behavioral mode, not only regex
 - [ ] PyPI v0.3.0 published with all current fixes
 - [ ] End-to-end: `pip install checkagent && checkagent demo && checkagent init && pytest` all pass
 
