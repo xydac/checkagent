@@ -164,6 +164,23 @@ class TestRefusalBehaviorCheck:
         cr = next(r for r in result.check_results if r.check.id == "refusal_behavior")
         assert cr.passed
 
+    def test_detected_with_rag_style_say_i_cannot_find(self):
+        # haiku.rag pattern: "say: I cannot find enough information..."
+        prompt = (
+            "If information is insufficient, say: I cannot find enough information "
+            "in the knowledge base to answer this question."
+        )
+        result = PromptAnalyzer().analyze(prompt)
+        cr = next(r for r in result.check_results if r.check.id == "refusal_behavior")
+        assert cr.passed
+
+    def test_not_detected_in_generic_rag_prompt(self):
+        # false-positive guard: searching a knowledge base is not a refusal
+        prompt = "Call search with relevant keywords from the question."
+        result = PromptAnalyzer().analyze(prompt)
+        cr = next(r for r in result.check_results if r.check.id == "refusal_behavior")
+        assert not cr.passed
+
 
 class TestPIIHandlingCheck:
     def test_detected_with_pii_keyword(self):
@@ -220,6 +237,27 @@ class TestDataScopeCheck:
         result = PromptAnalyzer().analyze(prompt)
         cr = next(r for r in result.check_results if r.check.id == "data_scope")
         assert cr.passed
+
+    def test_detected_with_do_not_use_external_knowledge(self):
+        # haiku.rag pattern: RAG agents restricting to retrieved content
+        prompt = "Base answers strictly on retrieved content - do not use external knowledge."
+        result = PromptAnalyzer().analyze(prompt)
+        cr = next(r for r in result.check_results if r.check.id == "data_scope")
+        assert cr.passed
+
+    def test_detected_with_base_strictly_on_retrieved(self):
+        # haiku.rag alternate: "base answers strictly on retrieved content"
+        prompt = "Base your answers strictly on retrieved context from the knowledge base."
+        result = PromptAnalyzer().analyze(prompt)
+        cr = next(r for r in result.check_results if r.check.id == "data_scope")
+        assert cr.passed
+
+    def test_not_detected_in_search_only_prompt(self):
+        # false-positive guard: using a search tool is not data scope restriction
+        prompt = "Call search with relevant keywords from the question."
+        result = PromptAnalyzer().analyze(prompt)
+        cr = next(r for r in result.check_results if r.check.id == "data_scope")
+        assert not cr.passed
 
 
 class TestRoleClarityCheck:

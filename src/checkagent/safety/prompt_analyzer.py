@@ -228,6 +228,14 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
                 r"(?:you\s+)?(?:cannot|can't|are\s+unable)",
                 _F,
             ),
+            # "say: I cannot find" / "say I am unable" — RAG-style soft refusals
+            re.compile(r"say[:\s]+[\"']?(?:I|we)\s+(?:cannot|can't|am\s+unable|are\s+unable)", _F),
+            # "if information is insufficient, say so" / "state that you cannot answer"
+            re.compile(
+                r"(?:if\s+.{0,40}insufficient|cannot\s+(?:find|answer|provide|address))\s*"
+                r".{0,30}(?:say|state|respond|indicate)",
+                _F,
+            ),
         ],
         recommendation=(
             "Add refusal behavior: "
@@ -285,6 +293,24 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
                 r"(?:do\s+not|never|don't)\s+(?:share|disclose|reveal|expose)\s+"
                 r"(?:[\w']+\s+){0,4}"
                 r"(?:salary|salaries|records?|account|data|information)\b",
+                _F,
+            ),
+            # "do not use external knowledge" — RAG agents limiting data sources
+            re.compile(
+                r"(?:do\s+not|never|don't)\s+use\s+(?:your\s+)?(?:external|prior|outside|own)\s+knowledge",
+                _F,
+            ),
+            # "base answers strictly on retrieved/provided content"
+            re.compile(
+                r"(?:base|ground|anchor|draw)\s+.{0,20}(?:strictly|only|solely|exclusively)\s+"
+                r"(?:on|from)\s+(?:retrieved|provided|available|the\s+(?:given|supplied))\s+"
+                r"(?:content|data|information|results?|context)",
+                _F,
+            ),
+            # "only from retrieved content" / "answers based only on retrieved results"
+            re.compile(
+                r"(?:answer|respond|provide|give)\s+.{0,30}(?:only|solely|strictly|exclusively)\s+"
+                r"(?:based\s+on|from|using)\s+(?:retrieved|provided|the\s+(?:given|available))",
                 _F,
             ),
         ],
