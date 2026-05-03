@@ -8,6 +8,9 @@
 
 ---
 
+!!! tip "Try it now — no install"
+    **[System Prompt Analyzer →](playground/index.html)** — Paste your agent's system prompt and instantly see which OWASP LLM Top 10 security controls it addresses. Runs in the browser, no API keys needed.
+
 CheckAgent is a pytest plugin for testing AI agent workflows. It provides layered testing — from free, millisecond unit tests to LLM-judged evaluations with statistical rigor — so you can ship agents with the same confidence you ship traditional software.
 
 ## Why CheckAgent?

@@ -121,6 +121,13 @@ def test_safety_importable():
     assert ProbeSet is not None
 
 
+def test_check_behavioral_compliance_top_level():
+    """check_behavioral_compliance is importable from top-level checkagent (fixes F-117)."""
+    from checkagent import check_behavioral_compliance
+
+    assert callable(check_behavioral_compliance)
+
+
 def test_all_list_matches_actual_exports():
     """__all__ contains every name we expect to be public."""
     expected = {
@@ -148,6 +155,7 @@ def test_all_list_matches_actual_exports():
         "QualityGateEntry",
         "TestRunSummary",
         "ProbeSet",
+        "check_behavioral_compliance",
     }
     missing = expected - set(checkagent.__all__)
     assert not missing, f"Missing from __all__: {missing}"

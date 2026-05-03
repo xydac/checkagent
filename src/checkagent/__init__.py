@@ -65,6 +65,7 @@ from checkagent.mock.mcp import MockMCPServer
 from checkagent.mock.tool import MockTool, literal
 from checkagent.multiagent import HandoffType, MultiAgentTrace
 from checkagent.replay import Cassette, ReplayEngine
+from checkagent.safety.behavioral import check_behavioral_compliance
 from checkagent.safety.conversation_scanner import ConversationSafetyScanner
 from checkagent.safety.evaluator import SafetyEvaluator, SafetyFinding, SafetyResult
 from checkagent.safety.groundedness import GroundednessEvaluator
@@ -184,6 +185,7 @@ __all__ = [
     "Cassette",
     "ReplayEngine",
     # Safety
+    "check_behavioral_compliance",
     "ConversationSafetyScanner",
     "GroundednessEvaluator",
     "PIILeakageScanner",

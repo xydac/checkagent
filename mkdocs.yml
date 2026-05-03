@@ -71,6 +71,7 @@ plugins:
 
 nav:
   - Home: index.md
+  - Playground: playground/index.html
   - Quickstart: quickstart.md
   - Testing Pyramid: testing-pyramid.md
   - Testing Layers:
