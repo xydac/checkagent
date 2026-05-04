@@ -121,21 +121,26 @@ CheckAgent is being built in public. Here's where we're headed.
 
 ### Milestone 14: First Impression Fixes
 - [x] `checkagent init` generates tests that pass with no manual setup
-- [x] `checkagent scan --generate-tests` produces runnable tests for HTTP endpoint targets
+- [ ] `checkagent scan --generate-tests` produces runnable tests for HTTP endpoint targets
 - [x] Evaluator distinguishes refusal from compliance — behavioral mode, not only regex
 - [ ] PyPI v0.3.0 published with all current fixes
 - [ ] End-to-end: `pip install checkagent && checkagent demo && checkagent init && pytest` all pass
 
 ### Milestone 15: Browser Safety Playground
-- [ ] Browser-based safety scan: paste system prompt, get OWASP report instantly
-- [ ] Zero install — runs entirely in the browser, API keys stay local
-- [ ] Shareable safety score link
+- [x] Browser-based safety scan: paste system prompt, get OWASP report instantly
+- [x] Zero install — runs entirely in the browser, API keys stay local
+- [x] Shareable safety score link via URL hash encoding
 - [ ] Deployed on GitHub Pages alongside docs
 
-### Milestone 16: Zero-Config Evaluation
+### Milestone 16: Playground Enhancement
+- [ ] LLM-powered semantic analysis in browser (optional API key, no backend required)
+- [ ] Embeddable safety score badge for any GitHub README
+- [ ] One-click test file generation from browser scan results
+
+### Milestone 17: Zero-Config Evaluation
+- [x] Safety badges: embed your agent's safety score in any README (`checkagent scan --badge`)
 - [ ] `--provider claude-code` flag: eval and judge layers without a separate API key
 - [ ] Auto-instrumentation: one import captures LLM calls, no adapter code required
-- [ ] Safety badges: embed your agent's safety score in any README
 
 ### Future
 - [ ] Interactive TUI for `checkagent scan` with drill-down results
