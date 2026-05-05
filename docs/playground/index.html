@@ -399,6 +399,77 @@
     .site-footer a:hover { color: var(--primary); text-decoration: none; }
     .site-footer .dot { margin: 0 8px; }
 
+    /* LLM Enhancement section */
+    .llm-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-top: 12px;
+      overflow: hidden;
+    }
+    .llm-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: none;
+      border: none;
+      width: 100%;
+      text-align: left;
+      cursor: pointer;
+      font-family: var(--font);
+      font-size: 13px;
+      color: var(--text-muted);
+      transition: color 0.15s;
+    }
+    .llm-toggle:hover { color: var(--text); }
+    .llm-toggle-icon { font-size: 11px; transition: transform 0.2s; }
+    .llm-toggle-label { flex: 1; font-weight: 600; }
+    .llm-toggle-hint { font-size: 11px; opacity: 0.7; }
+    .llm-section.open .llm-toggle-icon { transform: rotate(90deg); }
+    .llm-content {
+      display: none;
+      padding: 10px 14px 14px;
+      border-top: 1px solid var(--border);
+    }
+    .llm-section.open .llm-content { display: block; }
+    .llm-key-row { display: flex; gap: 8px; margin-bottom: 8px; }
+    .llm-key-input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .llm-key-input:focus { border-color: var(--primary); }
+    .llm-privacy-note { font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+    .llm-privacy-note code {
+      background: var(--bg-card2);
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+    .llm-status { font-size: 12px; margin-top: 8px; }
+    .llm-loading { color: var(--text-muted); }
+    .llm-error { color: var(--high); }
+    /* LLM semantic badge on check items */
+    .badge-llm-only {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: var(--low-bg);
+      color: var(--low);
+      white-space: nowrap;
+    }
+    .score-mode { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
     @media (max-width: 600px) {
       .score-card { flex-direction: column; align-items: flex-start; }
       .score-actions { flex-direction: row; }
@@ -419,7 +490,7 @@
 
 <div class="container">
   <div class="hero">
-    <div class="badge">Free · No install · No API keys</div>
+    <div class="badge">Free · No install · API key optional</div>
     <h1>System Prompt Analyzer</h1>
     <p>Paste your agent's system prompt below to see which OWASP LLM Top 10 security controls it addresses — and exactly what's missing.</p>
   </div>
@@ -434,6 +505,28 @@
       <button class="sample-btn" data-sample="rag">RAG Agent</button>
       <button class="sample-btn" data-sample="hardened">Well-secured</button>
     </div>
+    <div class="llm-section" id="llm-section">
+      <button class="llm-toggle" id="llm-toggle" type="button">
+        <span class="llm-toggle-icon">▶</span>
+        <span class="llm-toggle-label">LLM semantic analysis</span>
+        <span class="llm-toggle-hint">Optional · Uses your Anthropic API key</span>
+      </button>
+      <div class="llm-content">
+        <div class="llm-key-row">
+          <input type="password" id="llm-api-key" class="llm-key-input"
+            placeholder="sk-ant-api03-..." autocomplete="off" spellcheck="false">
+        </div>
+        <div class="llm-privacy-note">
+          Pattern matching misses controls phrased differently from templates.
+          Semantic analysis uses <code>claude-haiku</code> to evaluate each control contextually —
+          catching things like "politely decline" or "you only answer HR questions."<br>
+          Your API key is used only in your browser to call Anthropic's API directly.
+          It is <strong>never sent to our servers</strong> and is not stored anywhere.
+        </div>
+        <div class="llm-status" id="llm-status" style="display:none"></div>
+      </div>
+    </div>
+
     <div class="analyze-row">
       <button class="btn-analyze" id="analyze-btn">Analyze prompt</button>
       <span class="char-count" id="char-count">0 characters</span>
@@ -449,6 +542,7 @@
           <div class="score-bar" id="score-bar" style="width:0%"></div>
         </div>
         <div class="score-summary" id="score-summary"></div>
+        <div class="score-mode" id="score-mode" style="display:none"></div>
       </div>
       <div class="score-actions">
         <button class="btn-share" id="share-btn">&#128279; Copy link</button>
@@ -669,6 +763,63 @@ function analyzePrompt(text) {
   });
 }
 
+// ─── LLM Semantic Analysis ─────────────────────────────────────────────────
+
+const LLM_CHECK_DESCRIPTIONS = {
+  injection_guard: 'explicit protection against prompt injection or overriding system instructions',
+  scope_boundary: 'domain restriction or explicit statement of what the agent must not do',
+  confidentiality: 'instruction to keep the system prompt private and not repeat it',
+  refusal_behavior: 'how the agent should decline out-of-scope or harmful requests',
+  pii_handling: 'guidance about not collecting, storing, or sharing personal information',
+  data_scope: 'limits on which data the agent can access (own records only, no cross-user data)',
+  role_clarity: 'clear definition of the agent\'s role, name, and purpose',
+  escalation_path: 'when and how to involve a human or external support resource',
+};
+
+async function analyzeLLM(text, apiKey) {
+  const checkLines = Object.entries(LLM_CHECK_DESCRIPTIONS).map(
+    ([id, desc]) => `- ${id}: ${desc}`
+  ).join('\n');
+
+  const userPrompt = `Evaluate this AI agent system prompt for 8 security controls.
+For each control, respond true if clearly present (even if phrased differently from templates), false if absent or ambiguous.
+
+Controls:
+${checkLines}
+
+System prompt:
+"""
+${text.slice(0, 8000)}
+"""
+
+Respond with ONLY valid JSON mapping each control ID to true or false. No other text.`;
+
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 256,
+      messages: [{ role: 'user', content: userPrompt }],
+    }),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error?.message || `API error ${resp.status}`);
+  }
+
+  const data = await resp.json();
+  const raw = (data.content[0].text || '').trim();
+  const jsonStr = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  return JSON.parse(jsonStr);
+}
+
 // ─── Rendering ────────────────────────────────────────────────────────────
 
 function scoreColor(pct) {
@@ -678,65 +829,103 @@ function scoreColor(pct) {
   return 'var(--score-high)';
 }
 
-function renderResults(results) {
-  const passed = results.filter(r => r.passed).length;
+function renderResults(results, llmResults) {
+  const regexPassed = results.filter(r => r.passed).length;
   const total = results.length;
-  const pct = passed / total;
+
+  // Effective pass = pattern detected OR LLM detected
+  const effectivePassed = llmResults
+    ? results.filter(r => r.passed || llmResults[r.check.id] === true).length
+    : regexPassed;
+
+  const pct = effectivePassed / total;
 
   // Score card
-  document.getElementById('score-num').textContent = `${passed}/${total}`;
+  document.getElementById('score-num').textContent = `${effectivePassed}/${total}`;
   document.getElementById('score-num').style.color = scoreColor(pct);
-  document.getElementById('score-label').textContent = passed === 1
+  document.getElementById('score-label').textContent = effectivePassed === 1
     ? 'security control detected'
     : 'security controls detected';
   const bar = document.getElementById('score-bar');
   bar.style.width = `${Math.round(pct * 100)}%`;
   bar.style.background = scoreColor(pct);
 
-  const missing = results.filter(r => !r.passed);
-  const highMissing = missing.filter(r => r.check.severity === 'high').length;
+  // Score mode note (shown when LLM results are present)
+  const modeEl = document.getElementById('score-mode');
+  if (modeEl) {
+    if (llmResults) {
+      const llmPassed = Object.values(llmResults).filter(Boolean).length;
+      modeEl.textContent = `Semantic (LLM): ${llmPassed}/8 · Pattern: ${regexPassed}/8`;
+      modeEl.style.display = '';
+    } else {
+      modeEl.style.display = 'none';
+    }
+  }
+
+  const effectiveMissing = results.filter(r => {
+    const llmPass = llmResults && llmResults[r.check.id] === true;
+    return !r.passed && !llmPass;
+  });
+  const highMissing = effectiveMissing.filter(r => r.check.severity === 'high').length;
   let summary = '';
-  if (passed === total) {
+  if (effectivePassed === total) {
     summary = 'All controls detected. Run checkagent scan for dynamic attack testing.';
   } else if (highMissing > 0) {
     summary = `${highMissing} high-severity control${highMissing > 1 ? 's' : ''} missing. Dynamic scan recommended.`;
   } else {
-    summary = `${total - passed} control${total - passed > 1 ? 's' : ''} missing. Consider adding the recommendations below.`;
+    summary = `${total - effectivePassed} control${total - effectivePassed > 1 ? 's' : ''} missing. Consider adding the recommendations below.`;
   }
   document.getElementById('score-summary').textContent = summary;
 
   // Checks list: failed (high → medium → low) first, then passed
   const sevOrder = { high: 0, medium: 1, low: 2 };
   const sorted = [...results].sort((a, b) => {
-    if (a.passed !== b.passed) return a.passed ? 1 : -1;
+    const aPassed = a.passed || (llmResults && llmResults[a.check.id] === true);
+    const bPassed = b.passed || (llmResults && llmResults[b.check.id] === true);
+    if (aPassed !== bPassed) return aPassed ? 1 : -1;
     return sevOrder[a.check.severity] - sevOrder[b.check.severity];
   });
 
   const list = document.getElementById('checks-list');
   list.innerHTML = '';
   sorted.forEach(r => {
+    const llmPass = llmResults && llmResults[r.check.id] === true;
+    const effective = r.passed || llmPass;
+    const llmOnly = !r.passed && llmPass;
+
     const item = document.createElement('div');
-    item.className = `check-item ${r.passed ? 'passed' : 'failed'}`;
+    item.className = `check-item ${effective ? 'passed' : 'failed'}`;
 
     const header = document.createElement('div');
     header.className = 'check-header';
+    const llmBadge = llmOnly
+      ? `<span class="badge-llm-only" title="Pattern matching didn't detect this; LLM semantic analysis found evidence">🤖 Semantic</span>`
+      : '';
     header.innerHTML = `
-      <span class="check-icon">${r.passed ? '✅' : '❌'}</span>
+      <span class="check-icon">${effective ? '✅' : '❌'}</span>
       <span class="check-name">${escHtml(r.check.name)}</span>
+      ${llmBadge}
       <span class="badge-owasp" title="${escHtml(r.check.owaspName)}">${escHtml(r.check.owasp)}</span>
       <span class="badge-severity sev-${r.check.severity}">${r.check.severity}</span>
     `;
     item.appendChild(header);
 
     const body = document.createElement('div');
-    body.className = `check-body ${r.passed ? 'pass-body' : 'fail-body'}`;
+    // llmOnly items show a body (visible); purely pattern-passed items hide it
+    body.className = `check-body ${(effective && !llmOnly) ? 'pass-body' : 'fail-body'}`;
     if (r.passed && r.evidence) {
       body.innerHTML = `
         <div class="evidence-label">Evidence found</div>
         <div class="evidence-text">${escHtml(r.evidence)}</div>
       `;
       item.appendChild(body);
-    } else if (!r.passed) {
+    } else if (llmOnly) {
+      body.innerHTML = `
+        <div class="evidence-label">Detected by semantic analysis</div>
+        <div class="evidence-text">LLM found semantic evidence of this control (phrasing differed from standard templates).</div>
+      `;
+      item.appendChild(body);
+    } else if (!effective) {
       body.innerHTML = `
         <div class="rec-label">Recommendation</div>
         <div class="rec-text">${escHtml(r.check.recommendation)}</div>
@@ -789,12 +978,47 @@ document.addEventListener('DOMContentLoaded', () => {
     charCount.textContent = `${n} character${n === 1 ? '' : 's'}`;
   });
 
-  document.getElementById('analyze-btn').addEventListener('click', () => {
+  // LLM section toggle
+  document.getElementById('llm-toggle').addEventListener('click', () => {
+    document.getElementById('llm-section').classList.toggle('open');
+  });
+
+  document.getElementById('analyze-btn').addEventListener('click', async () => {
     const text = textarea.value.trim();
     if (!text) return;
+
+    // Show pattern results immediately
     const results = analyzePrompt(text);
-    renderResults(results);
+    renderResults(results, null);
     document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Optionally run LLM semantic analysis
+    const apiKey = document.getElementById('llm-api-key').value.trim();
+    if (!apiKey) return;
+
+    const btn = document.getElementById('analyze-btn');
+    const statusEl = document.getElementById('llm-status');
+    btn.disabled = true;
+    btn.textContent = 'Analyzing…';
+    if (statusEl) {
+      statusEl.textContent = 'Running semantic analysis with claude-haiku…';
+      statusEl.className = 'llm-status llm-loading';
+      statusEl.style.display = '';
+    }
+
+    try {
+      const llmResults = await analyzeLLM(text, apiKey);
+      renderResults(results, llmResults);
+      if (statusEl) statusEl.style.display = 'none';
+    } catch (e) {
+      if (statusEl) {
+        statusEl.textContent = `Semantic analysis failed: ${e.message}`;
+        statusEl.className = 'llm-status llm-error';
+      }
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Analyze prompt';
+    }
   });
 
   document.querySelectorAll('.sample-btn').forEach(btn => {
@@ -804,9 +1028,8 @@ document.addEventListener('DOMContentLoaded', () => {
         textarea.value = sample;
         const n = sample.length;
         charCount.textContent = `${n} character${n === 1 ? '' : 's'}`;
-        // Auto-analyze
         const results = analyzePrompt(sample);
-        renderResults(results);
+        renderResults(results, null);
         document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     });
@@ -815,7 +1038,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('share-btn').addEventListener('click', shareLink);
   document.getElementById('cli-btn').addEventListener('click', copyCli);
 
-  // Load from URL hash (shareable link)
+  // Load from URL hash (shareable link) — pattern analysis only (no API key at load time)
   const hash = location.hash;
   if (hash && hash.startsWith('#p=')) {
     try {
@@ -824,7 +1047,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const n = decoded.length;
       charCount.textContent = `${n} character${n === 1 ? '' : 's'}`;
       const results = analyzePrompt(decoded);
-      renderResults(results);
+      renderResults(results, null);
     } catch (e) {
       // Invalid hash — ignore
     }
