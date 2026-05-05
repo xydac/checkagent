@@ -155,6 +155,14 @@ class TestComputeDelta:
         delta = compute_delta(80, 100, prev)
         assert delta["score_delta"] == pytest.approx(0.0, abs=0.001)
 
+    def test_no_change_not_negative_zero(self):
+        """score_delta must be +0.0, never -0.0 (F-118)."""
+        import json
+        prev = self._make_previous(80, 100)
+        delta = compute_delta(80, 100, prev)
+        serialized = json.dumps({"score_delta": delta["score_delta"]})
+        assert "-0.0" not in serialized
+
     def test_previous_date_preserved(self):
         prev = self._make_previous(70, 100)
         delta = compute_delta(80, 100, prev)

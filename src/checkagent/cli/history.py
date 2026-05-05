@@ -145,7 +145,7 @@ def compute_delta(
         "previous_date": previous.get("date", "?"),
         "previous_score": prev_score,
         "current_score": round(current_score, 4),
-        "score_delta": round(score_delta, 4),
+        "score_delta": round(score_delta, 4) + 0.0,
         "previous_failed": prev_failed,
         "previous_passed": prev_passed,
         "previous_total": prev_total,
