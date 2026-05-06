@@ -133,8 +133,9 @@ CheckAgent is being built in public. Here's where we're headed.
 - [ ] Deployed on GitHub Pages alongside docs
 
 ### Milestone 16: Playground Enhancement
-- [ ] LLM-powered semantic analysis in browser (optional API key, no backend required)
-- [ ] Embeddable safety score badge for any GitHub README
+- [x] LLM-powered semantic analysis in browser (optional API key, no backend required)
+- [x] Embeddable safety score badge for any GitHub README
+- [x] Shareable result card with PNG download for social sharing
 - [ ] One-click test file generation from browser scan results
 
 ### Milestone 17: Zero-Config Evaluation
