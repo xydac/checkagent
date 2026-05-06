@@ -136,7 +136,7 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] LLM-powered semantic analysis in browser (optional API key, no backend required)
 - [x] Embeddable safety score badge for any GitHub README
 - [x] Shareable result card with PNG download for social sharing
-- [ ] One-click test file generation from browser scan results
+- [x] One-click test file generation from browser scan results
 
 ### Milestone 17: Zero-Config Evaluation
 - [x] Safety badges: embed your agent's safety score in any README (`checkagent scan --badge`)
