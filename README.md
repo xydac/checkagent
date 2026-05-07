@@ -7,6 +7,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org)
 [![PyPI](https://img.shields.io/pypi/v/checkagent.svg)](https://pypi.org/project/checkagent/)
+[![CI](https://github.com/xydac/checkagent/actions/workflows/ci.yml/badge.svg)](https://github.com/xydac/checkagent/actions/workflows/ci.yml)
 
 **[Try the browser playground →](https://xydac.github.io/checkagent/playground/)** — paste your system prompt, get an instant safety score. No install required.
 
@@ -309,7 +310,7 @@ result = await adapter.run("Hello")
 
 ## Documentation
 
-Full guides, API reference, and examples at **[checkagent docs](https://checkagent.xydac.com)**.
+Full guides, API reference, and examples at **[xydac.github.io/checkagent](https://xydac.github.io/checkagent/)**.
 
 ## Contributing
 
