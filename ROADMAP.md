@@ -123,14 +123,14 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] `checkagent init` generates tests that pass with no manual setup
 - [x] `checkagent scan --generate-tests` produces runnable tests for HTTP endpoint targets
 - [x] Evaluator distinguishes refusal from compliance — behavioral mode, not only regex
-- [ ] PyPI v0.3.0 published with all current fixes
+- [x] PyPI v0.3.0 published with all current fixes
 - [ ] End-to-end: `pip install checkagent && checkagent demo && checkagent init && pytest` all pass
 
 ### Milestone 15: Browser Safety Playground
 - [x] Browser-based safety scan: paste system prompt, get OWASP report instantly
 - [x] Zero install — runs entirely in the browser, API keys stay local
 - [x] Shareable safety score link via URL hash encoding
-- [ ] Deployed on GitHub Pages alongside docs
+- [x] Deployed on GitHub Pages alongside docs
 
 ### Milestone 16: Playground Enhancement
 - [x] LLM-powered semantic analysis in browser (optional API key, no backend required)
