@@ -308,3 +308,50 @@ class TestHistoryCli:
         )
         assert result.exit_code == 0
         assert "2 scan(s)" in result.output
+
+    def test_url_flag_accepts_http_target(self, tmp_path):
+        """F-119: --url flag should work as alias for positional TARGET."""
+        from click.testing import CliRunner
+
+        from checkagent.cli.history_cmd import history_cmd
+
+        runner = CliRunner()
+        result = runner.invoke(
+            history_cmd,
+            ["--url", "http://localhost:8000/chat", "--dir", str(tmp_path)],
+        )
+        assert result.exit_code == 0
+        assert "No scan history" in result.output
+
+    def test_url_flag_shows_history_for_http_target(self, tmp_path):
+        """F-119: --url flag reads history keyed by the URL."""
+        from click.testing import CliRunner
+
+        from checkagent.cli.history_cmd import history_cmd
+
+        save_scan_result(
+            "http://localhost:8000/chat",
+            passed=60,
+            failed=10,
+            errors=0,
+            total=70,
+            elapsed=2.5,
+            base_dir=tmp_path,
+        )
+        runner = CliRunner()
+        result = runner.invoke(
+            history_cmd,
+            ["--url", "http://localhost:8000/chat", "--dir", str(tmp_path)],
+        )
+        assert result.exit_code == 0
+        assert "Scan history" in result.output
+
+    def test_no_target_shows_usage_error(self, tmp_path):
+        """history_cmd with no TARGET and no --url should exit with an error."""
+        from click.testing import CliRunner
+
+        from checkagent.cli.history_cmd import history_cmd
+
+        runner = CliRunner()
+        result = runner.invoke(history_cmd, ["--dir", str(tmp_path)])
+        assert result.exit_code != 0

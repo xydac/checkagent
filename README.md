@@ -6,6 +6,9 @@
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org)
+[![PyPI](https://img.shields.io/pypi/v/checkagent.svg)](https://pypi.org/project/checkagent/)
+
+**[Try the browser playground →](https://xydac.github.io/checkagent/playground/)** — paste your system prompt, get an instant safety score. No install required.
 
 <p align="center">
   <img src="assets/demo.gif" alt="CheckAgent demo — run tests and safety scans in seconds" width="720">
@@ -43,6 +46,10 @@ CheckAgent is a pytest plugin for testing AI agent workflows. It provides layere
 ```
 
 ## Quick Start
+
+### Try it in your browser (no install)
+
+Paste your agent's system prompt at **[xydac.github.io/checkagent/playground](https://xydac.github.io/checkagent/playground/)** and get an instant safety score across 8 security controls. No account, no API key, no install.
 
 ### Install and run the demo (30 seconds, no API keys)
 
@@ -279,6 +286,7 @@ async def test_no_prompt_injection():
 | **Cost tracking** | Token usage per test, budget limits, cost breakdown by layer |
 | **Multi-agent** | Trace capture across agent handoffs, credit assignment heuristics |
 | **Production traces** | Import JSON/JSONL or OpenTelemetry traces and generate tests from them |
+| **Browser playground** | Paste a system prompt, get an instant safety score — [try it](https://xydac.github.io/checkagent/playground/) |
 
 ## Framework Support
 

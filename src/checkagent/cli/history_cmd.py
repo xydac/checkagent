@@ -16,7 +16,14 @@ console = Console()
 
 
 @click.command("history")
-@click.argument("target")
+@click.argument("target", required=False, default=None)
+@click.option(
+    "--url",
+    "url_target",
+    default=None,
+    metavar="URL",
+    help="Show history for an HTTP endpoint target (alternative to positional TARGET).",
+)
 @click.option(
     "--limit",
     type=int,
@@ -31,32 +38,42 @@ console = Console()
     default=None,
     help="Project root directory containing .checkagent/. Defaults to current directory.",
 )
-def history_cmd(target: str, limit: int, base_dir: str | None) -> None:
+def history_cmd(
+    target: str | None, url_target: str | None, limit: int, base_dir: str | None
+) -> None:
     """Show scan history for a target.
 
     TARGET is the agent target you previously scanned (module:function or URL).
+    For HTTP endpoints, you can use --url instead of the positional argument.
 
     \b
     Examples:
         checkagent history my_agent:agent_fn
+        checkagent history http://localhost:8000/chat
         checkagent history --url http://localhost:8000/chat
         checkagent history sample_agent:sample_agent --limit 5
     """
     from checkagent.cli.history import list_history
 
+    resolved = url_target or target
+    if not resolved:
+        raise click.UsageError(
+            "Provide a TARGET (module:function or URL) or use --url http://..."
+        )
+
     bdir = Path(base_dir) if base_dir else None
-    records = list_history(target, limit=limit, base_dir=bdir)
+    records = list_history(resolved, limit=limit, base_dir=bdir)
 
     if not records:
         console.print(
-            f"[yellow]No scan history found for[/yellow] [cyan]{target}[/cyan]"
+            f"[yellow]No scan history found for[/yellow] [cyan]{resolved}[/cyan]"
         )
         console.print(
             "[dim]Run [bold]checkagent scan[/bold] first to record a result.[/dim]"
         )
         return
 
-    table = Table(title=f"Scan history — {target}", show_lines=False)
+    table = Table(title=f"Scan history — {resolved}", show_lines=False)
     table.add_column("Date", style="dim")
     table.add_column("Time", style="dim")
     table.add_column("Score", justify="right")
@@ -93,5 +110,5 @@ def history_cmd(target: str, limit: int, base_dir: str | None) -> None:
     console.print(table)
     console.print(
         f"\n[dim]{len(records)} scan(s) shown. "
-        "Run [bold]checkagent scan[/bold] to add a new result.[/dim]"
+        f"Run [bold]checkagent scan {resolved}[/bold] to add a new result.[/dim]"
     )
