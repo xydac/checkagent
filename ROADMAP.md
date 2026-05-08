@@ -73,11 +73,11 @@ CheckAgent is being built in public. Here's where we're headed.
 
 ## Phase 4: Launch Readiness
 
-### Milestone 8: Onboarding Polish
-- [ ] `checkagent init` generates tests that pass on a clean install
+### Milestone 8: Onboarding Polish (Complete)
+- [x] `checkagent init` generates tests that pass on a clean install
 - [x] Strict Pydantic types prevent silent field drops (`extra="forbid"`)
 - [x] All dependencies declared correctly
-- [ ] `pip install checkagent && checkagent init && pytest` works end-to-end
+- [x] `pip install checkagent && checkagent init && pytest` works end-to-end
 
 ### Milestone 9: Documentation Site (Complete)
 - [x] MkDocs Material with GitHub Pages
@@ -124,7 +124,7 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] `checkagent scan --generate-tests` produces runnable tests for HTTP endpoint targets
 - [x] Evaluator distinguishes refusal from compliance — behavioral mode, not only regex
 - [x] PyPI v0.3.0 published with all current fixes
-- [ ] End-to-end: `pip install checkagent && checkagent demo && checkagent init && pytest` all pass
+- [x] End-to-end: `pip install checkagent && checkagent demo && checkagent init && pytest` all pass
 
 ### Milestone 15: Browser Safety Playground
 - [x] Browser-based safety scan: paste system prompt, get OWASP report instantly

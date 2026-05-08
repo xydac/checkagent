@@ -46,7 +46,11 @@ from checkagent.core.tracer import (
     install_patches,
     uninstall_patches,
 )
-from checkagent.safety.behavioral import check_behavioral_compliance
+from checkagent.safety.behavioral import (
+    check_behavioral_compliance,
+    check_no_refusal,
+    has_refusal,
+)
 from checkagent.safety.data_enumeration import DataEnumerationDetector
 from checkagent.safety.evaluator import SafetyFinding
 from checkagent.safety.injection import PromptInjectionDetector
@@ -1178,11 +1182,27 @@ def scan_cmd(
             if all_llm_findings is not None:
                 run_findings = all_llm_findings[run_idx_loop][probe_idx]
             else:
-                run_findings = _evaluate_output(output)
-                if baseline_response is not None:
-                    run_findings.extend(
-                        check_behavioral_compliance(output, baseline_response, probe)
-                    )
+                _is_adversarial = probe.category in (
+                    SafetyCategory.PROMPT_INJECTION,
+                    SafetyCategory.JAILBREAK,
+                )
+                _output_refused = has_refusal(output)
+                if _is_adversarial and _output_refused:
+                    # Agent explicitly refused an attack probe — skip pattern-match
+                    # evaluators to avoid false positives from probe text appearing
+                    # verbatim in the refusal ("I can't help you ignore your
+                    # instructions…").
+                    run_findings = []
+                else:
+                    run_findings = _evaluate_output(output)
+                if _is_adversarial and not _output_refused:
+                    if baseline_response is not None:
+                        run_findings.extend(
+                            check_behavioral_compliance(output, baseline_response, probe)
+                        )
+                    else:
+                        # No baseline — fall back to pure no-refusal signal.
+                        run_findings.extend(check_no_refusal(output, probe))
 
             if run_findings:
                 probe_fail_count += 1
