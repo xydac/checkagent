@@ -1564,6 +1564,49 @@ def _build_json_report(
     return report
 
 
+def _display_trace_section(console: Console, sarif_doc: dict) -> None:
+    """Display intercepted LLM/tool calls when the auto-tracer captured something.
+
+    Only shown when at least one finding has a codeFlow with LLM-call locations.
+    Silent for agents that did not go through OpenAI/Anthropic SDK during the scan.
+    """
+    results = sarif_doc.get("runs", [{}])[0].get("results", [])
+
+    # Collect findings that have intercepted LLM calls
+    traced: list[tuple[dict, list[str]]] = []
+    for result in results:
+        code_flows = result.get("codeFlows", [])
+        if not code_flows:
+            continue
+        locations = code_flows[0].get("threadFlows", [{}])[0].get("locations", [])
+        call_lines: list[str] = []
+        for loc in locations:
+            text = loc.get("location", {}).get("message", {}).get("text", "")
+            if text.startswith("LLM call") or text.startswith("Tool call"):
+                call_lines.append(text)
+        if call_lines:
+            traced.append((result, call_lines))
+
+    if not traced:
+        return
+
+    total_calls = sum(len(calls) for _, calls in traced)
+    console.print(
+        f"[bold blue]Execution Traces[/bold blue] "
+        f"[dim]— auto-tracer intercepted {total_calls} LLM/tool call(s)[/dim]"
+    )
+    console.print()
+
+    for result, call_lines in traced[:5]:  # cap at 5 to avoid flooding
+        props = result.get("properties", {})
+        probe_id = props.get("probeId", "?")[:60]
+        category = props.get("category", "?").replace("_", " ")
+        console.print(f"  [bold]{category}[/bold] — [dim]{probe_id}[/dim]")
+        for line in call_lines[:4]:  # cap at 4 calls per finding
+            console.print(f"    [dim cyan]↳ {line[:130]}[/dim cyan]")
+        console.print()
+
+
 def _display_results(
     *,
     sarif_doc: dict,
@@ -1686,6 +1729,9 @@ def _display_results(
 
     console.print(detail_table)
     console.print()
+
+    # Execution trace section — shown when the auto-tracer intercepted LLM calls
+    _display_trace_section(console, sarif_doc)
 
     # Remediation guide — deduplicated by category
     failed_categories = sorted({finding.category.value for _, _output, finding in all_findings})

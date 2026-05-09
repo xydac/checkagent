@@ -2321,3 +2321,126 @@ class TestRefusalAwareEvaluation:
             kw in result.output for kw in ("Finding", "CRIT", "HIGH", "LOW")
         )
         assert has_any
+
+
+class TestDisplayTraceSection:
+    """Tests for _display_trace_section — execution trace display in scan output."""
+
+    def _make_sarif_no_traces(self) -> dict:
+        """SARIF document with findings but no codeFlows."""
+        return {
+            "runs": [{
+                "results": [
+                    {
+                        "ruleId": "CA-INJ-001",
+                        "properties": {"probeId": "test-probe", "category": "prompt_injection"},
+                        # No codeFlows key
+                    }
+                ]
+            }]
+        }
+
+    def _make_sarif_with_traces(self) -> dict:
+        """SARIF document with codeFlows containing intercepted LLM calls."""
+        return {
+            "runs": [{
+                "results": [
+                    {
+                        "ruleId": "CA-INJ-001",
+                        "properties": {
+                            "probeId": "ignore all instructions",
+                            "category": "prompt_injection",
+                        },
+                        "codeFlows": [{
+                            "threadFlows": [{
+                                "locations": [
+                                    {"location": {"message": {"text": "Probe sent: ignore all"}}},
+                                    {
+                                        "location": {
+                                            "message": {
+                                                "text": (
+                                                    "LLM call [openai/gpt-4o-mini] "
+                                                    "in=100tok out=50tok 200ms | "
+                                                    "prompt: [user] ignore all | "
+                                                    "response: Sure!"
+                                                )
+                                            }
+                                        }
+                                    },
+                                    {"location": {"message": {"text": "Agent response: Sure!"}}},
+                                ]
+                            }]
+                        }],
+                    }
+                ]
+            }]
+        }
+
+    def test_no_output_when_no_traces(self):
+        from io import StringIO
+
+        from rich.console import Console
+
+        from checkagent.cli.scan import _display_trace_section
+
+        buf = StringIO()
+        c = Console(file=buf, highlight=False)
+        _display_trace_section(c, self._make_sarif_no_traces())
+        assert buf.getvalue() == ""
+
+    def test_shows_trace_section_when_llm_calls_intercepted(self):
+        from io import StringIO
+
+        from rich.console import Console
+
+        from checkagent.cli.scan import _display_trace_section
+
+        buf = StringIO()
+        c = Console(file=buf, highlight=False)
+        _display_trace_section(c, self._make_sarif_with_traces())
+        output = buf.getvalue()
+        assert "Execution Traces" in output
+        assert "LLM call" in output or "gpt-4o-mini" in output
+
+    def test_shows_intercepted_call_count(self):
+        from io import StringIO
+
+        from rich.console import Console
+
+        from checkagent.cli.scan import _display_trace_section
+
+        buf = StringIO()
+        c = Console(file=buf, highlight=False)
+        _display_trace_section(c, self._make_sarif_with_traces())
+        output = buf.getvalue()
+        # Should mention how many calls were intercepted
+        assert "1" in output
+
+    def test_no_output_when_only_probe_response_locations(self):
+        """codeFlows with only probe + response (no LLM call) → silent."""
+        from io import StringIO
+
+        from rich.console import Console
+
+        from checkagent.cli.scan import _display_trace_section
+
+        sarif = {
+            "runs": [{
+                "results": [{
+                    "ruleId": "CA-INJ-001",
+                    "properties": {"probeId": "x", "category": "prompt_injection"},
+                    "codeFlows": [{
+                        "threadFlows": [{
+                            "locations": [
+                                {"location": {"message": {"text": "Probe sent: x"}}},
+                                {"location": {"message": {"text": "Agent response: y"}}},
+                            ]
+                        }]
+                    }],
+                }]
+            }]
+        }
+        buf = StringIO()
+        c = Console(file=buf, highlight=False)
+        _display_trace_section(c, sarif)
+        assert buf.getvalue() == ""

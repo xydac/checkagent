@@ -92,8 +92,9 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] `checkagent scan` — point at any agent, get a safety report
 - [x] HTTP endpoint scanning (`--url`) — scan agents in any language via HTTP
 - [x] Generate pytest tests from scan findings (`--generate-tests`)
+- [x] HTML compliance report export (`--report report.html`)
+- [x] Execution trace display — intercepted LLM/tool calls shown inline with findings
 - [ ] Interactive TUI with drill-down results
-- [ ] HTML/PDF compliance report export
 
 ### Milestone 11: Framework Validation
 - [x] Test adapters against real framework agents (not just mocks)
