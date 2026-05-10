@@ -964,6 +964,17 @@ def _generate_test_file(
     metavar="FILE",
     help="Write an HTML compliance report to FILE (e.g. --report report.html).",
 )
+@click.option(
+    "--interactive", "-i",
+    "interactive",
+    is_flag=True,
+    default=False,
+    help=(
+        "After displaying results, enter interactive mode to navigate and expand "
+        "each finding. Shows full probe input, agent response, execution trace, "
+        "and remediation tips. Requires a TTY."
+    ),
+)
 def scan_cmd(
     target: str | None,
     url: str | None,
@@ -982,6 +993,7 @@ def scan_cmd(
     repeat: int,
     sarif_file: str | None,
     report_file: str | None,
+    interactive: bool = False,
 ) -> None:
     """Scan an agent for safety vulnerabilities.
 
@@ -1002,6 +1014,7 @@ def scan_cmd(
         checkagent scan my_agent:run --sarif scan.sarif
         checkagent scan my_agent:run --badge badge.svg
         checkagent scan my_agent:run --category data_enumeration
+        checkagent scan my_agent:run --interactive
     """
     # Validate: exactly one of target or url must be provided
     if not target and not url:
@@ -1433,6 +1446,10 @@ def scan_cmd(
     except OSError:
         pass  # history write failures must never break the scan exit code
 
+    # Interactive drill-down mode — navigates findings before exiting
+    if interactive and not json_output and all_findings:
+        _interactive_drill_down(out_console, all_findings, sarif_doc)
+
     # Exit with non-zero if any findings
     if all_findings:
         sys.exit(1)
@@ -1605,6 +1622,189 @@ def _display_trace_section(console: Console, sarif_doc: dict) -> None:
         for line in call_lines[:4]:  # cap at 4 calls per finding
             console.print(f"    [dim cyan]↳ {line[:130]}[/dim cyan]")
         console.print()
+
+
+def _get_keypress() -> str:
+    """Read one keypress without requiring Enter. Cross-platform.
+
+    Returns a normalised string: single char, or 'up'/'down'/'left'/'right' for arrows.
+    Falls back to 'q' on any error so the interactive loop always exits cleanly.
+    """
+    try:
+        if sys.platform == "win32":
+            import msvcrt  # type: ignore[import]
+            ch = msvcrt.getch()
+            if ch in (b"\x00", b"\xe0"):
+                arrow = msvcrt.getch()
+                return {"H": "up", "P": "down", "K": "left", "M": "right"}.get(
+                    arrow.decode("ascii", errors="replace"), ""
+                )
+            return ch.decode("utf-8", errors="replace")
+        else:
+            import termios
+            import tty
+
+            fd = sys.stdin.fileno()
+            old = termios.tcgetattr(fd)
+            try:
+                tty.setraw(fd)
+                ch = sys.stdin.read(1)
+                if ch == "\x1b":
+                    ch2 = sys.stdin.read(1)
+                    ch3 = sys.stdin.read(1)
+                    if ch2 == "[":
+                        return {"A": "up", "B": "down", "C": "right", "D": "left"}.get(ch3, "esc")
+                    return "esc"
+                return ch
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old)
+    except Exception:
+        return "q"
+
+
+def _interactive_drill_down(
+    console: Console,
+    all_findings: list[tuple[Probe, str | None, SafetyFinding]],
+    sarif_doc: dict,
+    *,
+    _key_reader: object = None,
+) -> None:
+    """Interactive finding navigator — j/k or arrows navigate, Enter expands, q quits.
+
+    Silent when *all_findings* is empty or stdout is not a TTY.
+    Pass *_key_reader* (callable → str) in tests to inject synthetic keypresses.
+    """
+    if not all_findings:
+        return
+    get_key = _key_reader if callable(_key_reader) else _get_keypress
+    if get_key is _get_keypress and not sys.stdout.isatty():
+        return
+
+    severity_order = {Severity.CRITICAL: 0, Severity.HIGH: 1, Severity.MEDIUM: 2, Severity.LOW: 3}
+    ordered = sorted(all_findings, key=lambda x: severity_order.get(x[2].severity, 99))
+    n = len(ordered)
+    idx = 0
+
+    # Build a lookup from (probe input truncated → trace lines) for quick access
+    sarif_results = sarif_doc.get("runs", [{}])[0].get("results", [])
+
+    def _get_trace(probe_key: str) -> list[str]:
+        for result in sarif_results:
+            props = result.get("properties", {})
+            if props.get("probeId", "")[:60] == probe_key[:60]:
+                code_flows = result.get("codeFlows", [])
+                if code_flows:
+                    locs = code_flows[0].get("threadFlows", [{}])[0].get("locations", [])
+                    return [
+                        loc.get("location", {}).get("message", {}).get("text", "")
+                        for loc in locs
+                        if loc.get("location", {}).get("message", {}).get("text", "").startswith(
+                            ("LLM call", "Tool call")
+                        )
+                    ]
+        return []
+
+    def _show_nav() -> None:
+        probe, _out, finding = ordered[idx]
+        sev_s = _severity_style(finding.severity)
+        sev_l = _severity_label(finding.severity)
+        console.print(
+            f"\n[bold blue]Finding {idx + 1}/{n}[/bold blue]  "
+            f"[{sev_s}]{sev_l}[/{sev_s}]  "
+            f"[bold]{finding.category.value.replace('_', ' ')}[/bold]"
+        )
+        desc = finding.description[:100]
+        console.print(f"  {desc}")
+        console.print(
+            "[dim]  ↑/k prev · ↓/j next · Enter/Space expand · q quit[/dim]"
+        )
+
+    def _show_expanded() -> None:
+        probe, output, finding = ordered[idx]
+        sev_s = _severity_style(finding.severity)
+        sev_l = _severity_label(finding.severity)
+        probe_key = probe.name or probe.input[:60]
+
+        lines: list[str] = []
+        lines.append(f"[bold]Probe Input[/bold]  [{sev_s}]({sev_l})[/{sev_s}]")
+        lines.append(f"  {probe.input}")
+        lines.append("")
+
+        if output:
+            lines.append("[bold]Agent Response[/bold]")
+            lines.append(f"  {output}")
+            lines.append("")
+        else:
+            lines.append("[bold]Agent Response[/bold]  [dim](none captured)[/dim]")
+            lines.append("")
+
+        trace_lines = _get_trace(probe_key)
+        if trace_lines:
+            lines.append("[bold]Execution Trace[/bold]")
+            for tl in trace_lines:
+                lines.append(f"  [dim cyan]↳ {tl}[/dim cyan]")
+            lines.append("")
+
+        lines.append(f"[bold]Finding[/bold]  {finding.description}")
+        lines.append(
+            f"[bold]Severity[/bold]  [{sev_s}]{finding.severity.value.upper()}[/{sev_s}]"
+        )
+        lines.append("")
+
+        tips = _CATEGORY_REMEDIATION.get(finding.category.value, _CATEGORY_REMEDIATION_FALLBACK)
+        lines.append("[bold yellow]Remediation[/bold yellow]")
+        for tip in tips:
+            lines.append(f"  • {tip}")
+
+        lines.append("")
+        lines.append(
+            "[dim]  ↑/k prev · ↓/j next · any other key back to list · q quit[/dim]"
+        )
+
+        cat_label = finding.category.value.replace("_", " ")
+        console.print(Panel(
+            "\n".join(lines),
+            title=f"[bold]Finding {idx + 1}/{n} — {cat_label}[/bold]",
+            border_style=sev_s,
+            padding=(1, 2),
+        ))
+
+    console.print(
+        f"\n[bold blue]Interactive mode[/bold blue]  "
+        f"[dim]{n} finding(s) — navigate with ↑↓/jk, Enter to expand, q to quit[/dim]"
+    )
+    _show_nav()
+
+    in_expanded = False
+    while True:
+        key = get_key()  # type: ignore[call-arg]
+
+        if key in ("q", "Q", "\x03"):
+            console.print("[dim]  Exiting interactive mode.[/dim]\n")
+            break
+
+        if in_expanded:
+            if key in ("up", "k", "K"):
+                idx = (idx - 1) % n
+                in_expanded = False
+                _show_nav()
+            elif key in ("down", "j", "J"):
+                idx = (idx + 1) % n
+                in_expanded = False
+                _show_nav()
+            else:
+                in_expanded = False
+                _show_nav()
+        else:
+            if key in ("up", "k", "K"):
+                idx = (idx - 1) % n
+                _show_nav()
+            elif key in ("down", "j", "J"):
+                idx = (idx + 1) % n
+                _show_nav()
+            elif key in ("\r", "\n", " "):
+                _show_expanded()
+                in_expanded = True
 
 
 def _display_results(

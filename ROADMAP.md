@@ -94,7 +94,7 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] Generate pytest tests from scan findings (`--generate-tests`)
 - [x] HTML compliance report export (`--report report.html`)
 - [x] Execution trace display — intercepted LLM/tool calls shown inline with findings
-- [ ] Interactive TUI with drill-down results
+- [x] Interactive TUI with drill-down results (`--interactive` flag: j/k navigate, Enter expand)
 
 ### Milestone 11: Framework Validation
 - [x] Test adapters against real framework agents (not just mocks)
@@ -145,7 +145,6 @@ CheckAgent is being built in public. Here's where we're headed.
 - [ ] Auto-instrumentation: one import captures LLM calls, no adapter code required
 
 ### Future
-- [ ] Interactive TUI for `checkagent scan` with drill-down results
 - [ ] Local dashboard for test history and trends
 - [ ] Production trace import from more providers
 - [ ] HTML/PDF compliance report export from scan results
