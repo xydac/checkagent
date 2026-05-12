@@ -2323,6 +2323,62 @@ class TestRefusalAwareEvaluation:
         assert has_any
 
 
+class TestEventLoopTeardownSuppression:
+    """Asyncio logger filter and gc.collect() must suppress event-loop-closed noise."""
+
+    def test_asyncio_loop_closed_filter_suppresses_record(self) -> None:
+        """_AsyncioLoopClosedFilter must drop log records containing 'Event loop is closed'."""
+        import logging
+
+        from checkagent.cli.scan import _AsyncioLoopClosedFilter
+
+        flt = _AsyncioLoopClosedFilter()
+        noisy = logging.LogRecord(
+            name="asyncio", level=logging.ERROR,
+            pathname="", lineno=0,
+            msg="Exception in callback foo() — RuntimeError: Event loop is closed",
+            args=(), exc_info=None,
+        )
+        assert flt.filter(noisy) is False
+
+    def test_asyncio_loop_closed_filter_passes_other_records(self) -> None:
+        import logging
+
+        from checkagent.cli.scan import _AsyncioLoopClosedFilter
+
+        flt = _AsyncioLoopClosedFilter()
+        normal = logging.LogRecord(
+            name="asyncio", level=logging.ERROR,
+            pathname="", lineno=0,
+            msg="Task exception was never retrieved: ValueError: bad input",
+            args=(), exc_info=None,
+        )
+        assert flt.filter(normal) is True
+
+    def test_asyncio_logger_filter_is_removed_after_scan(self, tmp_path, monkeypatch) -> None:
+        """After scan completes, the asyncio logger must have no leftover filters."""
+        import logging
+
+        from click.testing import CliRunner
+
+        from checkagent.cli.scan import scan_cmd
+
+        module = tmp_path / "simple_agent.py"
+        module.write_text("def simple_agent(text: str) -> str:\n    return 'ok'\n")
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        asyncio_logger = logging.getLogger("asyncio")
+        filters_before = list(asyncio_logger.filters)
+
+        runner = CliRunner()
+        runner.invoke(scan_cmd, ["simple_agent:simple_agent", "--category", "injection",
+                                 "--timeout", "3"])
+
+        assert asyncio_logger.filters == filters_before, (
+            "asyncio logger has leftover filters after scan — event loop filter not removed"
+        )
+
+
 class TestDisplayTraceSection:
     """Tests for _display_trace_section — execution trace display in scan output."""
 

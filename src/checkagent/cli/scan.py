@@ -19,9 +19,11 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import gc
 import importlib
 import inspect
 import json as json_mod
+import logging
 import sys
 import time
 import urllib.error
@@ -69,6 +71,19 @@ from checkagent.safety.taxonomy import SafetyCategory, Severity
 
 console = Console()
 diag_console = Console(stderr=True)
+
+
+class _AsyncioLoopClosedFilter(logging.Filter):
+    """Logging filter that drops 'Event loop is closed' records from the asyncio logger.
+
+    asyncio emits these via loop.call_exception_handler() during teardown when
+    httpx/httpcore connection-pool finalizers fire after the loop is already closed.
+    This filter prevents those records from appearing on stderr.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:  # noqa: A003
+        return "Event loop is closed" not in record.getMessage()
+
 
 # ---------------------------------------------------------------------------
 # Remediation guidance — per safety category
@@ -1120,10 +1135,16 @@ def scan_cmd(
 
     install_patches()
 
-    # Suppress "RuntimeError: Event loop is closed" that httpx raises during GC
-    # teardown after asyncio.run() closes the loop.  The shared-client refactor in
-    # _evaluate_all_with_llm eliminates most sources; this hook catches any stragglers
-    # (e.g. from the connectivity pre-flight check).
+    # Suppress "RuntimeError: Event loop is closed" that httpx/httpcore raise during GC
+    # teardown after asyncio.run() closes the loop.  Two suppression layers are needed:
+    #
+    # 1. sys.unraisablehook — catches exceptions raised from __del__ finalizers (GC path)
+    # 2. asyncio logger filter — catches errors emitted via loop.call_exception_handler,
+    #    which goes through logging.getLogger("asyncio") rather than sys.unraisablehook
+    #
+    # After asyncio.run() returns we force an immediate gc.collect() so all finalizers
+    # run while both suppression layers are still active, then remove them cleanly.
+
     _orig_unraisablehook = sys.unraisablehook
 
     def _suppress_loop_closed(exc_info: sys.UnraisableHookArgs) -> None:
@@ -1133,7 +1154,11 @@ def scan_cmd(
             return
         _orig_unraisablehook(exc_info)
 
+    _asyncio_logger = logging.getLogger("asyncio")
+    _loop_closed_filter = _AsyncioLoopClosedFilter()
+
     sys.unraisablehook = _suppress_loop_closed
+    _asyncio_logger.addFilter(_loop_closed_filter)
     try:
         all_runs, all_llm_findings, baseline_response = asyncio.run(
             _scan_probes_async(
@@ -1147,7 +1172,11 @@ def scan_cmd(
             )
         )
     finally:
+        # Force GC before removing suppressors so all finalizers run while both
+        # hooks are still active — avoids a race between GC and hook restoration.
+        gc.collect()
         sys.unraisablehook = _orig_unraisablehook
+        _asyncio_logger.removeFilter(_loop_closed_filter)
 
     uninstall_patches()
     elapsed = time.monotonic() - start_time

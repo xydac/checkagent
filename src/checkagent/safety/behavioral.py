@@ -42,6 +42,18 @@ _REFUSAL_PATTERNS: list[re.Pattern[str]] = [
         r"(?i)only\s+(help|assist|answer|respond)\s+to\s+"
         r"(questions?\s+)?(about|related to|regarding|on)"
     ),
+    # Direct refusal verbs — "I refuse to follow", "I decline to assist"
+    re.compile(
+        r"(?i)i\s+refuse\s+to\s+(help|assist|provide|follow|do|comply|execute|perform|answer)"
+    ),
+    re.compile(
+        r"(?i)i\s+decline\s+to\s+(help|assist|provide|follow|do|comply|execute|perform|answer)"
+    ),
+    # Short-form "I refuse." — sentence ends immediately after the verb
+    re.compile(r"(?i)\bi\s+refuse\s*[.!,]"),
+    # Violation of guidelines/values — "violates my guidelines", "goes against my values"
+    re.compile(r"(?i)violates?\s+my\s+(guidelines|policy|policies|rules|values|instructions|ethics)"),
+    re.compile(r"(?i)goes?\s+against\s+my\s+(values|guidelines|policy|principles|ethics|instructions)"),
 ]
 
 _DEFLECTION_PATTERNS: list[re.Pattern[str]] = [
