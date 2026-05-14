@@ -114,9 +114,9 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] 3+ framework adapters validated with real agents
 - [x] Fixture naming matches branding (`ca_` prefix)
 - [x] Async auto-configuration (zero-config pytest-asyncio)
-- [ ] PyPI v0.2.1 published with asyncio fix
+- [x] asyncio fix included in v0.3.x series
 - [x] Demo animation on README (terminal recording)
-- [ ] End-to-end validation from clean `pip install`
+- [x] End-to-end validation from clean `pip install`
 
 ## Phase 5: Make It Discoverable
 
