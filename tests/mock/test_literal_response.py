@@ -79,6 +79,66 @@ class TestMockToolLiteral:
         assert tool.call_count == 2
 
 
+class TestMockLLMLiteral:
+    """MockLLM.add_rule() accepts literal() to prevent list cycling (F-122)."""
+
+    @pytest.mark.asyncio
+    async def test_literal_list_with_add_rule(self):
+        """literal(list) in add_rule does not raise ValidationError; serializes to JSON."""
+        from checkagent.mock.llm import MockLLM
+
+        llm = MockLLM(default_response="default")
+        llm.add_rule("query", response=literal(["ans1", "ans2"]))
+        result = await llm.complete("query")
+        # MockLLM returns strings; list literals are JSON-serialized
+        assert result == '["ans1", "ans2"]'
+        # Second call returns the same JSON (not cycling through elements)
+        assert await llm.complete("query") == '["ans1", "ans2"]'
+
+    @pytest.mark.asyncio
+    async def test_literal_string_with_add_rule(self):
+        """literal(str) in add_rule returns the string directly."""
+        from checkagent.mock.llm import MockLLM
+
+        llm = MockLLM(default_response="default")
+        llm.add_rule("greet", response=literal("hello"))
+        assert await llm.complete("greet") == "hello"
+        assert await llm.complete("greet") == "hello"
+
+    @pytest.mark.asyncio
+    async def test_literal_with_fluent_api(self):
+        """literal() works via on_input().respond() fluent path."""
+        from checkagent.mock.llm import MockLLM
+
+        llm = MockLLM(default_response="default")
+        llm.on_input(contains="search").respond(literal(["doc1", "doc2"]))
+        result = await llm.complete("search for data")
+        assert result == '["doc1", "doc2"]'
+        assert await llm.complete("search for data") == '["doc1", "doc2"]'
+
+    @pytest.mark.asyncio
+    async def test_non_literal_list_still_cycles(self):
+        """Regular list responses still cycle (literal() does not break default)."""
+        from checkagent.mock.llm import MockLLM
+
+        llm = MockLLM(default_response="default")
+        llm.add_rule("query", response=["first", "second"])
+        assert await llm.complete("query") == "first"
+        assert await llm.complete("query") == "second"
+        assert await llm.complete("query") == "first"
+
+    @pytest.mark.asyncio
+    async def test_literal_call_count_increments(self):
+        """literal() responses still increment call count."""
+        from checkagent.mock.llm import MockLLM
+
+        llm = MockLLM(default_response="default")
+        llm.add_rule("query", response=literal(["a"]))
+        await llm.complete("query")
+        await llm.complete("query")
+        assert llm.call_count == 2
+
+
 class TestLiteralImport:
     """literal() is importable from expected locations."""
 

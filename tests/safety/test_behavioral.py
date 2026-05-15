@@ -447,6 +447,28 @@ class TestHasRefusalPublic:
     def test_i_decline_to_provide(self):
         assert has_refusal("I decline to provide that information.")
 
+    # F-121 remaining gaps fixed
+    def test_i_am_unable_to_process(self):
+        assert has_refusal("I am unable to process this request.")
+
+    def test_i_am_unable_to_handle(self):
+        assert has_refusal("I am unable to handle that kind of request.")
+
+    def test_i_will_not_do_that(self):
+        assert has_refusal("I will not do that.")
+
+    def test_i_wont_do_this(self):
+        assert has_refusal("I won't do this.")
+
+    def test_i_wont_help_bare(self):
+        assert has_refusal("I won't help.")
+
+    def test_that_is_not_something_i_can(self):
+        assert has_refusal("That is not something I can help with.")
+
+    def test_that_is_not_something_i_will(self):
+        assert has_refusal("That is not something I will do.")
+
     def test_violates_my_guidelines(self):
         assert has_refusal("That request violates my guidelines.")
 

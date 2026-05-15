@@ -10,6 +10,7 @@ Implements F1.1, F1.6, F13.2 from the PRD.
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 from enum import Enum
 from typing import TYPE_CHECKING, Any
@@ -18,6 +19,7 @@ from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     from checkagent.mock.fault import FaultInjector
+    from checkagent.mock.tool import _LiteralResponse
 
 from checkagent.core.types import StreamEvent, StreamEventType
 
@@ -54,6 +56,12 @@ class ResponseRule(BaseModel):
 
     def get_response(self) -> str:
         """Get the next response, cycling through sequences."""
+        if self.metadata.get("_literal"):
+            self._call_count += 1
+            value = self.response
+            if isinstance(value, str):
+                return value
+            return json.dumps(value)
         if isinstance(self.response, list):
             idx = self._call_count % len(self.response)
             self._call_count += 1
@@ -129,7 +137,7 @@ class _InputMatcher:
 
     def respond(
         self,
-        response: str | list[str],
+        response: str | list[str] | _LiteralResponse,
         *,
         model: str | None = None,
         metadata: dict[str, Any] | None = None,
@@ -309,20 +317,28 @@ class MockLLM:
     def add_rule(
         self,
         pattern: str,
-        response: str | list[str],
+        response: str | list[str] | _LiteralResponse,
         *,
         match_mode: MatchMode = MatchMode.SUBSTRING,
         model: str | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> MockLLM:
         """Add a pattern → response rule. Returns self for chaining."""
+        from checkagent.mock.tool import _LiteralResponse as _LR
+
+        merged_metadata = dict(metadata or {})
+        if isinstance(response, _LR):
+            actual_response = response.value
+            merged_metadata["_literal"] = True
+        else:
+            actual_response = response
         self._rules.append(
             ResponseRule(
                 pattern=pattern,
-                response=response,
+                response=actual_response,
                 match_mode=match_mode,
                 model=model,
-                metadata=metadata or {},
+                metadata=merged_metadata,
             )
         )
         return self
