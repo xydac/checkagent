@@ -142,7 +142,7 @@ CheckAgent is being built in public. Here's where we're headed.
 ### Milestone 17: Zero-Config Evaluation
 - [x] Safety badges: embed your agent's safety score in any README (`checkagent scan --badge`)
 - [ ] `--provider claude-code` flag: eval and judge layers without a separate API key
-- [ ] Auto-instrumentation: one import captures LLM calls, no adapter code required
+- [x] Auto-instrumentation: `ca_tracer` fixture and `install_patches()` capture OpenAI/Anthropic LLM calls automatically
 
 ### Future
 - [ ] Local dashboard for test history and trends

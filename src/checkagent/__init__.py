@@ -14,6 +14,13 @@ from checkagent.core.cost import (
     CostTracker,
     calculate_run_cost,
 )
+from checkagent.core.plugin import TracerContext
+from checkagent.core.tracer import (
+    begin_probe_trace,
+    end_probe_trace,
+    install_patches,
+    uninstall_patches,
+)
 from checkagent.core.types import (
     AgentInput,
     AgentRun,
@@ -212,6 +219,12 @@ __all__ = [
     "ToolCallBoundaryValidator",
     # Streaming
     "StreamCollector",
+    # Tracer / auto-instrumentation
+    "TracerContext",
+    "begin_probe_trace",
+    "end_probe_trace",
+    "install_patches",
+    "uninstall_patches",
     # CI
     "QualityGateEntry",
     "TestRunSummary",

@@ -271,9 +271,8 @@ def _try_patch_anthropic() -> None:
 
         try:
             for block in response.content:
-                if hasattr(block, "text"):
+                if hasattr(block, "text") and not response_text:
                     response_text = block.text[:300]
-                    break
                 if hasattr(block, "type") and block.type == "tool_use":
                     tool_calls.append({
                         "name": block.name,
@@ -329,9 +328,8 @@ def _try_patch_anthropic() -> None:
 
         try:
             for block in response.content:
-                if hasattr(block, "text"):
+                if hasattr(block, "text") and not response_text:
                     response_text = block.text[:300]
-                    break
                 if hasattr(block, "type") and block.type == "tool_use":
                     tool_calls.append({
                         "name": block.name,

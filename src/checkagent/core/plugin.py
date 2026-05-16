@@ -10,6 +10,12 @@ import pytest
 
 from checkagent.conversation.session import Conversation
 from checkagent.core.config import CheckAgentConfig, load_config
+from checkagent.core.tracer import (
+    begin_probe_trace,
+    end_probe_trace,
+    install_patches,
+    uninstall_patches,
+)
 from checkagent.judge.judge import RubricJudge
 from checkagent.judge.types import Rubric
 from checkagent.mock.fault import FaultInjector
@@ -242,6 +248,68 @@ def ca_judge() -> Callable[..., RubricJudge]:
 def ca_config(request: pytest.FixtureRequest) -> CheckAgentConfig:
     """Access the loaded CheckAgent configuration."""
     return request.config.stash[_config_key]
+
+
+class TracerContext:
+    """Collects LLM/tool call trace events during a test.
+
+    Use :func:`begin` before calling the agent and :func:`end` to retrieve
+    the captured events.  If you just need per-test auto-instrumentation
+    without explicit begin/end, the fixture handles install/uninstall
+    automatically — events from the last ``begin``/``end`` pair are in
+    :attr:`events`.
+
+    Example::
+
+        async def test_agent_calls(ca_tracer, my_agent):
+            ca_tracer.begin()
+            await my_agent.run("hello")
+            ca_tracer.end()
+            assert any(e["type"] == "llm_call" for e in ca_tracer.events)
+    """
+
+    def __init__(self) -> None:
+        self.events: list[dict[str, Any]] = []
+        self._active = False
+
+    def begin(self) -> None:
+        begin_probe_trace()
+        self._active = True
+
+    def end(self) -> list[dict[str, Any]]:
+        self.events = end_probe_trace()
+        self._active = False
+        return self.events
+
+    @property
+    def llm_calls(self) -> list[dict[str, Any]]:
+        return [e for e in self.events if e.get("type") == "llm_call"]
+
+    @property
+    def tool_calls(self) -> list[dict[str, Any]]:
+        return [e for e in self.events if e.get("type") == "tool_call"]
+
+
+@pytest.fixture
+def ca_tracer() -> Any:
+    """Auto-instrument OpenAI and Anthropic SDK calls for the duration of a test.
+
+    Installs monkey-patches on SDK client methods at test start, removes them
+    at test end.  Use ``ca_tracer.begin()`` / ``ca_tracer.end()`` around agent
+    calls to capture LLM and tool call events::
+
+        async def test_traces(ca_tracer, my_agent):
+            ca_tracer.begin()
+            result = await my_agent.run("hello")
+            ca_tracer.end()
+            assert len(ca_tracer.llm_calls) >= 1
+    """
+    install_patches()
+    ctx = TracerContext()
+    yield ctx
+    if ctx._active:
+        ctx.end()
+    uninstall_patches()
 
 
 def pytest_collection_modifyitems(
