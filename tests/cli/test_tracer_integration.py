@@ -107,6 +107,7 @@ def _anthropic_message_response(
 @pytest.mark.asyncio
 async def test_openai_async_real_client_traced() -> None:
     """install_patches() patches the real AsyncCompletions class and traces calls."""
+    pytest.importorskip("openai", reason="openai not installed")
     import openai.resources.chat.completions as oai_mod
 
     mock_resp = _openai_chat_response("I can help with that.", "gpt-4o")
@@ -147,6 +148,7 @@ async def test_openai_async_real_client_traced() -> None:
 @pytest.mark.asyncio
 async def test_openai_async_tool_calls_traced() -> None:
     """Tool calls in OpenAI responses are captured as separate trace events."""
+    pytest.importorskip("openai", reason="openai not installed")
     import openai.resources.chat.completions as oai_mod
 
     mock_resp = _openai_chat_response(
@@ -188,6 +190,7 @@ async def test_openai_async_tool_calls_traced() -> None:
 
 def test_openai_sync_client_traced() -> None:
     """install_patches() also patches the sync Completions.create."""
+    pytest.importorskip("openai", reason="openai not installed")
     import openai.resources.chat.completions as oai_mod
 
     mock_resp = _openai_chat_response("Sync response", "gpt-4o-mini")
@@ -223,6 +226,7 @@ def test_openai_sync_client_traced() -> None:
 @pytest.mark.asyncio
 async def test_anthropic_async_real_client_traced() -> None:
     """install_patches() patches the real AsyncMessages class."""
+    pytest.importorskip("anthropic", reason="anthropic not installed")
     import anthropic.resources.messages as anth_mod
 
     mock_resp = _anthropic_message_response("Claude says hello", "claude-haiku-4-5-20251001")
@@ -262,6 +266,7 @@ async def test_anthropic_async_real_client_traced() -> None:
 @pytest.mark.asyncio
 async def test_anthropic_async_tool_use_traced() -> None:
     """Tool use blocks in Anthropic responses are captured."""
+    pytest.importorskip("anthropic", reason="anthropic not installed")
     import anthropic.resources.messages as anth_mod
 
     mock_resp = _anthropic_message_response(
@@ -301,6 +306,7 @@ async def test_anthropic_async_tool_use_traced() -> None:
 
 def test_anthropic_sync_client_traced() -> None:
     """install_patches() patches the sync Messages.create."""
+    pytest.importorskip("anthropic", reason="anthropic not installed")
     import anthropic.resources.messages as anth_mod
 
     mock_resp = _anthropic_message_response("Sync Claude", "claude-haiku-4-5-20251001")
@@ -339,6 +345,8 @@ def test_anthropic_sync_client_traced() -> None:
 @pytest.mark.asyncio
 async def test_both_providers_traced_in_single_probe() -> None:
     """A single probe that calls both OpenAI and Anthropic captures all events."""
+    pytest.importorskip("openai", reason="openai not installed")
+    pytest.importorskip("anthropic", reason="anthropic not installed")
     import anthropic.resources.messages as anth_mod
     import openai.resources.chat.completions as oai_mod
 
@@ -387,6 +395,7 @@ async def test_both_providers_traced_in_single_probe() -> None:
 @pytest.mark.asyncio
 async def test_concurrent_probes_isolated_with_real_patches() -> None:
     """Two concurrent async probes each see only their own SDK calls."""
+    pytest.importorskip("openai", reason="openai not installed")
     import openai.resources.chat.completions as oai_mod
 
     original_create = oai_mod.AsyncCompletions.create
@@ -436,6 +445,7 @@ async def test_concurrent_probes_isolated_with_real_patches() -> None:
 @pytest.mark.asyncio
 async def test_no_active_trace_drops_events() -> None:
     """SDK calls outside begin/end don't accumulate events anywhere."""
+    pytest.importorskip("openai", reason="openai not installed")
     import openai.resources.chat.completions as oai_mod
 
     original_create = oai_mod.AsyncCompletions.create
