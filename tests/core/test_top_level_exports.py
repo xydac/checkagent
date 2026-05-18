@@ -146,6 +146,26 @@ def test_cost_types():
     assert callable(calculate_run_cost)
 
 
+def test_tracer_exports():
+    """F-124: is_installed should be importable from top-level checkagent."""
+    from checkagent import (
+        begin_probe_trace,
+        end_probe_trace,
+        install_patches,
+        is_installed,
+        uninstall_patches,
+    )
+
+    tracer_fns = (
+        begin_probe_trace, end_probe_trace, install_patches, is_installed, uninstall_patches
+    )
+    for fn in tracer_fns:
+        assert callable(fn)
+
+    # is_installed returns a bool reflecting current patch state
+    assert is_installed() is False
+
+
 def test_all_list_is_sorted_by_section():
     """__all__ should contain all directly imported symbols."""
     import checkagent

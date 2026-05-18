@@ -19,6 +19,7 @@ from checkagent.core.tracer import (
     begin_probe_trace,
     end_probe_trace,
     install_patches,
+    is_installed,
     uninstall_patches,
 )
 from checkagent.core.types import (
@@ -224,6 +225,7 @@ __all__ = [
     "begin_probe_trace",
     "end_probe_trace",
     "install_patches",
+    "is_installed",
     "uninstall_patches",
     # CI
     "QualityGateEntry",
