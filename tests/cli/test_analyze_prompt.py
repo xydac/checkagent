@@ -273,3 +273,91 @@ class TestAnalyzePromptEdgeCases:
         result = runner.invoke(main, ["analyze-prompt", "You are a helpful assistant"])
         assert result.exit_code in (0, 1)
         assert "System Prompt Analysis" in result.output
+
+
+class TestAnalyzePromptLLMFlag:
+    """Tests for the --llm flag (semantic verification).
+
+    These tests mock the LLM call so they run without API keys.
+    """
+
+    def _mock_llm_verified(self, monkeypatch):
+        """Return a mock that marks all failing checks as LLM-verified."""
+        async def _fake_llm_verify(prompt_text, failing_checks, model):
+            return {c.id: (True, "Verified by mock LLM") for c in failing_checks}
+
+        monkeypatch.setattr(
+            "checkagent.cli.analyze_prompt._llm_verify_failing_checks",
+            _fake_llm_verify,
+        )
+
+    def test_llm_flag_shown_in_help(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["analyze-prompt", "--help"])
+        assert "--llm" in result.output
+
+    def test_llm_flag_invalid_model_rejected(self):
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["analyze-prompt", "--llm", "unknown-model-xyz", WEAK_PROMPT]
+        )
+        assert result.exit_code != 0
+
+    def test_llm_flag_updates_score_when_all_verified(self, monkeypatch):
+        """When LLM marks all failing checks as present, score reaches 100%."""
+        self._mock_llm_verified(monkeypatch)
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["analyze-prompt", "--llm", "gpt-4o-mini", WEAK_PROMPT]
+        )
+        # Score should now be 8/8 (100%)
+        assert "8/8" in result.output or "100%" in result.output
+
+    def test_llm_flag_shows_llm_present_status(self, monkeypatch):
+        """Checks verified by LLM show '~ PRESENT (LLM)' in the table."""
+        self._mock_llm_verified(monkeypatch)
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["analyze-prompt", "--llm", "gpt-4o-mini", WEAK_PROMPT]
+        )
+        assert "PRESENT (LLM)" in result.output
+
+    def test_llm_flag_json_output_includes_llm_fields(self, monkeypatch):
+        """JSON output includes pattern_passed and llm_passed fields."""
+        self._mock_llm_verified(monkeypatch)
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["analyze-prompt", "--json", "--llm", "gpt-4o-mini", WEAK_PROMPT]
+        )
+        data = json.loads(result.output)
+        assert data["llm_model"] == "gpt-4o-mini"
+        assert data["llm_verified_count"] is not None
+        # Every check should have pattern_passed and llm_passed fields
+        for check in data["checks"]:
+            assert "pattern_passed" in check
+            assert "llm_passed" in check
+
+    def test_llm_flag_exit_zero_when_high_checks_llm_verified(self, monkeypatch):
+        """Exit code 0 when all HIGH checks are LLM-verified even if pattern missed them."""
+        self._mock_llm_verified(monkeypatch)
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["analyze-prompt", "--llm", "gpt-4o-mini", WEAK_PROMPT]
+        )
+        assert result.exit_code == 0
+
+    def test_llm_flag_shows_static_footer_without_llm(self):
+        """Without --llm, footer mentions static guidelines check."""
+        runner = CliRunner()
+        result = runner.invoke(main, ["analyze-prompt", WEAK_PROMPT])
+        assert "static guidelines check" in result.output
+        assert "LLM-assisted" not in result.output
+
+    def test_llm_flag_shows_llm_footer_with_llm(self, monkeypatch):
+        """With --llm, footer mentions LLM-assisted check."""
+        self._mock_llm_verified(monkeypatch)
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["analyze-prompt", "--llm", "gpt-4o-mini", WEAK_PROMPT]
+        )
+        assert "LLM-assisted" in result.output
