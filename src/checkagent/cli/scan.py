@@ -532,6 +532,7 @@ def _make_http_agent(
     output_field: str | None = None,
     headers: dict[str, str] | None = None,
     request_timeout: float = 30.0,
+    extra_body: dict | None = None,
 ) -> object:
     """Create a callable that sends probes to an HTTP endpoint.
 
@@ -540,9 +541,10 @@ def _make_http_agent(
     with ``_run_probe`` which handles both sync and async callables.
     """
     extra_headers = headers or {}
+    base_body = dict(extra_body) if extra_body else {}
 
     def _do_request(probe_input: str) -> str:
-        payload = json_mod.dumps({input_field: probe_input}).encode("utf-8")
+        payload = json_mod.dumps({**base_body, input_field: probe_input}).encode("utf-8")
         req = urllib.request.Request(
             url,
             data=payload,
@@ -879,6 +881,18 @@ def _generate_test_file(
     help="HTTP header as 'Name: Value'. Can be repeated (e.g. -H 'Authorization: Bearer tok').",
 )
 @click.option(
+    "--extra-body",
+    "extra_body",
+    type=str,
+    default=None,
+    metavar="JSON",
+    help=(
+        "Extra JSON fields merged into every HTTP request body alongside the probe input. "
+        "Useful for APIs that require additional fields (e.g. Dify: "
+        "'{\"inputs\":{},\"user\":\"test\",\"response_mode\":\"blocking\"}')."
+    ),
+)
+@click.option(
     "--category", "-c",
     type=click.Choice(list(_PROBE_SETS.keys()), case_sensitive=False),
     default=None,
@@ -996,6 +1010,7 @@ def scan_cmd(
     input_field: str,
     output_field: str | None,
     header: tuple[str, ...],
+    extra_body: str | None,
     category: str | None,
     timeout: float,
     verbose: bool,
@@ -1021,6 +1036,8 @@ def scan_cmd(
         checkagent scan --url http://localhost:8000/chat
         checkagent scan --url http://localhost:8000/api -H 'Authorization: Bearer tok'
         checkagent scan --url http://localhost:8000/chat --input-field query
+        checkagent scan --url http://dify/v1/chat-messages \
+            --extra-body '{"inputs":{},"user":"test","response_mode":"blocking"}'
         checkagent scan my_agent:run --category injection
         checkagent scan my_agent:run --llm-judge gpt-4o-mini
         checkagent scan my_agent:run --llm-judge gpt-4o-mini \
@@ -1062,6 +1079,19 @@ def scan_cmd(
         name, _, value = h.partition(":")
         parsed_headers[name.strip()] = value.strip()
 
+    # Parse --extra-body JSON
+    parsed_extra_body: dict | None = None
+    if extra_body:
+        try:
+            parsed_extra_body = json_mod.loads(extra_body)
+            if not isinstance(parsed_extra_body, dict):
+                raise ValueError("must be a JSON object")
+        except (ValueError, json_mod.JSONDecodeError) as exc:
+            raise click.BadParameter(
+                f"Invalid JSON: {exc}. Provide a JSON object, e.g. '{{\"key\": \"value\"}}'.",
+                param_hint="--extra-body",
+            ) from exc
+
     # Display name for the scan target
     display_target = target if target else url
     assert display_target is not None
@@ -1102,6 +1132,7 @@ def scan_cmd(
             output_field=output_field,
             headers=parsed_headers or None,
             request_timeout=timeout,
+            extra_body=parsed_extra_body,
         )
     else:
         assert target is not None

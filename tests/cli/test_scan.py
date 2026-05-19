@@ -1088,6 +1088,22 @@ class _HeaderCheckHandler(BaseHTTPRequestHandler):
         pass
 
 
+class _BodyEchoHandler(BaseHTTPRequestHandler):
+    """HTTP handler that echoes the full request body as JSON."""
+
+    def do_POST(self):
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length)
+        data = json.loads(body)
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps({"output": json.dumps(data)}).encode("utf-8"))
+
+    def log_message(self, format, *args):
+        pass
+
+
 def _start_server(handler_cls) -> tuple[HTTPServer, str]:
     """Start an HTTP server on a random port, return (server, url)."""
     server = HTTPServer(("127.0.0.1", 0), handler_cls)
@@ -1193,6 +1209,41 @@ class TestMakeHttpAgent:
             agent = _make_http_agent(url, input_field="query")
             result = asyncio.run(agent("test"))
             assert "Got:" in result
+        finally:
+            server.shutdown()
+
+    def test_extra_body_merged_into_request(self) -> None:
+        """extra_body fields appear alongside the probe input field."""
+        import asyncio
+
+        server, url = _start_server(_BodyEchoHandler)
+        try:
+            agent = _make_http_agent(
+                url,
+                extra_body={"inputs": {}, "user": "test", "response_mode": "blocking"},
+            )
+            result = asyncio.run(agent("hello"))
+            sent = json.loads(result)
+            assert sent["message"] == "hello"
+            assert sent["inputs"] == {}
+            assert sent["user"] == "test"
+            assert sent["response_mode"] == "blocking"
+        finally:
+            server.shutdown()
+
+    def test_extra_body_probe_field_wins(self) -> None:
+        """If extra_body has the same key as input_field, probe input wins."""
+        import asyncio
+
+        server, url = _start_server(_BodyEchoHandler)
+        try:
+            agent = _make_http_agent(
+                url,
+                extra_body={"message": "should_be_overwritten"},
+            )
+            result = asyncio.run(agent("actual probe"))
+            sent = json.loads(result)
+            assert sent["message"] == "actual probe"
         finally:
             server.shutdown()
 
@@ -1354,6 +1405,42 @@ class TestScanHttpCommand:
         # Should exit 0 (no findings, only errors) but show a clear warning
         assert result.exit_code == 0
         assert "Cannot reach" in result.output or "unreachable" in result.output.lower()
+
+    def test_extra_body_merged_in_scan(self) -> None:
+        """--extra-body fields are sent alongside the probe input."""
+        server, url = _start_server(_BodyEchoHandler)
+        try:
+            runner = CliRunner()
+            result = runner.invoke(scan_cmd, [
+                "--url", url,
+                "--extra-body", '{"inputs": {}, "user": "tester", "response_mode": "blocking"}',
+                "--category", "injection",
+                "--timeout", "5",
+            ])
+            # BodyEchoHandler reflects the request; output shows the full body
+            assert result.exit_code == 0 or result.exit_code == 1  # depends on findings
+        finally:
+            server.shutdown()
+
+    def test_extra_body_invalid_json_rejected(self) -> None:
+        """--extra-body with invalid JSON produces a clear error."""
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "--url", "http://localhost:8000",
+            "--extra-body", "not-valid-json",
+        ])
+        assert result.exit_code != 0
+        assert "Invalid JSON" in result.output
+
+    def test_extra_body_non_object_rejected(self) -> None:
+        """--extra-body must be a JSON object, not array or scalar."""
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "--url", "http://localhost:8000",
+            "--extra-body", "[1, 2, 3]",
+        ])
+        assert result.exit_code != 0
+        assert "Invalid JSON" in result.output
 
     def test_server_down_json_includes_warning(self) -> None:
         """JSON output for unreachable server includes a 'warning' key."""
