@@ -26,6 +26,20 @@ def detect_provider(model: str, *, param_hint: str = "--llm") -> str:
     )
 
 
+def check_api_key(model: str) -> str | None:
+    """Return the API key environment variable name if it's missing, else None."""
+    import os  # noqa: PLC0415
+
+    provider = detect_provider(model)
+    if provider == "openai":
+        if not os.environ.get("OPENAI_API_KEY"):
+            return "OPENAI_API_KEY"
+    else:
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            return "ANTHROPIC_API_KEY"
+    return None
+
+
 async def call_llm(
     model: str,
     system: str,

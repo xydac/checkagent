@@ -290,6 +290,11 @@ class TestAnalyzePromptLLMFlag:
             "checkagent.cli.analyze_prompt._llm_verify_failing_checks",
             _fake_llm_verify,
         )
+        # Simulate API key present so the key-check guard is bypassed
+        monkeypatch.setattr(
+            "checkagent.core.llm_call.check_api_key",
+            lambda model: None,
+        )
 
     def test_llm_flag_shown_in_help(self):
         runner = CliRunner()
@@ -361,3 +366,35 @@ class TestAnalyzePromptLLMFlag:
             main, ["analyze-prompt", "--llm", "gpt-4o-mini", WEAK_PROMPT]
         )
         assert "LLM-assisted" in result.output
+
+    def test_llm_missing_api_key_warns_and_skips(self, monkeypatch):
+        """F-125: missing API key prints a warning and skips LLM verification."""
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.setattr(
+            "checkagent.core.llm_call.check_api_key",
+            lambda model: "OPENAI_API_KEY",
+        )
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["analyze-prompt", "--llm", "gpt-4o-mini", WEAK_PROMPT]
+        )
+        assert result.exit_code == 0 or result.exit_code == 1  # depends on static score
+        assert "LLM verification skipped" in result.output
+        assert "OPENAI_API_KEY" in result.output
+
+    def test_llm_missing_api_key_json_includes_warning_field(self, monkeypatch):
+        """F-125: JSON mode includes llm_warning field when API key is missing."""
+        monkeypatch.setattr(
+            "checkagent.core.llm_call.check_api_key",
+            lambda model: "OPENAI_API_KEY",
+        )
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["analyze-prompt", "--json", "--llm", "gpt-4o-mini", WEAK_PROMPT]
+        )
+        # JSON on stdout should be parseable without extra noise
+        data = __import__("json").loads(result.output)
+        assert "llm_verified_count" in data
+        assert data["llm_verified_count"] == 0
+        assert data["llm_warning"] is not None
+        assert "OPENAI_API_KEY" in data["llm_warning"]

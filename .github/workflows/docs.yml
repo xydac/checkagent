@@ -6,6 +6,7 @@ on:
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
+      - 'zensical.toml'
 
 permissions:
   contents: read
@@ -28,10 +29,10 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install mkdocs-material mkdocstrings[python]
+        run: pip install zensical mkdocstrings[python]
 
       - name: Build docs
-        run: mkdocs build --strict
+        run: zensical build --strict -f mkdocs.yml
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

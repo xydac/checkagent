@@ -315,17 +315,27 @@ def analyze_prompt_cmd(prompt_source: str, output_json: bool, llm_model: str | N
 
     # LLM semantic verification pass — runs on checks that pattern matching missed
     llm_verified: dict[str, tuple[bool, str]] = {}
+    llm_skip_reason: str | None = None
     if llm_model:
-        failing_checks = [cr.check for cr in result.check_results if not cr.passed]
-        if failing_checks:
+        from checkagent.core.llm_call import check_api_key  # noqa: PLC0415
+        missing_key = check_api_key(llm_model)
+        if missing_key:
+            llm_skip_reason = f"LLM verification skipped — {missing_key} is not set"
             if not output_json:
                 _console.print(
-                    f"\n[dim]Running LLM verification ({llm_model}) "
-                    f"on {len(failing_checks)} unconfirmed check(s)…[/dim]"
+                    f"\n[yellow]Warning:[/yellow] {llm_skip_reason}."
                 )
-            llm_verified = asyncio.run(
-                _llm_verify_failing_checks(prompt_text, failing_checks, llm_model)
-            )
+        else:
+            failing_checks = [cr.check for cr in result.check_results if not cr.passed]
+            if failing_checks:
+                if not output_json:
+                    _console.print(
+                        f"\n[dim]Running LLM verification ({llm_model}) "
+                        f"on {len(failing_checks)} unconfirmed check(s)…[/dim]"
+                    )
+                llm_verified = asyncio.run(
+                    _llm_verify_failing_checks(prompt_text, failing_checks, llm_model)
+                )
 
     # Recompute effective missing_high considering LLM results
     llm_pass_ids = {cid for cid, (passed, _) in llm_verified.items() if passed}
@@ -363,6 +373,7 @@ def analyze_prompt_cmd(prompt_source: str, output_json: bool, llm_model: str | N
             "pattern_passed_count": result.passed_count,
             "llm_verified_count": llm_pass_count if llm_model else None,
             "llm_model": llm_model,
+            "llm_warning": llm_skip_reason,
             "checks": checks_out,
         }
         click.echo(json.dumps(data, indent=2))
