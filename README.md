@@ -132,12 +132,18 @@ Scan any HTTP endpoint — works with agents in any language or framework:
 checkagent scan --url http://localhost:8000/chat
 checkagent scan --url http://localhost:8000/api --input-field query
 checkagent scan --url http://localhost:8000/api -H 'Authorization: Bearer tok'
+
+# Dify agents require extra fields alongside the probe input
+checkagent scan --url http://localhost/v1/chat-messages \
+  --input-field query \
+  --extra-body '{"inputs":{},"user":"test","response_mode":"blocking"}'
 ```
 
 Turn findings into regression tests, get machine-readable output, or generate a README badge:
 
 ```bash
 checkagent scan my_agent:agent_fn --generate-tests test_safety.py
+checkagent scan --url http://localhost:8000/chat --generate-tests test_safety.py  # works with HTTP too
 checkagent scan my_agent:agent_fn --json           # structured JSON for CI
 checkagent scan my_agent:agent_fn --badge badge.svg # shields.io-style badge
 checkagent scan my_agent:agent_fn --repeat 3       # run each probe N times for stable CI gates

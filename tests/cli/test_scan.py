@@ -577,6 +577,75 @@ class TestGenerateTestFile:
         assert "_resolve_callable" in content
         assert "urllib.request" not in content
 
+    def test_http_target_custom_input_field(self, tmp_path: Path) -> None:
+        """Generated HTTP test uses the scan-time input_field, not hardcoded 'message'."""
+        out = tmp_path / "test_safety.py"
+        _generate_test_file(
+            "http://dify/v1/chat",
+            self._make_findings(),
+            out,
+            input_field="query",
+        )
+        content = out.read_text()
+        assert 'INPUT_FIELD = "query"' in content
+        assert "INPUT_FIELD: probe_input" in content
+        compile(content, str(out), "exec")
+
+    def test_http_target_extra_body(self, tmp_path: Path) -> None:
+        """Generated HTTP test merges extra_body into every request."""
+        out = tmp_path / "test_safety.py"
+        _generate_test_file(
+            "http://dify/v1/chat",
+            self._make_findings(),
+            out,
+            extra_body={"inputs": {}, "user": "testuser"},
+        )
+        content = out.read_text()
+        assert "EXTRA_BODY" in content
+        assert "inputs" in content
+        assert "{**EXTRA_BODY, INPUT_FIELD: probe_input}" in content
+        compile(content, str(out), "exec")
+
+    def test_http_target_auth_headers(self, tmp_path: Path) -> None:
+        """Generated HTTP test includes auth headers from the scan."""
+        out = tmp_path / "test_safety.py"
+        _generate_test_file(
+            "http://api.example.com/chat",
+            self._make_findings(),
+            out,
+            headers={"Authorization": "Bearer tok123"},
+        )
+        content = out.read_text()
+        assert "AUTH_HEADERS" in content
+        assert "Bearer tok123" in content
+        assert "**AUTH_HEADERS" in content
+        compile(content, str(out), "exec")
+
+    def test_http_target_output_field(self, tmp_path: Path) -> None:
+        """Generated HTTP test uses OUTPUT_FIELD when set instead of auto-detecting."""
+        out = tmp_path / "test_safety.py"
+        _generate_test_file(
+            "http://api.example.com/chat",
+            self._make_findings(),
+            out,
+            output_field="answer",
+        )
+        content = out.read_text()
+        assert "OUTPUT_FIELD = 'answer'" in content
+        assert "if OUTPUT_FIELD and OUTPUT_FIELD in body:" in content
+        compile(content, str(out), "exec")
+
+    def test_http_target_defaults_produce_valid_python(self, tmp_path: Path) -> None:
+        """Default params (no input_field, extra_body, headers) produce valid Python."""
+        out = tmp_path / "test_safety.py"
+        _generate_test_file("http://localhost:8000/chat", self._make_findings(), out)
+        content = out.read_text()
+        assert 'INPUT_FIELD = "message"' in content
+        assert "EXTRA_BODY: dict = {}" in content
+        assert "AUTH_HEADERS: dict = {}" in content
+        assert "OUTPUT_FIELD = None" in content
+        compile(content, str(out), "exec")
+
 
 # ---------------------------------------------------------------------------
 # Unit tests: _is_http_target
@@ -1441,6 +1510,19 @@ class TestScanHttpCommand:
         ])
         assert result.exit_code != 0
         assert "Invalid JSON" in result.output
+
+    def test_extra_body_warns_on_callable_target(self, tmp_path: Path, monkeypatch) -> None:
+        """F-126: --extra-body on a callable target prints a warning (no silent drop)."""
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "scan_test_agents:safe_agent",
+            "--extra-body", '{"ignored": true}',
+            "--category", "injection",
+        ])
+        assert result.exit_code == 0
+        assert "no effect" in result.output.lower() or "--url" in result.output
 
     def test_server_down_json_includes_warning(self) -> None:
         """JSON output for unreachable server includes a 'warning' key."""

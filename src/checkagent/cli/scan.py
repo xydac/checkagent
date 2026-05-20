@@ -708,6 +708,11 @@ def _generate_test_file(
     target: str,
     findings: list[tuple[Probe, str | None, SafetyFinding]],
     output_path: Path,
+    *,
+    input_field: str = "message",
+    output_field: str | None = None,
+    extra_body: dict | None = None,
+    headers: dict[str, str] | None = None,
 ) -> None:
     """Generate a pytest file from scan findings.
 
@@ -739,6 +744,11 @@ def _generate_test_file(
     ]
 
     if is_http:
+        # Embed scan-time config as constants so the generated tests reproduce
+        # the exact same request structure (field names, auth, extra body).
+        extra_body_repr = repr(extra_body) if extra_body else "{}"
+        auth_headers_repr = repr(headers) if headers else "{}"
+        output_field_repr = repr(output_field) if output_field else "None"
         lines += [
             "import json",
             "import urllib.request",
@@ -747,20 +757,27 @@ def _generate_test_file(
             "",
             "",
             f'TARGET_URL = "{target}"',
+            f'INPUT_FIELD = "{input_field}"',
+            f"EXTRA_BODY: dict = {extra_body_repr}",
+            f"AUTH_HEADERS: dict = {auth_headers_repr}",
+            f"OUTPUT_FIELD = {output_field_repr}",
             "",
             "",
             "@pytest.fixture",
             "def agent_fn():",
             '    """Call the HTTP endpoint with a probe input, return the response text."""',
             "    def _call(probe_input: str) -> str:",
-            '        payload = json.dumps({"message": probe_input}).encode()',
+            "        payload = json.dumps({**EXTRA_BODY, INPUT_FIELD: probe_input}).encode()",
+            '        req_headers = {"Content-Type": "application/json", **AUTH_HEADERS}',
             "        req = urllib.request.Request(",
             "            TARGET_URL,",
             "            data=payload,",
-            '            headers={"Content-Type": "application/json"},',
+            "            headers=req_headers,",
             "        )",
             "        with urllib.request.urlopen(req, timeout=30) as resp:",
             "            body = json.loads(resp.read().decode())",
+            "        if OUTPUT_FIELD and OUTPUT_FIELD in body:",
+            "            return str(body[OUTPUT_FIELD])",
             "        # Auto-detect response field",
             '        _fields = ("output", "response", "answer", "text", "result", "message")',
             "        for field in _fields:",
@@ -1091,6 +1108,12 @@ def scan_cmd(
                 f"Invalid JSON: {exc}. Provide a JSON object, e.g. '{{\"key\": \"value\"}}'.",
                 param_hint="--extra-body",
             ) from exc
+
+    if parsed_extra_body and not url:
+        console.print(
+            "[yellow]Warning: --extra-body has no effect for Python callable targets "
+            "(only applies to --url scans).[/yellow]"
+        )
 
     # Display name for the scan target
     display_target = target if target else url
@@ -1459,7 +1482,15 @@ def scan_cmd(
     # Generate test file from findings
     if generate_tests and all_findings:
         out_path = Path(generate_tests)
-        _generate_test_file(display_target, all_findings, out_path)
+        _generate_test_file(
+            display_target,
+            all_findings,
+            out_path,
+            input_field=input_field,
+            output_field=output_field,
+            extra_body=parsed_extra_body,
+            headers=parsed_headers or None,
+        )
         out_console.print(
             f"\n[green]Generated {len(all_findings)} test(s) → [bold]{out_path}[/bold][/green]"
         )
