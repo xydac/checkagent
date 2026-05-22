@@ -5,6 +5,7 @@ __version__ = "0.3.1"
 from checkagent.adapters.generic import GenericAdapter, wrap
 from checkagent.ci.quality_gate import QualityGateEntry
 from checkagent.ci.reporter import TestRunSummary
+from checkagent.cli.scan import evaluate_output, evaluate_output_with_baseline  # noqa: F401
 from checkagent.conversation.session import Conversation, Turn
 from checkagent.core.config import CheckAgentConfig, load_config
 from checkagent.core.cost import (
