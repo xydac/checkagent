@@ -679,6 +679,46 @@ def _evaluate_output(output: str) -> list[SafetyFinding]:
 evaluate_output = _evaluate_output
 
 
+def evaluate_output_with_baseline(
+    output: str,
+    baseline: str,
+    *,
+    category: str = "prompt_injection",
+) -> list[SafetyFinding]:
+    """Run static evaluators AND behavioral baseline comparison.
+
+    Use this in generated regression tests to reproduce the same checks the
+    scanner performs — both pattern-based (static) and structural-divergence
+    (behavioral) findings.
+
+    Parameters
+    ----------
+    output:
+        The agent's response to the probe input.
+    baseline:
+        The agent's response to a benign query (e.g. "Hello, how can you help?").
+        Pass an empty string to skip baseline comparison (falls back to static only).
+    category:
+        Safety category string for behavioral findings.  Should match the test's
+        probe category so findings are attributed correctly.
+    """
+    findings: list[SafetyFinding] = list(_evaluate_output(output))
+    if baseline:
+        from checkagent.safety.behavioral import check_behavioral_compliance
+        from checkagent.safety.probes.base import Probe
+        from checkagent.safety.taxonomy import SafetyCategory, Severity
+
+        try:
+            cat = SafetyCategory(category.lower().replace(" ", "_").replace("-", "_"))
+        except ValueError:
+            cat = SafetyCategory.PROMPT_INJECTION
+        synthetic_probe = Probe(input=output[:60], category=cat, severity=Severity.HIGH)
+        behavioral = check_behavioral_compliance(output, baseline, synthetic_probe)
+        seen = {f.description for f in findings}
+        findings.extend(f for f in behavioral if f.description not in seen)
+    return findings
+
+
 def _severity_style(severity: Severity) -> str:
     """Map severity to Rich style."""
     return {
@@ -753,7 +793,7 @@ def _generate_test_file(
             "import json",
             "import urllib.request",
             "",
-            "from checkagent.cli.scan import evaluate_output",
+            "from checkagent.cli.scan import evaluate_output_with_baseline",
             "",
             "",
             f'TARGET_URL = "{target}"',
@@ -763,33 +803,45 @@ def _generate_test_file(
             f"OUTPUT_FIELD = {output_field_repr}",
             "",
             "",
+            "def _http_call(probe_input: str) -> str:",
+            '    """Call the HTTP endpoint with a probe input, return the response text."""',
+            "    payload = json.dumps({**EXTRA_BODY, INPUT_FIELD: probe_input}).encode()",
+            '    req_headers = {"Content-Type": "application/json", **AUTH_HEADERS}',
+            "    req = urllib.request.Request(",
+            "        TARGET_URL,",
+            "        data=payload,",
+            "        headers=req_headers,",
+            "    )",
+            "    with urllib.request.urlopen(req, timeout=30) as resp:",
+            "        body = json.loads(resp.read().decode())",
+            "    if OUTPUT_FIELD and OUTPUT_FIELD in body:",
+            "        return str(body[OUTPUT_FIELD])",
+            "    # Auto-detect response field",
+            '    _fields = ("output", "response", "answer", "text", "result", "message")',
+            "    for field in _fields:",
+            "        if field in body:",
+            "            return str(body[field])",
+            "    return str(body)",
+            "",
+            "",
             "@pytest.fixture",
             "def agent_fn():",
-            '    """Call the HTTP endpoint with a probe input, return the response text."""',
-            "    def _call(probe_input: str) -> str:",
-            "        payload = json.dumps({**EXTRA_BODY, INPUT_FIELD: probe_input}).encode()",
-            '        req_headers = {"Content-Type": "application/json", **AUTH_HEADERS}',
-            "        req = urllib.request.Request(",
-            "            TARGET_URL,",
-            "            data=payload,",
-            "            headers=req_headers,",
-            "        )",
-            "        with urllib.request.urlopen(req, timeout=30) as resp:",
-            "            body = json.loads(resp.read().decode())",
-            "        if OUTPUT_FIELD and OUTPUT_FIELD in body:",
-            "            return str(body[OUTPUT_FIELD])",
-            "        # Auto-detect response field",
-            '        _fields = ("output", "response", "answer", "text", "result", "message")',
-            "        for field in _fields:",
-            "            if field in body:",
-            "                return str(body[field])",
-            "        return str(body)",
-            "    return _call",
+            '    """Return the HTTP caller callable."""',
+            "    return _http_call",
+            "",
+            "",
+            "@pytest.fixture(scope='session')",
+            "def baseline_response():",
+            '    """Baseline: agent response to a benign query for behavioral comparison."""',
+            "    try:",
+            '        return _http_call("Hello, what can you help me with?")',
+            "    except Exception:",
+            '        return ""',
             "",
         ]
     else:
         lines += [
-            "from checkagent.cli.scan import evaluate_output, _resolve_callable",
+            "from checkagent.cli.scan import evaluate_output_with_baseline, _resolve_callable",
             "",
             "",
             f'TARGET = "{target}"',
@@ -799,6 +851,29 @@ def _generate_test_file(
             "def agent_fn():",
             '    """Resolve the agent callable under test."""',
             "    return _resolve_callable(TARGET)",
+            "",
+            "",
+            "@pytest.fixture(scope='session')",
+            "def baseline_response():",
+            '    """Baseline: agent response to a benign query for behavioral comparison."""',
+            "    import asyncio",
+            "",
+            "    try:",
+            "        agent = _resolve_callable(TARGET)",
+            '        coro = agent("Hello, what can you help me with?")',
+            "        if asyncio.iscoroutine(coro):",
+            "            result = asyncio.run(coro)",
+            "        else:",
+            "            result = coro",
+            "        if isinstance(result, str):",
+            "            return result",
+            "        elif isinstance(result, dict):",
+            '            return str(result.get("output", result))',
+            '        elif hasattr(result, "final_output"):',
+            "            return str(result.final_output) if result.final_output else ''",
+            "        return str(result)",
+            "    except Exception:",
+            '        return ""',
             "",
         ]
 
@@ -827,7 +902,7 @@ def _generate_test_file(
 
         lines.append("    ],")
         lines.append(")")
-        lines.append(f"def {func_name}(agent_fn, probe_input):")
+        lines.append(f"def {func_name}(agent_fn, probe_input, baseline_response):")
         lines.append(f'    """Regression: agent must not trigger {cat_name} findings."""')
         if is_http:
             # HTTP fixture returns a plain string — no async needed
@@ -850,7 +925,10 @@ def _generate_test_file(
             lines.append("    else:")
             lines.append("        text = str(output)")
         lines.append("")
-        lines.append("    findings = evaluate_output(text)")
+        lines.append(
+            f'    findings = evaluate_output_with_baseline(text, baseline_response,'
+            f' category="{cat_name}")'
+        )
         var = f"{safe_cat}_findings"
         lines.append(
             f'    {var} = [f for f in findings'
@@ -1110,7 +1188,7 @@ def scan_cmd(
             ) from exc
 
     if parsed_extra_body and not url:
-        console.print(
+        Console(stderr=True).print(
             "[yellow]Warning: --extra-body has no effect for Python callable targets "
             "(only applies to --url scans).[/yellow]"
         )
