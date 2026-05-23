@@ -7,7 +7,7 @@ from checkagent.ci.quality_gate import QualityGateEntry
 from checkagent.ci.reporter import TestRunSummary
 from checkagent.cli.scan import evaluate_output, evaluate_output_with_baseline  # noqa: F401
 from checkagent.conversation.session import Conversation, Turn
-from checkagent.core.config import CheckAgentConfig, load_config
+from checkagent.core.config import CheckAgentConfig, ScanGatesConfig, load_config
 from checkagent.core.cost import (
     BudgetExceededError,
     CostBreakdown,
@@ -135,6 +135,7 @@ __all__ = [
     "PydanticAIAdapter",
     # Config
     "CheckAgentConfig",
+    "ScanGatesConfig",
     "load_config",
     # Cost
     "BudgetExceededError",

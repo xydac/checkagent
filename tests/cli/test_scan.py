@@ -3041,3 +3041,238 @@ class TestInteractiveDrillDown:
         output = buf.getvalue()
         # After expand + j, should be showing finding 2
         assert "Finding 2/2" in output
+
+
+# ---------------------------------------------------------------------------
+# Tests: evaluate_scan_gates
+# ---------------------------------------------------------------------------
+
+
+def _make_finding_tuple(severity: Severity = Severity.HIGH) -> tuple:
+    probe = Probe(input="test", category=SafetyCategory.PROMPT_INJECTION, severity=severity)
+    finding = SafetyFinding(
+        category=SafetyCategory.PROMPT_INJECTION,
+        severity=severity,
+        description="test finding",
+    )
+    return (probe, "response", finding)
+
+
+class TestEvaluateScanGates:
+    """Tests for evaluate_scan_gates()."""
+
+    def test_no_gates_configured_returns_empty(self):
+        from checkagent.cli.scan import evaluate_scan_gates
+        from checkagent.core.config import ScanGatesConfig
+
+        gates = ScanGatesConfig()  # all None
+        result = evaluate_scan_gates(gates, [], 1.0)
+        assert result == []
+
+    def test_max_critical_passes(self):
+        from checkagent.cli.scan import evaluate_scan_gates
+        from checkagent.core.config import ScanGatesConfig
+
+        gates = ScanGatesConfig(max_critical=1)
+        findings = [_make_finding_tuple(Severity.CRITICAL)]
+        result = evaluate_scan_gates(gates, findings, 0.9)
+        assert any(name == "max_critical" and status == "pass" for name, status, _ in result)
+
+    def test_max_critical_blocked(self):
+        from checkagent.cli.scan import evaluate_scan_gates
+        from checkagent.core.config import ScanGatesConfig
+
+        gates = ScanGatesConfig(max_critical=0, on_fail="block")
+        findings = [_make_finding_tuple(Severity.CRITICAL)]
+        result = evaluate_scan_gates(gates, findings, 0.9)
+        assert any(name == "max_critical" and status == "block" for name, status, _ in result)
+
+    def test_max_high_warns(self):
+        from checkagent.cli.scan import evaluate_scan_gates
+        from checkagent.core.config import ScanGatesConfig
+
+        gates = ScanGatesConfig(max_high=0, on_fail="warn")
+        findings = [_make_finding_tuple(Severity.HIGH)]
+        result = evaluate_scan_gates(gates, findings, 0.9)
+        assert any(name == "max_high" and status == "warn" for name, status, _ in result)
+
+    def test_min_score_blocked(self):
+        from checkagent.cli.scan import evaluate_scan_gates
+        from checkagent.core.config import ScanGatesConfig
+
+        gates = ScanGatesConfig(min_score=0.9, on_fail="block")
+        result = evaluate_scan_gates(gates, [], 0.5)
+        assert any(name == "min_score" and status == "block" for name, status, _ in result)
+
+    def test_min_score_passes(self):
+        from checkagent.cli.scan import evaluate_scan_gates
+        from checkagent.core.config import ScanGatesConfig
+
+        gates = ScanGatesConfig(min_score=0.8, on_fail="block")
+        result = evaluate_scan_gates(gates, [], 0.9)
+        assert any(name == "min_score" and status == "pass" for name, status, _ in result)
+
+    def test_max_findings_gate(self):
+        from checkagent.cli.scan import evaluate_scan_gates
+        from checkagent.core.config import ScanGatesConfig
+
+        gates = ScanGatesConfig(max_findings=2, on_fail="block")
+        findings = [_make_finding_tuple() for _ in range(3)]
+        result = evaluate_scan_gates(gates, findings, 0.5)
+        assert any(name == "max_findings" and status == "block" for name, status, _ in result)
+
+    def test_multiple_gates_mixed(self):
+        from checkagent.cli.scan import evaluate_scan_gates
+        from checkagent.core.config import ScanGatesConfig
+
+        gates = ScanGatesConfig(max_critical=0, max_high=5, on_fail="block")
+        findings = [_make_finding_tuple(Severity.CRITICAL)]
+        result = evaluate_scan_gates(gates, findings, 0.9)
+        # max_critical blocked, max_high passed
+        statuses = {name: status for name, status, _ in result}
+        assert statuses["max_critical"] == "block"
+        assert statuses["max_high"] == "pass"
+
+
+# ---------------------------------------------------------------------------
+# Tests: _build_pr_comment
+# ---------------------------------------------------------------------------
+
+
+class TestBuildPrComment:
+    """Tests for _build_pr_comment()."""
+
+    def test_no_findings_produces_clean_comment(self):
+        from checkagent.cli.scan import _build_pr_comment
+
+        md = _build_pr_comment("my_agent:fn", 35, 0, 0, 35, 1.0, [])
+        assert "100%" in md
+        assert "No findings detected" in md
+        assert "CheckAgent" in md
+
+    def test_findings_shown_in_table(self):
+        from checkagent.cli.scan import _build_pr_comment
+
+        findings = [_make_finding_tuple(Severity.CRITICAL)]
+        md = _build_pr_comment("my_agent:fn", 34, 1, 0, 35, 34 / 35, findings)
+        assert "CRITICAL" in md
+        assert "test finding" in md
+
+    def test_score_emoji_bad(self):
+        from checkagent.cli.scan import _build_pr_comment
+
+        md = _build_pr_comment("agent:fn", 10, 25, 0, 35, 10 / 35, [])
+        assert "❌" in md
+
+    def test_score_emoji_medium(self):
+        from checkagent.cli.scan import _build_pr_comment
+
+        md = _build_pr_comment("agent:fn", 25, 10, 0, 35, 25 / 35, [])
+        assert "⚠️" in md
+
+    def test_score_emoji_good(self):
+        from checkagent.cli.scan import _build_pr_comment
+
+        md = _build_pr_comment("agent:fn", 35, 0, 0, 35, 1.0, [])
+        assert "✅" in md
+
+    def test_truncates_more_than_20_findings(self):
+        from checkagent.cli.scan import _build_pr_comment
+
+        findings = [_make_finding_tuple() for _ in range(25)]
+        md = _build_pr_comment("agent:fn", 10, 25, 0, 35, 10 / 35, findings)
+        assert "5 more findings" in md
+
+    def test_errors_shown_when_nonzero(self):
+        from checkagent.cli.scan import _build_pr_comment
+
+        md = _build_pr_comment("agent:fn", 30, 3, 2, 35, 30 / 35, [])
+        assert "Errors" in md
+        assert "2" in md
+
+
+# ---------------------------------------------------------------------------
+# Tests: --comment-file CLI flag
+# ---------------------------------------------------------------------------
+
+
+class TestCommentFileFlag:
+    """Integration tests for --comment-file flag."""
+
+    def test_comment_file_written_on_clean_scan(self, tmp_path, monkeypatch):
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        comment_path = tmp_path / "comment.md"
+        runner = CliRunner()
+        result = runner.invoke(
+            scan_cmd,
+            [
+                "scan_test_agents:safe_agent",
+                "--category", "injection",
+                "--timeout", "2",
+                "--comment-file", str(comment_path),
+            ],
+            catch_exceptions=False,
+        )
+        assert comment_path.exists(), f"Comment file not written. Output:\n{result.output}"
+        content = comment_path.read_text()
+        assert "CheckAgent" in content
+        assert "Safety Score" in content
+
+    def test_comment_file_flag_appears_in_help(self):
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, ["--help"])
+        assert "--comment-file" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Tests: ScanGatesConfig in checkagent.yml
+# ---------------------------------------------------------------------------
+
+
+class TestScanGatesConfig:
+    """Tests for ScanGatesConfig Pydantic model."""
+
+    def test_default_is_all_none(self):
+        from checkagent.core.config import ScanGatesConfig
+
+        g = ScanGatesConfig()
+        assert g.max_critical is None
+        assert g.max_high is None
+        assert g.max_findings is None
+        assert g.min_score is None
+        assert g.on_fail == "block"
+
+    def test_invalid_on_fail_raises(self):
+        from pydantic import ValidationError
+
+        from checkagent.core.config import ScanGatesConfig
+
+        with pytest.raises(ValidationError):
+            ScanGatesConfig(on_fail="explode")
+
+    def test_scan_gates_in_checkagent_config(self, tmp_path):
+        import yaml
+
+        from checkagent.core.config import load_config
+
+        cfg_path = tmp_path / "checkagent.yml"
+        cfg_path.write_text(
+            yaml.dump({
+                "version": 1,
+                "scan_gates": {
+                    "max_critical": 0,
+                    "max_high": 2,
+                    "min_score": 0.8,
+                    "on_fail": "block",
+                },
+            })
+        )
+        cfg = load_config(cfg_path)
+        assert cfg.scan_gates.max_critical == 0
+        assert cfg.scan_gates.max_high == 2
+        assert cfg.scan_gates.min_score == 0.8
+        assert cfg.scan_gates.on_fail == "block"
+
+    def test_scan_gates_exported_from_top_level(self):
+        from checkagent import ScanGatesConfig  # noqa: F401

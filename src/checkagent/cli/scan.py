@@ -42,6 +42,7 @@ from checkagent.cli.sarif import (
     sarif_invocation,
     sarif_run_properties,
 )
+from checkagent.core.config import ScanGatesConfig, load_config
 from checkagent.core.tracer import (
     begin_probe_trace,
     end_probe_trace,
@@ -83,6 +84,89 @@ class _AsyncioLoopClosedFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:  # noqa: A003
         return "Event loop is closed" not in record.getMessage()
+
+
+# ---------------------------------------------------------------------------
+# Scan quality gate evaluation
+# ---------------------------------------------------------------------------
+
+
+def evaluate_scan_gates(
+    gates: ScanGatesConfig,
+    all_findings: list,
+    score: float,
+) -> list[tuple[str, str, str]]:
+    """Evaluate scan results against configured quality gates.
+
+    Returns a list of (gate_name, status, message) tuples where status is
+    'block', 'warn', or 'pass'.  Empty list if no gates are configured.
+    """
+    if not any([
+        gates.max_critical is not None,
+        gates.max_high is not None,
+        gates.max_findings is not None,
+        gates.min_score is not None,
+    ]):
+        return []
+
+    critical_count = sum(
+        1 for _, _, f in all_findings if f.severity == Severity.CRITICAL
+    )
+    high_count = sum(
+        1 for _, _, f in all_findings if f.severity == Severity.HIGH
+    )
+    total_findings = len(all_findings)
+
+    results: list[tuple[str, str, str]] = []
+
+    def _check(name: str, actual: int | float, threshold: int | float, direction: str) -> None:
+        if direction == "max":
+            failed = actual > threshold
+            msg = f"{name}: {actual} > {threshold} (max allowed)"
+        else:
+            failed = actual < threshold
+            msg = f"{name}: {actual:.0%} < {threshold:.0%} (min required)"
+        status = gates.on_fail if failed else "pass"
+        results.append((name, status, msg if failed else f"{name}: OK ({actual})"))
+
+    if gates.max_critical is not None:
+        _check("max_critical", critical_count, gates.max_critical, "max")
+    if gates.max_high is not None:
+        _check("max_high", high_count, gates.max_high, "max")
+    if gates.max_findings is not None:
+        _check("max_findings", total_findings, gates.max_findings, "max")
+    if gates.min_score is not None:
+        _check("min_score", score, gates.min_score, "min")
+
+    return results
+
+
+def _render_gate_results(
+    console: Console,
+    gate_results: list[tuple[str, str, str]],
+) -> None:
+    """Print quality gate results as a panel."""
+    rows = []
+    for _name, status, msg in gate_results:
+        if status == "block":
+            rows.append(f"  [bold red]✗ BLOCKED[/bold red]  {msg}")
+        elif status == "warn":
+            rows.append(f"  [yellow]⚠ WARN[/yellow]    {msg}")
+        else:
+            rows.append(f"  [green]✓ PASS[/green]     {msg}")
+
+    body = "\n".join(rows)
+    has_block = any(s == "block" for _, s, _ in gate_results)
+    has_warn = any(s == "warn" for _, s, _ in gate_results)
+    border = "red" if has_block else ("yellow" if has_warn else "green")
+    if has_block:
+        title = "Quality Gates FAILED"
+    elif has_warn:
+        title = "Quality Gates WARN"
+    else:
+        title = "Quality Gates PASSED"
+    console.print()
+    console.print(Panel(body, title=title, border_style=border))
 
 
 # ---------------------------------------------------------------------------
@@ -1099,6 +1183,17 @@ def _generate_test_file(
         "and remediation tips. Requires a TTY."
     ),
 )
+@click.option(
+    "--comment-file",
+    "comment_file",
+    type=click.Path(dir_okay=False),
+    default=None,
+    metavar="FILE",
+    help=(
+        "Write a Markdown summary suitable for a GitHub PR comment to FILE. "
+        "Combine with --json for machine-readable output alongside the comment."
+    ),
+)
 def scan_cmd(
     target: str | None,
     url: str | None,
@@ -1119,6 +1214,7 @@ def scan_cmd(
     sarif_file: str | None,
     report_file: str | None,
     interactive: bool = False,
+    comment_file: str | None = None,
 ) -> None:
     """Scan an agent for safety vulnerabilities.
 
@@ -1518,6 +1614,15 @@ def scan_cmd(
                 "current_score": _delta["current_score"],
                 "score_delta": _delta["score_delta"],
             }
+        # Evaluate scan gates and embed in JSON output
+        _json_score = passed / total if total > 0 else 0.0
+        _json_cfg = load_config()
+        _json_gates = evaluate_scan_gates(_json_cfg.scan_gates, all_findings, _json_score)
+        if _json_gates:
+            report["quality_gates"] = [
+                {"gate": name, "status": status, "message": msg}
+                for name, status, msg in _json_gates
+            ]
         print(json_mod.dumps(report, indent=2))
     else:
         # Rich display — reads from SARIF structure
@@ -1619,9 +1724,38 @@ def scan_cmd(
     if interactive and not json_output and all_findings:
         _interactive_drill_down(out_console, all_findings, sarif_doc)
 
-    # Exit with non-zero if any findings
-    if all_findings:
+    # Write PR comment file if requested
+    if comment_file:
+        scan_score = passed / total if total > 0 else 0.0
+        comment_md = _build_pr_comment(
+            display_target, passed, failed, errors, total, scan_score, all_findings
+        )
+        Path(comment_file).write_text(comment_md, encoding="utf-8")
+        if not json_output:
+            out_console.print(
+                f"\n[green]PR comment written → [bold]{comment_file}[/bold][/green]"
+            )
+
+    # Evaluate scan quality gates from checkagent.yml (if configured)
+    _cfg = load_config()
+    scan_score = passed / total if total > 0 else 0.0
+    gate_results = evaluate_scan_gates(_cfg.scan_gates, all_findings, scan_score)
+    _gate_blocked = False
+    if gate_results and not json_output:
+        _render_gate_results(out_console, gate_results)
+        _gate_blocked = any(s == "block" for _, s, _ in gate_results)
+    elif gate_results and json_output:
+        _gate_blocked = any(s == "block" for _, s, _ in gate_results)
+
+    if _gate_blocked:
+        sys.exit(2)
+
+    # Exit with non-zero if any findings (and no gates configured, or all gates passed)
+    if all_findings and not gate_results:
         sys.exit(1)
+    elif all_findings and gate_results and not _gate_blocked:
+        # Gates configured and none blocked — user explicitly chose to allow these findings
+        pass
 
 
 async def _run_all_probes(
@@ -1748,6 +1882,64 @@ def _build_json_report(
         }
 
     return report
+
+
+def _build_pr_comment(
+    target: str,
+    passed: int,
+    failed: int,
+    errors: int,
+    total: int,
+    score: float,
+    all_findings: list,
+) -> str:
+    """Build a GitHub PR comment in Markdown from scan results."""
+    score_pct = f"{score:.0%}"
+    emoji = "✅" if score >= 0.8 else ("⚠️" if score >= 0.5 else "❌")
+
+    lines = [
+        f"## {emoji} CheckAgent Safety Scan — {target}",
+        "",
+        "| Metric | Value |",
+        "|--------|-------|",
+        f"| Safety Score | **{score_pct}** |",
+        f"| Probes Passed | {passed} / {total} |",
+        f"| Findings | {failed} |",
+    ]
+    if errors:
+        lines.append(f"| Errors | {errors} |")
+
+    if all_findings:
+        lines += [
+            "",
+            "### Findings",
+            "",
+            "| Severity | Category | Finding |",
+            "|----------|----------|---------|",
+        ]
+        severity_order = {
+            Severity.CRITICAL: 0, Severity.HIGH: 1,
+            Severity.MEDIUM: 2, Severity.LOW: 3,
+        }
+        sorted_findings = sorted(
+            all_findings, key=lambda x: severity_order.get(x[2].severity, 99)
+        )
+        for _probe, _output, finding in sorted_findings[:20]:
+            sev = finding.severity.value.upper()
+            cat = finding.category.value.replace("_", " ").title()
+            desc = finding.description.replace("|", "\\|")[:80]
+            lines.append(f"| {sev} | {cat} | {desc} |")
+        if len(all_findings) > 20:
+            lines.append(f"| ... | | _{len(all_findings) - 20} more findings_ |")
+    else:
+        lines += ["", "_No findings detected._"]
+
+    lines += [
+        "",
+        "---",
+        "_Generated by [CheckAgent](https://checkagent.dev)_",
+    ]
+    return "\n".join(lines) + "\n"
 
 
 def _display_trace_section(console: Console, sarif_doc: dict) -> None:

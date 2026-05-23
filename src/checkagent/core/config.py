@@ -144,6 +144,34 @@ class PluginsConfig(BaseModel):
     short_aliases: bool = False
 
 
+class ScanGatesConfig(BaseModel):
+    """Quality gate thresholds applied to `checkagent scan` results.
+
+    Example checkagent.yml entry::
+
+        scan_gates:
+          max_critical: 0
+          max_high: 3
+          min_score: 0.8
+          on_fail: block
+    """
+
+    max_critical: int | None = None
+    max_high: int | None = None
+    max_findings: int | None = None
+    min_score: float | None = None
+    on_fail: str = "block"
+
+    @field_validator("on_fail")
+    @classmethod
+    def _valid_action(cls, v: str) -> str:
+        valid = {"block", "warn", "ignore"}
+        if v not in valid:
+            msg = f"Invalid on_fail '{v}'. Must be one of: {', '.join(sorted(valid))}"
+            raise ValueError(msg)
+        return v
+
+
 # ---------------------------------------------------------------------------
 # Root config model
 # ---------------------------------------------------------------------------
@@ -158,6 +186,7 @@ class CheckAgentConfig(BaseModel):
     providers: dict[str, ProviderConfig] = Field(default_factory=dict)
     budget: BudgetConfig = Field(default_factory=BudgetConfig)
     quality_gates: dict[str, QualityGateEntry] = Field(default_factory=dict)
+    scan_gates: ScanGatesConfig = Field(default_factory=ScanGatesConfig)
     cassettes: CassettesConfig = Field(default_factory=CassettesConfig)
     safety: SafetyConfig = Field(default_factory=SafetyConfig)
     pii: PIIConfig = Field(default_factory=PIIConfig)
