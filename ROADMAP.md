@@ -103,8 +103,8 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] Verified support for OpenAI Agents SDK (FakeModel, tool calling, streaming)
 
 ### Milestone 12: CI/CD Polish
-- [ ] Quality gates auto-enforce from config
-- [ ] PR comment generation with eval metrics
+- [x] Quality gates auto-enforce from config (`scan_gates:` in `checkagent.yml`)
+- [x] PR comment generation (`checkagent scan --comment-file comment.md`)
 - [x] `checkagent ci-init` for easy CI setup
 
 ### Milestone 13: v0.2.0 Launch
