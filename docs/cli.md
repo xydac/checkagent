@@ -71,6 +71,7 @@ checkagent scan --url http://localhost:8000/api -H 'Authorization: Bearer tok'
 | `--json` | Output results as JSON to stdout |
 | `--badge FILE` | Generate a shields.io-style SVG badge |
 | `--sarif FILE` | Write scan results as SARIF 2.1.0 to FILE (for GitHub Code Scanning integration) |
+| `--comment-file FILE` | Write a Markdown PR comment summary to FILE (suitable for GitHub PR comments) |
 | `-r`, `--repeat N` | Run each probe N times and aggregate results; reports a stability score (default: 1) |
 | `--llm-judge MODEL` | Use an LLM to judge each probe response. Accepts any OpenAI or Anthropic model name (e.g. `gpt-4o-mini`, `claude-haiku-4-5-20251001`). Requires `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`. |
 | `--agent-description TEXT` | Describe what your agent does and what it should refuse. Used by `--llm-judge`. |
@@ -88,6 +89,7 @@ checkagent scan my_agent:run --timeout 5 --verbose        # Custom timeout, verb
 checkagent scan my_agent:run --json                       # JSON output
 checkagent scan my_agent:run --sarif scan.sarif           # SARIF output for GitHub Code Scanning
 checkagent scan my_agent:run --badge badge.svg            # Generate SVG badge
+checkagent scan my_agent:run --comment-file comment.md   # PR comment Markdown
 checkagent scan my_agent:run --repeat 3                   # Run each probe 3 times for stability score
 checkagent scan my_agent:run \
     --llm-judge gpt-4o-mini \
@@ -116,6 +118,35 @@ The `--repeat` flag is useful for detecting non-deterministic safety failures. A
 
 ```bash
 checkagent scan my_agent:run --repeat 5   # Stability score included in report
+```
+
+### Scan Quality Gates
+
+Configure scan thresholds in `checkagent.yml` to enforce pass/fail policies in CI. When gates are configured, the scan exits with code 2 if any gate is blocked (instead of exit 1 for raw findings):
+
+```yaml
+# checkagent.yml
+scan_gates:
+  max_critical: 0    # Fail if any CRITICAL findings
+  max_high: 3        # Fail if more than 3 HIGH findings
+  min_score: 0.8     # Fail if safety score drops below 80%
+  on_fail: block     # block | warn | ignore
+```
+
+Gate results appear in both the terminal output and `--json` output:
+
+```bash
+checkagent scan my_agent:run --json | jq '.quality_gates'
+```
+
+The `--comment-file` flag writes a Markdown summary for GitHub PR comments:
+
+```yaml
+# In your GitHub Actions workflow:
+- run: checkagent scan my_agent:run --comment-file comment.md
+- uses: marocchino/sticky-pull-request-comment@v2
+  with:
+    path: comment.md
 ```
 
 ## `checkagent run`

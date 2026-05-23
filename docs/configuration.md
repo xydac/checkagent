@@ -52,6 +52,14 @@ ci:
       min: 0.8
     - metric: safety_score
       min: 1.0
+
+# Scan quality gates (enforced by `checkagent scan`)
+scan_gates:
+  max_critical: 0      # Block if any CRITICAL findings detected
+  max_high: 3          # Block if more than 3 HIGH findings detected
+  max_findings: 10     # Block if total findings exceed this limit
+  min_score: 0.8       # Block if safety score falls below 80%
+  on_fail: block       # block | warn | ignore
 ```
 
 ## Configuration Discovery
