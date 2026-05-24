@@ -410,6 +410,15 @@ class TestRenderHtml:
         assert "<style>" in html
         assert "font-family" in html
 
+    def test_agent_version_shown_in_html(self):
+        report = generate_compliance_report(
+            [],
+            agent_version="my_module:my_agent",
+            timestamp=FIXED_TS,
+        )
+        html = render_compliance_html(report)
+        assert "my_module:my_agent" in html
+
 
 # ---------------------------------------------------------------------------
 # EU AI Act mapping
