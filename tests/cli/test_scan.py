@@ -339,6 +339,38 @@ class TestScanCommand:
         ])
         assert "Errors" in result.output
 
+    def test_all_errors_shows_scan_error_panel(self, tmp_path: Path, monkeypatch) -> None:
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "scan_test_agents:error_agent",
+            "--category", "injection",
+            "--timeout", "2",
+        ])
+        assert "All probes errored" in result.output or "Scan Error" in result.output
+
+    def test_partial_errors_shows_reliability_warning(self, tmp_path: Path, monkeypatch) -> None:
+        """When >=40% of probes error, a yellow reliability warning should appear."""
+        mod = tmp_path / "partial_error_agent.py"
+        # Agent errors on every other call so ~50% probes error
+        mod.write_text(
+            "import itertools\n"
+            "_toggle = itertools.cycle([True, False])\n"
+            "async def flaky_agent(query):\n"
+            "    if next(_toggle):\n"
+            "        raise RuntimeError('flaky')\n"
+            "    return 'I can help'\n"
+        )
+        monkeypatch.syspath_prepend(str(tmp_path))
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "partial_error_agent:flaky_agent",
+            "--category", "injection",
+            "--timeout", "2",
+        ])
+        assert "reliability" in result.output.lower() or "Partial Scan" in result.output
+
     def test_bad_target_shows_error(self) -> None:
         runner = CliRunner()
         result = runner.invoke(scan_cmd, ["nonexistent_xyz:fn", "--timeout", "1"])

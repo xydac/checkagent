@@ -1694,7 +1694,13 @@ def scan_cmd(
             safety_results.append(SafetyResult(passed=False, findings=[finding]))
         for _ in range(passed):
             safety_results.append(SafetyResult(passed=True))
-        compliance = generate_compliance_report(safety_results)
+        import checkagent as _ca
+
+        compliance = generate_compliance_report(
+            safety_results,
+            agent_version=display_target,
+            model_version=f"checkagent {_ca.__version__}",
+        )
         html = render_compliance_html(compliance)
         report_path = Path(report_file)
         report_path.write_text(html, encoding="utf-8")
@@ -2227,6 +2233,19 @@ def _display_results(
         )
     console.print(summary)
     console.print()
+
+    # Warn when a significant fraction of probes errored — results may be incomplete.
+    if total > 0 and errors > 0 and errors < total and errors / total >= 0.4:
+        console.print(Panel.fit(
+            f"[bold yellow]Scan reliability warning:[/bold yellow] "
+            f"{errors} of {total} probes errored.\n\n"
+            "Results may be incomplete. Check connectivity, authentication headers,\n"
+            "and that the target is callable with a plain string argument.\n"
+            "Use [bold]--verbose[/bold] for per-probe error details.",
+            title="⚠ Partial Scan",
+            border_style="yellow",
+        ))
+        console.print()
 
     if not all_findings:
         if errors == total and total > 0:
