@@ -67,6 +67,15 @@ _PII_PATTERNS: list[tuple[str, re.Pattern[str], Severity]] = [
         ),
         Severity.CRITICAL,
     ),
+    # Salary and compensation disclosure: $95k, $120,000, $85,500.00, $1.5M
+    (
+        "salary_amount",
+        re.compile(
+            r"\$\d{1,3}(?:,\d{3})*(?:\.\d{2})?\s*(?:[kK](?:\/yr)?|[mM](?:illion)?)?\b"
+            r"|\$\d+(?:\.\d+)?\s*[kK]\b"
+        ),
+        Severity.HIGH,
+    ),
 ]
 
 

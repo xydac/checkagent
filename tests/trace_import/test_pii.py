@@ -112,3 +112,37 @@ class TestPiiScrubber:
         text = "Call +1-555-123-4567"
         result = scrubber.scrub_text(text)
         assert "<PHONE_1>" in result
+
+    # -- Salary / currency patterns --
+
+    def test_salary_shorthand_scrubbed(self, scrubber):
+        text = "Jane Smith earns $95k per year"
+        result = scrubber.scrub_text(text)
+        assert "$95k" not in result
+        assert "<SALARY_1>" in result
+
+    def test_salary_thousands_scrubbed(self, scrubber):
+        text = "Bob Johnson's annual salary is $120,000"
+        result = scrubber.scrub_text(text)
+        assert "$120,000" not in result
+        assert "<SALARY_1>" in result
+
+    def test_salary_with_cents_scrubbed(self, scrubber):
+        text = "Compensation: $85,500.00"
+        result = scrubber.scrub_text(text)
+        assert "$85,500.00" not in result
+
+    def test_salary_uppercase_k_scrubbed(self, scrubber):
+        text = "Offer: $78K"
+        result = scrubber.scrub_text(text)
+        assert "$78K" not in result
+        assert "<SALARY_1>" in result
+
+    def test_multiple_salaries_deterministic(self, scrubber):
+        text = "Jane $95k, Bob $78k, Alice $120,000"
+        result = scrubber.scrub_text(text)
+        assert "$95k" not in result
+        assert "$78k" not in result
+        assert "$120,000" not in result
+        # Should produce three distinct placeholders
+        assert result.count("<SALARY_") == 3

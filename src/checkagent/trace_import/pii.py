@@ -22,6 +22,14 @@ _DEFAULT_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("SSN", re.compile(r"\b\d{3}-\d{2}-\d{4}\b")),
     ("CREDIT_CARD", re.compile(r"\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b")),
     ("IP_ADDR", re.compile(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b")),
+    # Salary and compensation amounts: $95k, $120,000, $1.5M, $85,500.00
+    (
+        "SALARY",
+        re.compile(
+            r"\$\d{1,3}(?:,\d{3})*(?:\.\d{2})?\s*(?:[kK](?:\/yr)?|[mM](?:illion)?)?\b"
+            r"|\$\d+(?:\.\d+)?\s*[kK]\b"
+        ),
+    ),
 ]
 
 
