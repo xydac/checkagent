@@ -146,3 +146,16 @@ class TestPiiScrubber:
         assert "$120,000" not in result
         # Should produce three distinct placeholders
         assert result.count("<SALARY_") == 3
+
+    def test_retail_prices_not_scrubbed(self, scrubber):
+        text = "The item costs $9.99 and ships free over $25"
+        result = scrubber.scrub_text(text)
+        assert "$9.99" in result, "Retail prices should not be scrubbed as salary"
+        assert "$25" in result
+        assert "<SALARY_" not in result
+
+    def test_order_total_not_scrubbed(self, scrubber):
+        text = "Your order total is $149.00"
+        result = scrubber.scrub_text(text)
+        assert "$149.00" in result
+        assert "<SALARY_" not in result

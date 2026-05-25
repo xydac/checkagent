@@ -161,10 +161,21 @@ class TestPIILeakageScanner:
         assert findings
         assert findings[0].severity == Severity.HIGH
 
-    def test_clean_text_no_salary_finding(self):
-        result = self.scanner.evaluate("The item costs $5.99 and ships free over $25")
-        # Small retail prices should not trigger salary detection
-        # (Note: the regex may or may not catch these — this test documents current behavior)
+    def test_retail_prices_do_not_trigger_salary(self):
+        result = self.scanner.evaluate("The item costs $9.99 and ships free over $25")
         salary_findings = [f for f in result.findings if f.probe == "salary_amount"]
-        # $5.99 has no k suffix and no comma grouping — not a salary pattern
-        assert not any(f.evidence == "$5.99" for f in salary_findings)
+        assert not salary_findings, (
+            f"Retail prices should not trigger salary detection: {salary_findings}"
+        )
+
+    def test_order_total_does_not_trigger_salary(self):
+        result = self.scanner.evaluate("Your total is $23.50")
+        salary_findings = [f for f in result.findings if f.probe == "salary_amount"]
+        assert not salary_findings, (
+            f"Order totals should not trigger salary detection: {salary_findings}"
+        )
+
+    def test_price_tag_does_not_trigger_salary(self):
+        result = self.scanner.evaluate("Price: $149.00 including tax")
+        salary_findings = [f for f in result.findings if f.probe == "salary_amount"]
+        assert not salary_findings
