@@ -33,6 +33,7 @@ from pathlib import Path
 
 import click
 from rich.console import Console
+from rich.markup import escape as markup_escape
 from rich.panel import Panel
 from rich.table import Table
 
@@ -1410,10 +1411,10 @@ def scan_cmd(
     elapsed = time.monotonic() - start_time
 
     if baseline_response is not None:
-        bl_preview = baseline_response[:60].replace("\n", " ")
+        bl_preview = markup_escape(baseline_response[:60].replace("\n", " "))
         out_console.print(
             f"[dim]Baseline captured ({len(baseline_response)} chars): "
-            f"{bl_preview!r}...[/dim]"
+            f"'{bl_preview}'...[/dim]"
         )
     else:
         out_console.print("[dim]Baseline: skipped (agent errored on benign query)[/dim]")
@@ -1985,9 +1986,11 @@ def _display_trace_section(console: Console, sarif_doc: dict) -> None:
         props = result.get("properties", {})
         probe_id = props.get("probeId", "?")[:60]
         category = props.get("category", "?").replace("_", " ")
-        console.print(f"  [bold]{category}[/bold] — [dim]{probe_id}[/dim]")
+        cat_safe = markup_escape(category)
+        pid_safe = markup_escape(probe_id)
+        console.print(f"  [bold]{cat_safe}[/bold] — [dim]{pid_safe}[/dim]")
         for line in call_lines[:4]:  # cap at 4 calls per finding
-            console.print(f"    [dim cyan]↳ {line[:130]}[/dim cyan]")
+            console.print(f"    [dim cyan]↳ {markup_escape(line[:130])}[/dim cyan]")
         console.print()
 
 
@@ -2300,11 +2303,11 @@ def _display_results(
         row = [
             f"[{_severity_style(finding.severity)}]{_severity_label(finding.severity)}[/{_severity_style(finding.severity)}]",
             finding.category.value,
-            probe.name or probe.input[:25],
-            finding.description,
+            markup_escape(probe.name or probe.input[:25]),
+            markup_escape(finding.description),
         ]
         if verbose:
-            row.append(output[:120] if output else "")
+            row.append(markup_escape(output[:120]) if output else "")
         detail_table.add_row(*row)
 
     console.print(detail_table)

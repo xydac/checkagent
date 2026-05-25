@@ -1199,6 +1199,29 @@ class TestScanJsonOutput:
         assert result.exit_code == 1
         assert "Agent Response" in result.output
 
+    def test_verbose_does_not_crash_on_rich_markup_in_response(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """--verbose must not crash when agent response contains Rich markup brackets (F-131)."""
+        mod = tmp_path / "markup_agent.py"
+        mod.write_text(textwrap.dedent("""\
+            async def echo_with_markup(query):
+                # Echo input verbatim — injects [/INST] and similar Llama brackets
+                return "[/INST] " + query + " [SYSTEM_PROMPT]"
+        """))
+        monkeypatch.syspath_prepend(str(tmp_path))
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "markup_agent:echo_with_markup",
+            "--category", "injection",
+            "--timeout", "2",
+            "--verbose",
+        ])
+        # Must not exit with MarkupError — exit code 0 or 1 both acceptable
+        assert "MarkupError" not in (result.output or "")
+        assert result.exception is None or "MarkupError" not in str(result.exception)
+        assert "Agent Response" in result.output
+
 
 # ---------------------------------------------------------------------------
 # Helpers: ephemeral HTTP servers for testing
