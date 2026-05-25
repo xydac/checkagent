@@ -1778,6 +1778,47 @@ class TestLLMJudge:
         assert _detect_llm_provider("claude-sonnet-4-6") == "anthropic"
         assert _detect_llm_provider("claude-opus-4-6") == "anthropic"
 
+    def test_detect_llm_provider_claude_code(self) -> None:
+        from checkagent.cli.scan import _detect_llm_provider
+        assert _detect_llm_provider("claude-code") == "claude-code"
+
+    def test_make_llm_client_returns_none_for_claude_code(self) -> None:
+        from checkagent.cli.scan import _make_llm_client
+        assert _make_llm_client("claude-code") is None
+
+    def test_call_llm_judge_claude_code_uses_subprocess(self, monkeypatch) -> None:
+        """_call_llm_judge with 'claude-code' invokes the claude CLI via subprocess."""
+        import asyncio
+        import subprocess
+
+        from checkagent.cli.scan import _call_llm_judge
+
+        calls: list[list[str]] = []
+
+        def _fake_run(cmd, **kwargs):
+            calls.append(cmd)
+            return subprocess.CompletedProcess(cmd, 0, stdout='{"complied": false}', stderr="")
+
+        monkeypatch.setattr("subprocess.run", _fake_run)
+
+        result = asyncio.run(_call_llm_judge("claude-code", "system", "user"))
+        assert result == '{"complied": false}'
+        assert calls[0][0] == "claude"
+        assert "--bare" in calls[0]
+        assert "--system-prompt" in calls[0]
+
+    def test_validate_llm_judge_connectivity_claude_code_no_api_call(
+        self, monkeypatch
+    ) -> None:
+        """_validate_llm_judge_connectivity for claude-code checks PATH, not API key."""
+        import asyncio
+
+        from checkagent.cli.scan import _validate_llm_judge_connectivity
+
+        monkeypatch.setattr("shutil.which", lambda name: "/usr/local/bin/claude")
+        # Should not raise or make any LLM API calls
+        asyncio.run(_validate_llm_judge_connectivity("claude-code"))
+
     def test_detect_llm_provider_unknown_raises(self) -> None:
         import click
 

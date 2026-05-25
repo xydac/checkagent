@@ -261,19 +261,23 @@ _JUDGE_COST_PER_PROBE: dict[str, float] = {
     "gpt-4o": 0.002,
     "claude-haiku-4-5-20251001": 0.0001,
     "claude-sonnet-4-6": 0.001,
+    "claude-code": 0.0,  # uses local Claude Code CLI, no API cost
 }
 _JUDGE_COST_DEFAULT = 0.00015  # conservative fallback estimate
 
 
 def _detect_llm_provider(model: str) -> str:
-    """Return 'openai' or 'anthropic' from a model name string."""
+    """Return 'openai', 'anthropic', or 'claude-code' from a model name string."""
+    if model == "claude-code":
+        return "claude-code"
     if model.startswith(("gpt-", "o1", "o3", "o4")):
         return "openai"
     if model.startswith("claude-"):
         return "anthropic"
     raise click.BadParameter(
         f"Cannot detect provider from model '{model}'. "
-        "Use a model like 'gpt-4o-mini' (OpenAI) or 'claude-haiku-4-5-20251001' (Anthropic).",
+        "Use a model like 'gpt-4o-mini' (OpenAI), 'claude-haiku-4-5-20251001' (Anthropic), "
+        "or 'claude-code' (local Claude Code CLI, no API key required).",
         param_hint="--llm-judge",
     )
 
@@ -286,6 +290,23 @@ async def _call_llm_judge(model: str, system: str, user: str, *, _client: object
     one asyncio.run() invocation).  If omitted, a short-lived client is created.
     """
     provider = _detect_llm_provider(model)
+
+    if provider == "claude-code":
+        import subprocess  # noqa: PLC0415
+        loop = asyncio.get_event_loop()
+
+        def _invoke_claude_cli() -> str:
+            result = subprocess.run(
+                ["claude", "--print", "--bare", "--system-prompt", system, user],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.returncode != 0:
+                raise RuntimeError(result.stderr[:200] or "claude CLI exited non-zero")
+            return result.stdout.strip()
+
+        return await loop.run_in_executor(None, _invoke_claude_cli)
 
     if provider == "openai":
         try:
@@ -421,6 +442,14 @@ async def _validate_llm_judge_connectivity(model: str) -> None:
     all-pass result caused by the per-probe exception swallowing.
     """
     provider = _detect_llm_provider(model)
+    if provider == "claude-code":
+        import shutil  # noqa: PLC0415
+        if not shutil.which("claude"):
+            raise click.ClickException(
+                "The 'claude' CLI is required for --llm-judge claude-code.\n"
+                "Install Claude Code: https://claude.ai/code"
+            )
+        return  # skip API call — CLI presence is sufficient pre-flight
     env_var = "OPENAI_API_KEY" if provider == "openai" else "ANTHROPIC_API_KEY"
     try:
         await _call_llm_judge(model, "Reply with OK.", "ping")
@@ -441,6 +470,8 @@ def _make_llm_client(model: str) -> object:
     requiring real API keys.  Callers are responsible for calling ``aclose()``.
     """
     provider = _detect_llm_provider(model)
+    if provider == "claude-code":
+        return None  # claude-code uses subprocess, no async client needed
     if provider == "openai":
         try:
             import openai  # noqa: PLC0415
@@ -494,7 +525,8 @@ async def _evaluate_all_with_llm(
         tasks = [_one(p, o, e) for p, o, e in results]
         return list(await asyncio.gather(*tasks))
     finally:
-        await shared_client.aclose()  # type: ignore[union-attr]
+        if shared_client is not None:
+            await shared_client.aclose()  # type: ignore[union-attr]
 
 
 # ---------------------------------------------------------------------------
