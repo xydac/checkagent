@@ -1618,6 +1618,7 @@ def scan_cmd(
             flaky=flaky,
             stable_pass=stable_pass,
             stable_fail=stable_fail,
+            llm_judge=llm_judge,
         )
         if prompt_analysis:
             report["prompt_analysis"] = {
@@ -1881,6 +1882,7 @@ def _build_json_report(
     flaky: int = 0,
     stable_pass: int = 0,
     stable_fail: int = 0,
+    llm_judge: str | None = None,
 ) -> dict:
     """Build a structured JSON report from scan results."""
     findings_list = []
@@ -1905,6 +1907,7 @@ def _build_json_report(
             "errors": errors,
             "score": round(score, 4),
             "elapsed_seconds": round(elapsed, 3),
+            "evaluator": llm_judge if llm_judge else "regex",
         },
         "findings": findings_list,
     }

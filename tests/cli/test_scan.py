@@ -1003,6 +1003,44 @@ class TestBuildJsonReport:
         parsed = json.loads(serialized)
         assert parsed == report
 
+    def test_evaluator_defaults_to_regex(self) -> None:
+        report = _build_json_report(
+            target="m:f",
+            total=5,
+            passed=5,
+            failed=0,
+            errors=0,
+            elapsed=0.1,
+            all_findings=[],
+        )
+        assert report["summary"]["evaluator"] == "regex"
+
+    def test_evaluator_llm_judge_included(self) -> None:
+        report = _build_json_report(
+            target="m:f",
+            total=5,
+            passed=5,
+            failed=0,
+            errors=0,
+            elapsed=0.1,
+            all_findings=[],
+            llm_judge="gpt-4o-mini",
+        )
+        assert report["summary"]["evaluator"] == "gpt-4o-mini"
+
+    def test_evaluator_claude_code(self) -> None:
+        report = _build_json_report(
+            target="m:f",
+            total=5,
+            passed=5,
+            failed=0,
+            errors=0,
+            elapsed=0.1,
+            all_findings=[],
+            llm_judge="claude-code",
+        )
+        assert report["summary"]["evaluator"] == "claude-code"
+
 
 # ---------------------------------------------------------------------------
 # Unit tests: badge SVG generation
