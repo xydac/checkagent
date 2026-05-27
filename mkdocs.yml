@@ -81,6 +81,7 @@ nav:
     - Eval: layers/eval.md
     - Judge: layers/judge.md
   - Guides:
+    - Scan Your Agent: guides/scan.md
     - Safety Testing: guides/safety.md
     - Fault Injection: guides/faults.md
     - Multi-Agent Testing: guides/multiagent.md
