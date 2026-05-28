@@ -301,7 +301,7 @@ class TestRenderMarkdown:
         )
         md = render_compliance_markdown(report)
         assert "Agent Version:** 1.0.0" in md
-        assert "Model Version:** gpt-4" in md
+        assert "CheckAgent Version:** gpt-4" in md
 
     def test_contains_summary_table(self):
         report = generate_compliance_report(

@@ -232,7 +232,6 @@ _CATEGORY_REMEDIATION: dict[str, list[str]] = {
 _CATEGORY_REMEDIATION_FALLBACK = [
     "Review your system prompt for explicit constraints on the failing category.",
     "See: https://owasp.org/www-project-top-10-for-large-language-model-applications/",
-    "Run with -v / --verbose to see probe inputs and agent responses.",
 ]
 
 # ---------------------------------------------------------------------------
@@ -2274,12 +2273,17 @@ def _display_results(
 
     # Warn when a significant fraction of probes errored — results may be incomplete.
     if total > 0 and errors > 0 and errors < total and errors / total >= 0.4:
+        error_hint = (
+            "Per-probe error details are shown above."
+            if verbose
+            else "Use [bold]--verbose[/bold] for per-probe error details."
+        )
         console.print(Panel.fit(
             f"[bold yellow]Scan reliability warning:[/bold yellow] "
             f"{errors} of {total} probes errored.\n\n"
             "Results may be incomplete. Check connectivity, authentication headers,\n"
-            "and that the target is callable with a plain string argument.\n"
-            "Use [bold]--verbose[/bold] for per-probe error details.",
+            f"and that the target is callable with a plain string argument.\n"
+            f"{error_hint}",
             title="⚠ Partial Scan",
             border_style="yellow",
         ))

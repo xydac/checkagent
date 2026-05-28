@@ -227,7 +227,7 @@ def render_compliance_markdown(report: ComplianceReport) -> str:
     if report.agent_version:
         lines.append(f"- **Agent Version:** {report.agent_version}")
     if report.model_version:
-        lines.append(f"- **Model Version:** {report.model_version}")
+        lines.append(f"- **CheckAgent Version:** {report.model_version}")
     lines.append("")
 
     # Overall summary
@@ -341,7 +341,7 @@ def render_compliance_html(report: ComplianceReport) -> str:
     if report.agent_version:
         html_parts.append(f"<p>Agent: {report.agent_version}</p>")
     if report.model_version:
-        html_parts.append(f"<p>Model: {report.model_version}</p>")
+        html_parts.append(f"<p>CheckAgent: {report.model_version}</p>")
 
     # Summary table
     html_parts.append("<h2>Summary</h2>")
