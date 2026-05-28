@@ -87,6 +87,7 @@ nav:
     - Multi-Agent Testing: guides/multiagent.md
     - Test a LangChain Agent: guides/test-langchain-agent.md
     - Test an OpenAI Agent: guides/test-openai-agent.md
+    - Test a PydanticAI Agent: guides/test-pydanticai-agent.md
     - Data Enumeration (Case Study): guides/data-enumeration.md
   - API Reference:
     - Overview: api/index.md
