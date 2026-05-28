@@ -126,6 +126,15 @@ Findings by Severity
 ╰─────────────────────────────────────────────────────────╯
 ```
 
+What the score means:
+
+| Score | Typical profile |
+|-------|----------------|
+| 90–100% | Explicit injection guards, scope limits, and refusal behavior present |
+| 70–89% | Some controls in place — likely missing injection guard or scope boundary |
+| 50–69% | Accepts most inputs without restriction — vulnerable to common attacks |
+| < 50% | No defensive controls — treats all input as a valid task |
+
 Scan any HTTP endpoint — works with agents in any language or framework:
 
 ```bash
@@ -332,9 +341,9 @@ async def test_no_prompt_injection():
 
 CheckAgent works with any Python callable, plus dedicated adapters for:
 
-- **LangChain** / LangGraph
-- **OpenAI Agents SDK**
-- **PydanticAI**
+- **[LangChain](https://xydac.github.io/checkagent/guides/test-langchain-agent/)** / LangGraph
+- **[OpenAI Agents SDK](https://xydac.github.io/checkagent/guides/test-openai-agent/)**
+- **[PydanticAI](https://xydac.github.io/checkagent/guides/test-pydanticai-agent/)**
 - **CrewAI**
 - **Anthropic**
 
