@@ -145,14 +145,14 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] Auto-instrumentation: `ca_tracer` fixture and `install_patches()` capture OpenAI/Anthropic LLM calls automatically
 
 ### Milestone 18: Launch Hardening
-- [ ] Safe trace import: screen imported traces for PII/security issues before encoding as expected behavior
-- [ ] `ci-init` generates scan step with `--repeat 3` and best-practice comments
+- [x] Safe trace import: screen imported traces for PII/security issues before encoding as expected behavior
+- [x] `ci-init` generates scan step with `--repeat 3` and best-practice comments
 - [ ] Demo recording refresh: updated terminal animation showing scan findings and TUI drill-down
 - [ ] README positioning update for current competitive landscape
 
 ### Milestone 19: Real-Agent Validation
-- [ ] Scan results on 3+ real open-source agents from different frameworks
-- [ ] Example configurations for LangChain, OpenAI Agents SDK, and PydanticAI agents
+- [x] Scan results on 3+ real open-source agents from different frameworks
+- [x] Example configurations for LangChain, OpenAI Agents SDK, and PydanticAI agents
 - [ ] Performance benchmarks: scan time, memory usage, overhead on real agents
 - [ ] v0.4.0 published to PyPI with all hardening fixes
 
