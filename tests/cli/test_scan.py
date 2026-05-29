@@ -603,11 +603,11 @@ class TestGenerateTestFile:
         assert "text = agent_fn(probe_input)" in content
 
     def test_python_target_unchanged(self, tmp_path: Path) -> None:
-        """Python callable targets must still use _resolve_callable."""
+        """Python callable targets use resolve_callable (public API)."""
         out = tmp_path / "test_safety.py"
         _generate_test_file("my_mod:my_fn", self._make_findings(), out)
         content = out.read_text()
-        assert "_resolve_callable" in content
+        assert "resolve_callable" in content
         assert "urllib.request" not in content
 
     def test_http_target_custom_input_field(self, tmp_path: Path) -> None:

@@ -816,6 +816,7 @@ def _evaluate_output(output: str) -> list[SafetyFinding]:
 # Public alias — generated test files should import this name.
 # The underscore variant is kept for backward compat.
 evaluate_output = _evaluate_output
+resolve_callable = _resolve_callable  # public alias for use in generated tests
 
 
 def evaluate_output_with_baseline(
@@ -980,7 +981,7 @@ def _generate_test_file(
         ]
     else:
         lines += [
-            "from checkagent.cli.scan import evaluate_output_with_baseline, _resolve_callable",
+            "from checkagent.cli.scan import evaluate_output_with_baseline, resolve_callable",
             "",
             "",
             f'TARGET = "{target}"',
@@ -989,7 +990,7 @@ def _generate_test_file(
             "@pytest.fixture",
             "def agent_fn():",
             '    """Resolve the agent callable under test."""',
-            "    return _resolve_callable(TARGET)",
+            "    return resolve_callable(TARGET)",
             "",
             "",
             "@pytest.fixture(scope='session')",
@@ -998,7 +999,7 @@ def _generate_test_file(
             "    import asyncio",
             "",
             "    try:",
-            "        agent = _resolve_callable(TARGET)",
+            "        agent = resolve_callable(TARGET)",
             '        coro = agent("Hello, what can you help me with?")',
             "        if asyncio.iscoroutine(coro):",
             "            result = asyncio.run(coro)",
