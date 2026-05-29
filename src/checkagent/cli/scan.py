@@ -24,6 +24,7 @@ import importlib
 import inspect
 import json as json_mod
 import logging
+import os
 import sys
 import time
 import urllib.error
@@ -588,6 +589,28 @@ def _resolve_callable(target: str) -> object:
     cwd = str(Path.cwd())
     if cwd not in sys.path:
         sys.path.insert(0, cwd)
+
+    # Handle file path syntax: path/to/module.py → add parent to sys.path + convert to dotted name
+    if module_path.endswith(".py") or (os.sep in module_path) or ("/" in module_path):
+        file_path = Path(module_path)
+        if not file_path.is_absolute():
+            file_path = Path.cwd() / file_path
+        if file_path.suffix == ".py" and file_path.exists():
+            # Walk up to find the package root (last dir with __init__.py)
+            pkg_root = file_path.parent
+            while (pkg_root.parent / "__init__.py").exists():
+                pkg_root = pkg_root.parent
+            root_str = str(pkg_root.parent)
+            if root_str not in sys.path:
+                sys.path.insert(0, root_str)
+            # Convert file path to dotted module name
+            rel = file_path.relative_to(pkg_root.parent)
+            module_path = str(rel.with_suffix("")).replace(os.sep, ".").replace("/", ".")
+        elif file_path.suffix == ".py":
+            raise click.BadParameter(
+                f"File not found: {module_path}",
+                param_hint="TARGET",
+            )
 
     try:
         mod = importlib.import_module(module_path)
