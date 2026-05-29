@@ -72,6 +72,10 @@ pytest tests/ -v
 Point `checkagent scan` at any Python function — it runs 101 attack probes across 6 categories and reports exactly what it finds:
 
 ```bash
+# Use a file path — no PYTHONPATH setup needed
+checkagent scan src/my_agent.py:agent_fn
+
+# Or module path
 checkagent scan my_agent:agent_fn
 ```
 
