@@ -1663,6 +1663,17 @@ def scan_cmd(
                 f"All {total} probes failed with connection errors. "
                 f"Server at {url} may be unreachable."
             )
+        if total > 0 and errors > 0 and errors / total >= 0.4:
+            report["error_warning"] = {
+                "type": "partial_scan",
+                "error_count": errors,
+                "total_count": total,
+                "error_rate": round(errors / total, 3),
+                "message": (
+                    f"{errors} of {total} probes errored "
+                    "— scan results may be incomplete"
+                ),
+            }
         if _scan_previous is not None:
             _delta = compute_delta(passed, total, _scan_previous)
             report["history"] = {
@@ -2300,7 +2311,7 @@ def _display_results(
         error_hint = (
             "Per-probe error details are shown above."
             if verbose
-            else "Use [bold]--verbose[/bold] for per-probe error details."
+            else "Re-run with [bold]--verbose[/bold] for per-probe error details."
         )
         console.print(Panel.fit(
             f"[bold yellow]Scan reliability warning:[/bold yellow] "

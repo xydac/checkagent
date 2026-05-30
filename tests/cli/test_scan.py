@@ -1223,6 +1223,56 @@ class TestScanJsonOutput:
         assert "previous_score" in h
         assert h["previous_score"] == 0.5
 
+    def test_json_includes_error_warning_when_partial_scan(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """error_warning is present in JSON when >=40% of probes error (partial scan)."""
+        mod = tmp_path / "partial_error_agent2.py"
+        mod.write_text(
+            "import itertools\n"
+            "_toggle = itertools.cycle([True, False])\n"
+            "async def flaky_agent2(query):\n"
+            "    if next(_toggle):\n"
+            "        raise RuntimeError('flaky')\n"
+            "    return 'I can help'\n"
+        )
+        monkeypatch.syspath_prepend(str(tmp_path))
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "partial_error_agent2:flaky_agent2",
+            "--category", "injection",
+            "--timeout", "2",
+            "--json",
+        ])
+        data = json.loads(result.output)
+        assert "error_warning" in data, (
+            "Expected 'error_warning' key in JSON when >=40% of probes error"
+        )
+        ew = data["error_warning"]
+        assert ew["type"] == "partial_scan"
+        assert ew["error_count"] > 0
+        assert ew["total_count"] > 0
+        assert ew["error_rate"] >= 0.4
+        assert "incomplete" in ew["message"]
+
+    def test_json_omits_error_warning_when_errors_below_threshold(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """error_warning is absent in JSON when fewer than 40% of probes error."""
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "scan_test_agents:safe_agent",
+            "--category", "injection",
+            "--timeout", "2",
+            "--json",
+        ])
+        data = json.loads(result.output)
+        assert "error_warning" not in data, (
+            "error_warning should be absent when error rate < 40%"
+        )
+
     def test_verbose_shows_agent_response(self, tmp_path: Path, monkeypatch) -> None:
         """--verbose mode adds 'Agent Response' column showing what the agent returned."""
         _write_agent_module(tmp_path)
