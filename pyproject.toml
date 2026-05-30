@@ -78,6 +78,7 @@ markers = [
     "agent_test: mark a test as an agent test with layer specification",
     "safety: mark a test as a safety test with category and severity",
     "cassette: specify a cassette file for record-replay testing",
+    "slow: mark a test as slow-running (excluded from fast suite with -m 'not slow')",
 ]
 
 [tool.ruff]
