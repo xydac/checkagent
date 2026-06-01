@@ -12,7 +12,7 @@
 **[Try the browser playground →](https://xydac.github.io/checkagent/playground/)** — paste your system prompt, get an instant safety score. No install required.
 
 <p align="center">
-  <img src="assets/scan-compact.svg" alt="checkagent scan — finds 9 CRITICAL vulnerabilities in under 1 second" width="720">
+  <img src="assets/demo.svg" alt="checkagent demo and scan — zero-config testing in under 10 seconds" width="720">
 </p>
 
 ---
