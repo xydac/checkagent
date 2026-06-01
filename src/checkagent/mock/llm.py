@@ -461,11 +461,32 @@ class MockLLM:
                 return rule
         return None
 
+    def _emit_tracer_event(
+        self, text: str, response_text: str, model: str, latency_ms: float
+    ) -> None:
+        """Emit an llm_call event to the active probe trace if one is running."""
+        try:
+            from checkagent.core.tracer import _record  # noqa: PLC0415
+            _record({
+                "type": "llm_call",
+                "provider": "mock",
+                "model": model,
+                "prompt_preview": text[:200],
+                "response_preview": response_text[:300],
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "latency_ms": latency_ms,
+            })
+        except Exception:
+            pass
+
     async def complete(self, text: str) -> str:
         """Generate a mock completion for the given input text.
 
         If a FaultInjector is attached, checks for LLM faults first.
         """
+        import time  # noqa: PLC0415
+        t0 = time.monotonic()
         if self._fault_injector is not None:
             await self._fault_injector.check_llm_async()
         rule = self._find_rule(text)
@@ -483,6 +504,7 @@ class MockLLM:
                     metadata=rule.metadata,
                 )
             )
+            self._emit_tracer_event(text, response_text, model, (time.monotonic() - t0) * 1000)
             return response_text
 
         # No rule matched — use default
@@ -494,10 +516,15 @@ class MockLLM:
                 was_default=True,
             )
         )
+        self._emit_tracer_event(
+            text, self.default_response, self.default_model, (time.monotonic() - t0) * 1000
+        )
         return self.default_response
 
     def complete_sync(self, text: str) -> str:
         """Synchronous version of complete for non-async agents."""
+        import time  # noqa: PLC0415
+        t0 = time.monotonic()
         if self._fault_injector is not None:
             self._fault_injector.check_llm()
         rule = self._find_rule(text)
@@ -515,6 +542,7 @@ class MockLLM:
                     metadata=rule.metadata,
                 )
             )
+            self._emit_tracer_event(text, response_text, model, (time.monotonic() - t0) * 1000)
             return response_text
 
         self._calls.append(
@@ -524,6 +552,9 @@ class MockLLM:
                 model=self.default_model,
                 was_default=True,
             )
+        )
+        self._emit_tracer_event(
+            text, self.default_response, self.default_model, (time.monotonic() - t0) * 1000
         )
         return self.default_response
 

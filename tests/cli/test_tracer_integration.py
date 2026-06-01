@@ -545,6 +545,79 @@ def test_tracer_context_multiple_cycles() -> None:
 
 
 # ---------------------------------------------------------------------------
+# MockLLM tracer integration (F-120)
+# ---------------------------------------------------------------------------
+
+
+def test_mock_llm_emits_tracer_events_via_ca_tracer(ca_tracer) -> None:
+    """MockLLM.complete() emits llm_call events to the active probe trace."""
+    import asyncio
+
+    from checkagent.mock.llm import MockLLM
+
+    llm = MockLLM()
+    llm.on_input(contains="hello").respond("hi there")
+
+    ca_tracer.begin()
+    asyncio.get_event_loop().run_until_complete(llm.complete("hello"))
+    ca_tracer.end()
+
+    assert len(ca_tracer.llm_calls) >= 1
+    event = ca_tracer.llm_calls[0]
+    assert event["type"] == "llm_call"
+    assert event["provider"] == "mock"
+    assert "hello" in event["prompt_preview"]
+    assert "hi there" in event["response_preview"]
+
+
+def test_mock_llm_emits_tracer_events_default_response(ca_tracer) -> None:
+    """MockLLM emits a tracer event even when no rule matches (default response)."""
+    import asyncio
+
+    from checkagent.mock.llm import MockLLM
+
+    llm = MockLLM(default_response="I don't know")
+
+    ca_tracer.begin()
+    asyncio.get_event_loop().run_until_complete(llm.complete("some unknown input"))
+    ca_tracer.end()
+
+    assert len(ca_tracer.llm_calls) == 1
+    assert ca_tracer.llm_calls[0]["response_preview"] == "I don't know"
+
+
+def test_mock_llm_complete_sync_emits_tracer_events(ca_tracer) -> None:
+    """MockLLM.complete_sync() also emits tracer events."""
+    from checkagent.mock.llm import MockLLM
+
+    llm = MockLLM(default_response="sync response")
+
+    ca_tracer.begin()
+    llm.complete_sync("test input")
+    ca_tracer.end()
+
+    assert len(ca_tracer.llm_calls) == 1
+    assert ca_tracer.llm_calls[0]["provider"] == "mock"
+
+
+def test_mock_llm_no_events_without_trace(ca_tracer) -> None:
+    """MockLLM.complete() emits nothing if no probe trace is active."""
+    import asyncio
+
+    from checkagent.core.tracer import _ACTIVE_TRACE
+    from checkagent.mock.llm import MockLLM
+
+    llm = MockLLM(default_response="no trace")
+
+    # Ensure no active trace
+    _ACTIVE_TRACE.set(None)
+    asyncio.get_event_loop().run_until_complete(llm.complete("test"))
+
+    # Events should be empty since we never called begin()
+    assert ca_tracer.events == []
+
+
+# ---------------------------------------------------------------------------
 # Export verification
 # ---------------------------------------------------------------------------
 
