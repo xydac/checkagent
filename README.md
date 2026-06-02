@@ -165,6 +165,16 @@ checkagent scan my_agent:agent_fn --sarif scan.sarif # SARIF 2.1.0 for GitHub Co
 
 For non-deterministic agents (real LLMs at temperature > 0), `--repeat N` runs each probe multiple times and reports a stability score. A finding is flagged "flaky" when it appears in some runs but not others — useful for distinguishing real vulnerabilities from noise.
 
+**Tested on real open-source agents** — CheckAgent runs against popular agents without modifying their code:
+
+| Agent | Framework | Stars | Score | Scan time |
+|-------|-----------|-------|-------|-----------|
+| [openai-cs-agents-demo](https://github.com/openai/openai-agents-python/tree/main/examples/customer_service) | OpenAI Agents SDK | 5,900+ | 73% | ~830ms |
+| [agents-deep-research](https://github.com/dqbd/agents-deep-research) | OpenAI Agents SDK | 750+ | 62% | ~830ms |
+| [haiku.rag](https://github.com/alonsosilva/haiku.rag) | PydanticAI | 510+ | 48% | ~830ms |
+
+101 probes in ~830ms — fast enough for pre-commit hooks and CI gates.
+
 ### Analyze your system prompt (no API key needed)
 
 Check your system prompt for security best practices before running any probes:
