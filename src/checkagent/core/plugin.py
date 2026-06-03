@@ -259,13 +259,22 @@ class TracerContext:
     automatically — events from the last ``begin``/``end`` pair are in
     :attr:`events`.
 
+    Events from :class:`~checkagent.mock.llm.MockLLM` have ``type="llm_call"``
+    and include ``provider``, ``model``, ``prompt_preview``, ``response_preview``,
+    and ``latency_ms``.  Events from :class:`~checkagent.mock.tool.MockTool` have
+    ``type="tool_call"`` and include ``tool_name``, ``arguments``, ``result``,
+    ``latency_ms``, and ``error`` (``None`` on success).
+
     Example::
 
-        async def test_agent_calls(ca_tracer, my_agent):
+        async def test_agent_calls(ca_tracer, ca_mock_llm, ca_mock_tool):
             ca_tracer.begin()
-            await my_agent.run("hello")
+            await ca_mock_llm.complete("hello")
+            await ca_mock_tool.call("search", {"query": "python"})
             ca_tracer.end()
-            assert any(e["type"] == "llm_call" for e in ca_tracer.events)
+            assert len(ca_tracer.llm_calls) == 1
+            assert len(ca_tracer.tool_calls) == 1
+            assert ca_tracer.tool_calls[0]["tool_name"] == "search"
     """
 
     def __init__(self) -> None:

@@ -153,8 +153,8 @@ CheckAgent is being built in public. Here's where we're headed.
 ### Milestone 19: Real-Agent Validation
 - [x] Scan results on 3+ real open-source agents from different frameworks
 - [x] Example configurations for LangChain, OpenAI Agents SDK, and PydanticAI agents
-- [ ] Performance benchmarks: scan time, memory usage, overhead on real agents
-- [ ] v0.4.0 published to PyPI with all hardening fixes
+- [x] Performance benchmarks: scan time, memory usage, overhead on real agents
+- [x] v0.4.0 published to PyPI with all hardening fixes
 
 ### Future
 - [ ] Local dashboard for test history and trends
