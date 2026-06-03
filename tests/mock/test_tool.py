@@ -531,3 +531,127 @@ class TestMockToolFluentAPI:
         tool.on_call("flaky").error("timeout", schema={"properties": {"id": {"type": "integer"}}})
         with pytest.raises(ToolExecutionError, match="timeout"):
             await tool.call("flaky", {"id": 1})
+
+
+# --- MockTool tracer event emission ---
+
+
+class TestMockToolTracerEvents:
+    """MockTool emits tool_call events to the active probe trace."""
+
+    def setup_method(self):
+        from checkagent.core.tracer import _ACTIVE_TRACE
+        _ACTIVE_TRACE.set(None)
+
+    def teardown_method(self):
+        from checkagent.core.tracer import _ACTIVE_TRACE
+        _ACTIVE_TRACE.set(None)
+
+    @pytest.mark.asyncio
+    async def test_successful_call_emits_tool_event(self):
+        from checkagent.core.tracer import begin_probe_trace, end_probe_trace
+        tool = MockTool()
+        tool.register("search", response="results")
+
+        begin_probe_trace()
+        await tool.call("search", {"query": "test"})
+        events = end_probe_trace()
+
+        tool_events = [e for e in events if e.get("type") == "tool_call"]
+        assert len(tool_events) == 1
+        ev = tool_events[0]
+        assert ev["tool_name"] == "search"
+        assert ev["arguments"] == {"query": "test"}
+        assert ev["result"] == "results"
+        assert ev["error"] is None
+        assert ev["latency_ms"] >= 0
+
+    @pytest.mark.asyncio
+    async def test_multiple_calls_emit_multiple_events(self):
+        from checkagent.core.tracer import begin_probe_trace, end_probe_trace
+        tool = MockTool()
+        tool.register("a", response="A").register("b", response="B")
+
+        begin_probe_trace()
+        await tool.call("a")
+        await tool.call("b")
+        await tool.call("a")
+        events = end_probe_trace()
+
+        tool_events = [e for e in events if e.get("type") == "tool_call"]
+        assert len(tool_events) == 3
+        assert tool_events[0]["tool_name"] == "a"
+        assert tool_events[1]["tool_name"] == "b"
+        assert tool_events[2]["tool_name"] == "a"
+
+    @pytest.mark.asyncio
+    async def test_unknown_tool_emits_error_event(self):
+        from checkagent.core.tracer import begin_probe_trace, end_probe_trace
+        tool = MockTool()
+
+        begin_probe_trace()
+        with pytest.raises(ToolNotFoundError):
+            await tool.call("nonexistent")
+        events = end_probe_trace()
+
+        tool_events = [e for e in events if e.get("type") == "tool_call"]
+        assert len(tool_events) == 1
+        assert tool_events[0]["tool_name"] == "nonexistent"
+        assert tool_events[0]["error"] is not None
+        assert "Unknown tool" in tool_events[0]["error"]
+
+    @pytest.mark.asyncio
+    async def test_configured_error_emits_error_event(self):
+        from checkagent.core.tracer import begin_probe_trace, end_probe_trace
+        tool = MockTool()
+        tool.register("flaky", error="timeout")
+
+        begin_probe_trace()
+        with pytest.raises(ToolExecutionError):
+            await tool.call("flaky")
+        events = end_probe_trace()
+
+        tool_events = [e for e in events if e.get("type") == "tool_call"]
+        assert len(tool_events) == 1
+        assert tool_events[0]["error"] == "timeout"
+
+    def test_sync_call_also_emits_event(self):
+        from checkagent.core.tracer import begin_probe_trace, end_probe_trace
+        tool = MockTool()
+        tool.register("calc", response=42)
+
+        begin_probe_trace()
+        tool.call_sync("calc", {"x": 1})
+        events = end_probe_trace()
+
+        tool_events = [e for e in events if e.get("type") == "tool_call"]
+        assert len(tool_events) == 1
+        assert tool_events[0]["tool_name"] == "calc"
+        assert tool_events[0]["result"] == "42"
+
+    @pytest.mark.asyncio
+    async def test_no_events_without_active_trace(self):
+        from checkagent.core.tracer import _ACTIVE_TRACE
+        tool = MockTool()
+        tool.register("safe", response="ok")
+
+        _ACTIVE_TRACE.set(None)
+        await tool.call("safe")
+        # No assertion needed — just verifying no exception is raised
+
+    @pytest.mark.asyncio
+    async def test_ca_tracer_fixture_captures_tool_calls(self, ca_tracer):
+        """ca_tracer.tool_calls returns MockTool events end-to-end."""
+        tool = MockTool()
+        tool.register("lookup", response="found it")
+
+        ca_tracer.begin()
+        await tool.call("lookup", {"id": 99})
+        ca_tracer.end()
+
+        assert len(ca_tracer.tool_calls) == 1
+        ev = ca_tracer.tool_calls[0]
+        assert ev["type"] == "tool_call"
+        assert ev["tool_name"] == "lookup"
+        assert ev["arguments"] == {"id": 99}
+        assert ev["result"] == "found it"

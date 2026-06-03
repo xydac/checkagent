@@ -231,6 +231,28 @@ class MockTool:
         )
         return self
 
+    def _emit_tracer_event(
+        self,
+        name: str,
+        arguments: dict[str, Any],
+        result: Any,
+        latency_ms: float,
+        error: str | None = None,
+    ) -> None:
+        """Emit a tool_call event to the active probe trace if one is running."""
+        try:
+            from checkagent.core.tracer import _record  # noqa: PLC0415
+            _record({
+                "type": "tool_call",
+                "tool_name": name,
+                "arguments": arguments,
+                "result": str(result)[:300] if result is not None else None,
+                "latency_ms": latency_ms,
+                "error": error,
+            })
+        except Exception:
+            pass
+
     async def call(self, name: str, arguments: dict[str, Any] | None = None) -> Any:
         """Call a registered tool with the given arguments.
 
@@ -249,6 +271,8 @@ class MockTool:
 
     def _do_call(self, name: str, arguments: dict[str, Any]) -> Any:
         """Internal: execute a tool call with validation and recording."""
+        import time as _time  # noqa: PLC0415
+        t0 = _time.monotonic()
         registered = self._tools.get(name)
 
         if registered is None:
@@ -262,7 +286,11 @@ class MockTool:
             if self.default_response is not None:
                 record.result = self.default_response
                 record.error = None
+                latency = (_time.monotonic() - t0) * 1000
+                self._emit_tracer_event(name, arguments, self.default_response, latency)
                 return self.default_response
+            latency = (_time.monotonic() - t0) * 1000
+            self._emit_tracer_event(name, arguments, None, latency, error=f"Unknown tool: {name}")
             raise ToolNotFoundError(name)
 
         # Validate arguments against schema
@@ -277,6 +305,9 @@ class MockTool:
                     error=f"Validation failed: {'; '.join(validation_errors)}",
                 )
                 self._calls.append(record)
+                err_msg = f"Validation failed: {'; '.join(validation_errors)}"
+                latency = (_time.monotonic() - t0) * 1000
+                self._emit_tracer_event(name, arguments, None, latency, error=err_msg)
                 raise ToolValidationError(name, validation_errors)
 
         # Return configured error
@@ -288,6 +319,8 @@ class MockTool:
                 validation_errors=validation_errors,
             )
             self._calls.append(record)
+            latency = (_time.monotonic() - t0) * 1000
+            self._emit_tracer_event(name, arguments, None, latency, error=registered.error)
             raise ToolExecutionError(name, registered.error)
 
         # Get response
@@ -299,6 +332,8 @@ class MockTool:
             validation_errors=validation_errors,
         )
         self._calls.append(record)
+        latency = (_time.monotonic() - t0) * 1000
+        self._emit_tracer_event(name, arguments, result, latency)
         return result
 
     # --- Inspection / assertion helpers ---
