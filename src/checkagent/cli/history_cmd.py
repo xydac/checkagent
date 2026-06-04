@@ -14,6 +14,47 @@ from rich.table import Table
 
 console = Console()
 
+# Braille sparkline blocks (empty → full, 8 levels)
+_SPARK_CHARS = " ▁▂▃▄▅▆▇█"
+
+
+def _sparkline(scores: list[float]) -> str:
+    """Return a single-line ASCII sparkline for a list of 0-1 scores."""
+    if not scores:
+        return ""
+    chars = []
+    for s in scores:
+        idx = min(int(s * (len(_SPARK_CHARS) - 1)), len(_SPARK_CHARS) - 1)
+        chars.append(_SPARK_CHARS[idx])
+    return "".join(chars)
+
+
+def _trend_summary(records: list) -> str:
+    """Return a human-readable trend sentence given history records (newest first)."""
+    if len(records) < 2:
+        return ""
+    scores = [r.get("summary", {}).get("score", 0.0) for r in records]
+    oldest = scores[-1]
+    newest = scores[0]
+    delta = newest - oldest
+    n = len(records)
+
+    if abs(delta) <= 0.005:
+        return f"[dim]Score stable across {n} scans ({int(round(newest * 100))}%).[/dim]"
+    direction = "improved" if delta > 0 else "regressed"
+    color = "green" if delta > 0 else "red"
+    arrow = "↑" if delta > 0 else "↓"
+    old_pct = int(round(oldest * 100))
+    new_pct = int(round(newest * 100))
+    change = abs(int(round(delta * 100)))
+    return (
+        f"[{color}]{arrow} Score {direction} {old_pct}% → {new_pct}% "
+        f"(+{change}% over {n} scans)[/{color}]"
+        if delta > 0
+        else f"[{color}]{arrow} Score {direction} {old_pct}% → {new_pct}% "
+        f"(-{change}% over {n} scans)[/{color}]"
+    )
+
 
 @click.command("history")
 @click.argument("target", required=False, default=None)
@@ -88,12 +129,12 @@ def history_cmd(
         score = s.get("score", 0.0)
         pct = f"{int(round(score * 100))}%"
 
-        # Trend indicator vs. the previous row
+        # Trend indicator vs. the previous row (records are newest-first)
         if prev_score is not None:
             if score > prev_score + 0.005:
-                pct = f"[green]{pct} ↑[/green]"
+                pct = f"[red]{pct} ↓[/red]"  # older record was higher = going down
             elif score < prev_score - 0.005:
-                pct = f"[red]{pct} ↓[/red]"
+                pct = f"[green]{pct} ↑[/green]"  # older record was lower = going up
         prev_score = score
 
         table.add_row(
@@ -108,6 +149,14 @@ def history_cmd(
 
     console.print()
     console.print(table)
+
+    # Trend summary and sparkline
+    scores = [r.get("summary", {}).get("score", 0.0) for r in records]
+    if len(scores) >= 2:
+        spark = _sparkline(list(reversed(scores)))  # oldest → newest for sparkline
+        trend = _trend_summary(records)
+        console.print(f"\n  Trend: {spark}  {trend}")
+
     console.print(
         f"\n[dim]{len(records)} scan(s) shown. "
         f"Run [bold]checkagent scan {resolved}[/bold] to add a new result.[/dim]"

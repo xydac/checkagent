@@ -355,3 +355,105 @@ class TestHistoryCli:
         runner = CliRunner()
         result = runner.invoke(history_cmd, ["--dir", str(tmp_path)])
         assert result.exit_code != 0
+
+
+class TestSparklineAndTrend:
+    """Tests for _sparkline and _trend_summary helpers."""
+
+    def test_sparkline_empty(self):
+        from checkagent.cli.history_cmd import _sparkline
+
+        assert _sparkline([]) == ""
+
+    def test_sparkline_single(self):
+        from checkagent.cli.history_cmd import _sparkline
+
+        result = _sparkline([1.0])
+        assert len(result) == 1
+        assert result == "█"
+
+    def test_sparkline_zero(self):
+        from checkagent.cli.history_cmd import _sparkline
+
+        result = _sparkline([0.0])
+        assert result == " "
+
+    def test_sparkline_multiple(self):
+        from checkagent.cli.history_cmd import _sparkline
+
+        result = _sparkline([0.0, 0.5, 1.0])
+        assert len(result) == 3
+        assert result[0] == " "    # 0% = empty
+        assert result[2] == "█"    # 100% = full
+
+    def test_trend_summary_stable(self):
+        from checkagent.cli.history_cmd import _trend_summary
+
+        records = [
+            {"summary": {"score": 0.80}},
+            {"summary": {"score": 0.80}},
+        ]
+        summary = _trend_summary(records)
+        assert "stable" in summary
+
+    def test_trend_summary_improved(self):
+        from checkagent.cli.history_cmd import _trend_summary
+
+        records = [
+            {"summary": {"score": 0.85}},  # newest
+            {"summary": {"score": 0.60}},  # oldest
+        ]
+        summary = _trend_summary(records)
+        assert "improved" in summary
+        assert "60%" in summary
+        assert "85%" in summary
+
+    def test_trend_summary_regressed(self):
+        from checkagent.cli.history_cmd import _trend_summary
+
+        records = [
+            {"summary": {"score": 0.50}},  # newest
+            {"summary": {"score": 0.80}},  # oldest
+        ]
+        summary = _trend_summary(records)
+        assert "regressed" in summary
+
+    def test_trend_summary_single_record(self):
+        from checkagent.cli.history_cmd import _trend_summary
+
+        records = [{"summary": {"score": 0.80}}]
+        assert _trend_summary(records) == ""
+
+    def test_history_cmd_shows_trend_with_multiple_scans(self, tmp_path):
+        """history_cmd output includes trend sparkline when 2+ records exist."""
+        import time
+
+        from click.testing import CliRunner
+
+        from checkagent.cli.history import save_scan_result
+        from checkagent.cli.history_cmd import history_cmd
+
+        save_scan_result(
+            "trend_agent:fn",
+            passed=60,
+            failed=40,
+            errors=0,
+            total=100,
+            elapsed=1.0,
+            timestamp=time.time() - 10,
+            base_dir=tmp_path,
+        )
+        save_scan_result(
+            "trend_agent:fn",
+            passed=85,
+            failed=15,
+            errors=0,
+            total=100,
+            elapsed=1.0,
+            timestamp=time.time(),
+            base_dir=tmp_path,
+        )
+        runner = CliRunner()
+        result = runner.invoke(history_cmd, ["trend_agent:fn", "--dir", str(tmp_path)])
+        assert result.exit_code == 0
+        assert "Trend:" in result.output
