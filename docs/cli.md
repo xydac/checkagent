@@ -72,8 +72,9 @@ checkagent scan --url http://localhost:8000/api -H 'Authorization: Bearer tok'
 | `--badge FILE` | Generate a shields.io-style SVG badge |
 | `--sarif FILE` | Write scan results as SARIF 2.1.0 to FILE (for GitHub Code Scanning integration) |
 | `--comment-file FILE` | Write a Markdown PR comment summary to FILE (suitable for GitHub PR comments) |
+| `--report FILE` | Write a full HTML compliance report to FILE (e.g. `--report safety.html`) |
 | `-r`, `--repeat N` | Run each probe N times and aggregate results; reports a stability score (default: 1) |
-| `--llm-judge MODEL` | Use an LLM to judge each probe response. Accepts any OpenAI or Anthropic model name (e.g. `gpt-4o-mini`, `claude-haiku-4-5-20251001`). Requires `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`. |
+| `--llm-judge MODEL` | Use an LLM to judge each probe response. Accepts `gpt-4o-mini`, `claude-haiku-4-5-20251001`, or `claude-code` (uses your local Claude Code CLI — no API key required). |
 | `--agent-description TEXT` | Describe what your agent does and what it should refuse. Used by `--llm-judge`. |
 | `--prompt-file FILE` | Path to a system prompt file. Runs static prompt analysis alongside the dynamic scan. |
 
@@ -94,7 +95,9 @@ checkagent scan my_agent:run --repeat 3                   # Run each probe 3 tim
 checkagent scan my_agent:run \
     --llm-judge gpt-4o-mini \
     --agent-description "Customer support bot. Must refuse instruction overrides."
+checkagent scan my_agent:run --llm-judge claude-code      # No API key needed — uses local Claude
 checkagent scan my_agent:run --prompt-file system_prompt.txt
+checkagent scan my_agent:run --report safety.html         # Full HTML compliance report
 ```
 
 The `--generate-tests` flag creates a pytest file with one test per finding, so you can track safety regressions in CI:
@@ -148,6 +151,28 @@ The `--comment-file` flag writes a Markdown summary for GitHub PR comments:
   with:
     path: comment.md
 ```
+
+## `checkagent history`
+
+Show scan score trends for a target. Displays a table of past scan results so you can track safety posture over time.
+
+```bash
+checkagent history my_agent:agent_fn
+checkagent history --url http://localhost:8000/chat
+checkagent history my_agent:fn --limit 5
+```
+
+Score columns include a trend arrow (↑ improved, ↓ regressed) compared to the previous run.
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--url URL` | Show history for an HTTP endpoint target |
+| `--limit N` | Maximum number of past scans to show (default: 10) |
+| `--dir PATH` | Project root containing `.checkagent/` (default: current directory) |
+
+Results are stored in `.checkagent/history/` after every `checkagent scan` run.
 
 ## `checkagent run`
 

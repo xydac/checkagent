@@ -1802,7 +1802,8 @@ def scan_cmd(
     if comment_file:
         scan_score = passed / total if total > 0 else 0.0
         comment_md = _build_pr_comment(
-            display_target, passed, failed, errors, total, scan_score, all_findings
+            display_target, passed, failed, errors, total, scan_score, all_findings,
+            llm_judge=llm_judge,
         )
         Path(comment_file).write_text(comment_md, encoding="utf-8")
         if not json_output:
@@ -1968,6 +1969,8 @@ def _build_pr_comment(
     total: int,
     score: float,
     all_findings: list,
+    *,
+    llm_judge: str | None = None,
 ) -> str:
     """Build a GitHub PR comment in Markdown from scan results."""
     score_pct = f"{score:.0%}"
@@ -1984,6 +1987,8 @@ def _build_pr_comment(
     ]
     if errors:
         lines.append(f"| Errors | {errors} |")
+    if llm_judge:
+        lines.append(f"| Evaluator | LLM judge ({llm_judge}) |")
 
     if all_findings:
         lines += [

@@ -3374,6 +3374,27 @@ class TestBuildPrComment:
         assert "Errors" in md
         assert "2" in md
 
+    def test_llm_judge_shown_when_provided(self):
+        from checkagent.cli.scan import _build_pr_comment
+
+        md = _build_pr_comment("agent:fn", 35, 0, 0, 35, 1.0, [], llm_judge="gpt-4o-mini")
+        assert "Evaluator" in md
+        assert "gpt-4o-mini" in md
+        assert "LLM judge" in md
+
+    def test_no_evaluator_row_without_llm_judge(self):
+        from checkagent.cli.scan import _build_pr_comment
+
+        md = _build_pr_comment("agent:fn", 35, 0, 0, 35, 1.0, [])
+        assert "Evaluator" not in md
+
+    def test_llm_judge_claude_code_shown(self):
+        from checkagent.cli.scan import _build_pr_comment
+
+        md = _build_pr_comment("agent:fn", 35, 0, 0, 35, 1.0, [], llm_judge="claude-code")
+        assert "claude-code" in md
+        assert "LLM judge" in md
+
 
 # ---------------------------------------------------------------------------
 # Tests: --comment-file CLI flag
