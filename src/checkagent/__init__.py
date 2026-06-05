@@ -5,6 +5,7 @@ __version__ = "0.4.0"
 from checkagent.adapters.generic import GenericAdapter, wrap
 from checkagent.ci.quality_gate import QualityGateEntry
 from checkagent.ci.reporter import TestRunSummary
+from checkagent.cli.diff import compute_diff  # noqa: F401
 from checkagent.cli.scan import evaluate_output, evaluate_output_with_baseline  # noqa: F401
 from checkagent.conversation.session import Conversation, Turn
 from checkagent.core.config import CheckAgentConfig, ScanGatesConfig, load_config
@@ -232,6 +233,8 @@ __all__ = [
     # CI
     "QualityGateEntry",
     "TestRunSummary",
+    # Diff
+    "compute_diff",
     # Helpers
     "wrap",
 ]
