@@ -160,6 +160,7 @@ checkagent scan --url http://localhost:8000/chat --generate-tests test_safety.py
 checkagent scan my_agent:agent_fn --json           # structured JSON for CI
 checkagent scan my_agent:agent_fn --badge badge.svg # shields.io-style badge
 checkagent scan my_agent:agent_fn --repeat 3       # run each probe N times for stable CI gates
+checkagent scan my_agent:agent_fn --diff           # compare against last scan — show new/fixed findings
 checkagent scan my_agent:agent_fn --sarif scan.sarif # SARIF 2.1.0 for GitHub Code Scanning
 ```
 
@@ -251,6 +252,34 @@ checkagent scan my_agent:run --sarif results.sarif
   with:
     sarif_file: results.sarif
     category: checkagent-scan
+```
+
+### Diff — Safety Regression Detection
+
+Compare two scans to catch regressions before they ship:
+
+```bash
+# Save a baseline scan
+checkagent scan my_agent:run --json > baseline.json
+
+# After making changes, scan again
+checkagent scan my_agent:run --json > current.json
+
+# Diff the results — exits 1 if new findings detected
+checkagent diff baseline.json current.json --fail-on-new
+```
+
+Or let `--diff` do it automatically by comparing against history:
+
+```bash
+checkagent scan my_agent:run --diff
+# Shows: 2 new findings (regressions), 1 fixed finding, score 73% → 65%
+```
+
+Generate a PR comment with the diff:
+
+```bash
+checkagent diff baseline.json current.json --comment-file pr-comment.md
 ```
 
 ## Example Test

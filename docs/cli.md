@@ -77,6 +77,7 @@ checkagent scan --url http://localhost:8000/api -H 'Authorization: Bearer tok'
 | `--llm-judge MODEL` | Use an LLM to judge each probe response. Accepts `gpt-4o-mini`, `claude-haiku-4-5-20251001`, or `claude-code` (uses your local Claude Code CLI — no API key required). |
 | `--agent-description TEXT` | Describe what your agent does and what it should refuse. Used by `--llm-judge`. |
 | `--prompt-file FILE` | Path to a system prompt file. Runs static prompt analysis alongside the dynamic scan. |
+| `--diff` | Compare results against the previous scan from history and display new/fixed findings. |
 
 **Examples:**
 
@@ -98,6 +99,7 @@ checkagent scan my_agent:run \
 checkagent scan my_agent:run --llm-judge claude-code      # No API key needed — uses local Claude
 checkagent scan my_agent:run --prompt-file system_prompt.txt
 checkagent scan my_agent:run --report safety.html         # Full HTML compliance report
+checkagent scan my_agent:run --diff                        # Compare against last scan
 ```
 
 The `--generate-tests` flag creates a pytest file with one test per finding, so you can track safety regressions in CI:
@@ -150,6 +152,32 @@ The `--comment-file` flag writes a Markdown summary for GitHub PR comments:
 - uses: marocchino/sticky-pull-request-comment@v2
   with:
     path: comment.md
+```
+
+## `checkagent diff`
+
+Compare two scan JSON files to detect safety regressions. Shows new findings, fixed findings, and score changes.
+
+```bash
+checkagent diff baseline.json current.json
+checkagent diff baseline.json current.json --fail-on-new
+checkagent diff baseline.json current.json --json
+checkagent diff baseline.json current.json --comment-file pr-diff.md
+```
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--json` | Output diff as JSON |
+| `--fail-on-new` | Exit with code 1 if new findings (regressions) are detected |
+| `--comment-file FILE` | Write a GitHub PR comment summarizing the diff |
+
+Use `--fail-on-new` in CI to block PRs that introduce new vulnerabilities:
+
+```yaml
+- run: checkagent scan my_agent:run --json > current.json
+- run: checkagent diff baseline.json current.json --fail-on-new
 ```
 
 ## `checkagent history`
