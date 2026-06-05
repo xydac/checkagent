@@ -37,6 +37,8 @@ def save_scan_result(
     elapsed: float,
     timestamp: float | None = None,
     base_dir: Path | None = None,
+    findings: list[dict[str, Any]] | None = None,
+    evaluator: str | None = None,
 ) -> Path:
     """Persist a scan result to .checkagent/history/.
 
@@ -64,6 +66,10 @@ def save_scan_result(
             "elapsed_seconds": round(elapsed, 3),
         },
     }
+    if evaluator:
+        record["summary"]["evaluator"] = evaluator
+    if findings is not None:
+        record["findings"] = findings
 
     # Timestamped file (for history listing)
     ts_name = dt.strftime("%Y%m%d-%H%M%S") + ".json"

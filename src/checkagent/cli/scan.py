@@ -1250,6 +1250,17 @@ def _generate_test_file(
         "Combine with --json for machine-readable output alongside the comment."
     ),
 )
+@click.option(
+    "--diff",
+    "show_diff",
+    is_flag=True,
+    default=False,
+    help=(
+        "After scanning, compare results against the previous scan "
+        "from history and display a diff showing new/fixed findings. "
+        "Requires at least one prior scan of the same target."
+    ),
+)
 def scan_cmd(
     target: str | None,
     url: str | None,
@@ -1271,6 +1282,7 @@ def scan_cmd(
     report_file: str | None,
     interactive: bool = False,
     comment_file: str | None = None,
+    show_diff: bool = False,
 ) -> None:
     """Scan an agent for safety vulnerabilities.
 
@@ -1777,6 +1789,19 @@ def scan_cmd(
                 f"\n[green]Compliance report written → [bold]{report_path}[/bold][/green]"
             )
 
+    # Build findings list for history persistence
+    _findings_for_history = [
+        {
+            "probe_id": p.name or p.input[:60],
+            "category": f.category.value,
+            "severity": f.severity.value,
+            "finding": f.description,
+            "probe_input": p.input,
+            "response": out,
+        }
+        for p, out, f in all_findings
+    ]
+
     # Persist scan result and show delta vs. previous scan (history already loaded above)
     try:
         save_scan_result(
@@ -1787,12 +1812,50 @@ def scan_cmd(
             total=total,
             elapsed=elapsed,
             timestamp=_scan_now_ts,
+            findings=_findings_for_history,
+            evaluator=llm_judge if llm_judge else "regex",
         )
         if _scan_previous is not None and not json_output:
             _rich_delta = compute_delta(passed, total, _scan_previous)
             out_console.print(format_delta_line(_rich_delta))
     except OSError:
         pass  # history write failures must never break the scan exit code
+
+    # --diff: compare against previous scan's findings
+    if show_diff and not json_output:
+        if _scan_previous is not None and "findings" in _scan_previous:
+            from checkagent.cli.diff import compute_diff, render_diff
+
+            _prev_report = {
+                "target": _scan_previous.get("target", display_target),
+                "summary": _scan_previous.get("summary", {}),
+                "findings": _scan_previous.get("findings", []),
+            }
+            _curr_report = {
+                "target": display_target,
+                "summary": {
+                    "total": total,
+                    "passed": passed,
+                    "failed": failed,
+                    "errors": errors,
+                    "score": round(
+                        passed / total if total > 0 else 0.0, 4
+                    ),
+                },
+                "findings": _findings_for_history,
+            }
+            _diff_result = compute_diff(_prev_report, _curr_report)
+            render_diff(_diff_result)
+        elif _scan_previous is None:
+            out_console.print(
+                "\n[yellow]--diff: no previous scan found. "
+                "Run again after the next scan to see a diff.[/yellow]"
+            )
+        else:
+            out_console.print(
+                "\n[yellow]--diff: previous scan has no findings "
+                "data. Re-run a scan to populate history.[/yellow]"
+            )
 
     # Interactive drill-down mode — navigates findings before exiting
     if interactive and not json_output and all_findings:
