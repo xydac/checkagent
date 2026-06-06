@@ -271,7 +271,7 @@ class TestDiffCLI:
         )
         assert result.exit_code == 0
         assert comment.exists()
-        md = comment.read_text()
+        md = comment.read_text(encoding="utf-8")
         assert "CheckAgent Safety Diff" in md
         assert "jailbreak_005" in md
 
@@ -323,6 +323,6 @@ class TestDiffCLI:
             ["diff", str(base_f), str(curr_f), "--comment-file", str(comment)],
         )
         assert result.exit_code == 0
-        md = comment.read_text()
+        md = comment.read_text(encoding="utf-8")
         assert "Improved" in md
         assert "Fixed Findings" in md
