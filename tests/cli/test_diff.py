@@ -326,3 +326,121 @@ class TestDiffCLI:
         md = comment.read_text(encoding="utf-8")
         assert "Improved" in md
         assert "Fixed Findings" in md
+
+
+class TestStabilityDiff:
+    """Tests for stability delta when scans were run with --repeat."""
+
+    def _scan_with_stability(self, score, stability_score, findings=None):
+        return {
+            "target": "my_agent:run",
+            "summary": {
+                "total": 10,
+                "passed": int(score * 10),
+                "failed": 10 - int(score * 10),
+                "errors": 0,
+                "score": score,
+                "elapsed_seconds": 1.0,
+                "evaluator": "regex",
+            },
+            "stability": {
+                "repeat": 3,
+                "stable_pass": int(stability_score * 10),
+                "stable_fail": 0,
+                "flaky": 10 - int(stability_score * 10),
+                "stability_score": stability_score,
+            },
+            "findings": findings or [],
+        }
+
+    def _scan_without_stability(self, score, findings=None):
+        return {
+            "target": "my_agent:run",
+            "summary": {
+                "total": 10,
+                "passed": int(score * 10),
+                "failed": 10 - int(score * 10),
+                "errors": 0,
+                "score": score,
+                "elapsed_seconds": 1.0,
+                "evaluator": "regex",
+            },
+            "findings": findings or [],
+        }
+
+    def test_stability_delta_computed_when_both_have_stability(self):
+        base = self._scan_with_stability(score=0.8, stability_score=0.9)
+        curr = self._scan_with_stability(score=0.8, stability_score=0.7)
+        diff = compute_diff(base, curr)
+        assert diff["stability"] is not None
+        assert diff["stability"]["baseline"] == pytest.approx(0.9)
+        assert diff["stability"]["current"] == pytest.approx(0.7)
+        assert diff["stability"]["delta"] == pytest.approx(-0.2, abs=0.001)
+
+    def test_stability_none_when_only_one_has_stability(self):
+        base = self._scan_with_stability(score=0.8, stability_score=0.9)
+        curr = self._scan_without_stability(score=0.8)
+        diff = compute_diff(base, curr)
+        assert diff["stability"] is None
+
+    def test_stability_none_when_neither_has_stability(self):
+        base = self._scan_without_stability(score=0.8)
+        curr = self._scan_without_stability(score=0.8)
+        diff = compute_diff(base, curr)
+        assert diff["stability"] is None
+
+    def test_stability_improvement_shown(self):
+        base = self._scan_with_stability(score=0.8, stability_score=0.6)
+        curr = self._scan_with_stability(score=0.8, stability_score=0.9)
+        diff = compute_diff(base, curr)
+        assert diff["stability"]["delta"] == pytest.approx(0.3, abs=0.001)
+
+    def test_stability_in_json_output(self, tmp_path):
+        base_scan = self._scan_with_stability(score=0.8, stability_score=0.9)
+        curr_scan = self._scan_with_stability(score=0.8, stability_score=0.7)
+        base_f = tmp_path / "base.json"
+        curr_f = tmp_path / "curr.json"
+        base_f.write_text(json.dumps(base_scan), encoding="utf-8")
+        curr_f.write_text(json.dumps(curr_scan), encoding="utf-8")
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["diff", str(base_f), str(curr_f), "--json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "stability" in data
+        assert data["stability"]["baseline"] == pytest.approx(0.9)
+        assert data["stability"]["current"] == pytest.approx(0.7)
+        assert data["stability"]["delta"] == pytest.approx(-0.2, abs=0.001)
+
+    def test_stability_in_comment_file(self, tmp_path):
+        base_scan = self._scan_with_stability(score=0.8, stability_score=0.9)
+        curr_scan = self._scan_with_stability(score=0.8, stability_score=0.7)
+        base_f = tmp_path / "base.json"
+        curr_f = tmp_path / "curr.json"
+        comment = tmp_path / "comment.md"
+        base_f.write_text(json.dumps(base_scan), encoding="utf-8")
+        curr_f.write_text(json.dumps(curr_scan), encoding="utf-8")
+
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["diff", str(base_f), str(curr_f), "--comment-file", str(comment)]
+        )
+        assert result.exit_code == 0
+        md = comment.read_text(encoding="utf-8")
+        assert "Stability" in md
+        assert "90%" in md
+        assert "70%" in md
+
+    def test_stability_repeat_counts_in_json(self, tmp_path):
+        base_scan = self._scan_with_stability(score=0.8, stability_score=0.9)
+        curr_scan = self._scan_with_stability(score=0.8, stability_score=0.9)
+        base_f = tmp_path / "base.json"
+        curr_f = tmp_path / "curr.json"
+        base_f.write_text(json.dumps(base_scan), encoding="utf-8")
+        curr_f.write_text(json.dumps(curr_scan), encoding="utf-8")
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["diff", str(base_f), str(curr_f), "--json"])
+        data = json.loads(result.output)
+        assert data["stability"]["baseline_repeat"] == 3
+        assert data["stability"]["current_repeat"] == 3

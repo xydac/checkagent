@@ -72,6 +72,21 @@ def compute_diff(
     curr_score = curr_summary.get("score", 0.0)
     score_delta = curr_score - base_score
 
+    base_stability = baseline.get("stability")
+    curr_stability = current.get("stability")
+    stability: dict[str, Any] | None = None
+    if base_stability is not None and curr_stability is not None:
+        base_stab_score = base_stability.get("stability_score", 1.0)
+        curr_stab_score = curr_stability.get("stability_score", 1.0)
+        stab_delta = curr_stab_score - base_stab_score
+        stability = {
+            "baseline": round(base_stab_score, 4),
+            "current": round(curr_stab_score, 4),
+            "delta": round(stab_delta, 4),
+            "baseline_repeat": base_stability.get("repeat", 1),
+            "current_repeat": curr_stability.get("repeat", 1),
+        }
+
     return {
         "baseline_target": baseline.get("target", "unknown"),
         "current_target": current.get("target", "unknown"),
@@ -80,6 +95,7 @@ def compute_diff(
             "current": curr_score,
             "delta": round(score_delta, 4),
         },
+        "stability": stability,
         "probes": {
             "baseline_total": base_summary.get("total", 0),
             "current_total": curr_summary.get("total", 0),
@@ -146,6 +162,18 @@ def render_diff(diff: dict[str, Any]) -> None:
         f"[green]{counts['fixed']}[/green]" if counts["fixed"] else "[dim]0[/dim]",
     )
     summary.add_row("Unchanged", str(counts["unchanged"]))
+    if diff.get("stability"):
+        stab = diff["stability"]
+        base_sp = int(round(stab["baseline"] * 100))
+        curr_sp = int(round(stab["current"] * 100))
+        sd = stab["delta"]
+        if sd < -0.005:
+            stab_str = f"[red]{base_sp}% → {curr_sp}% ({int(round(sd * 100))}%)[/red]"
+        elif sd > 0.005:
+            stab_str = f"[green]{base_sp}% → {curr_sp}% (+{int(round(sd * 100))}%)[/green]"
+        else:
+            stab_str = f"[dim]{base_sp}% → {curr_sp}% (+0%)[/dim]"
+        summary.add_row("Stability", stab_str)
     console.print(summary)
 
     if diff["new_findings"]:
@@ -301,6 +329,16 @@ def _build_diff_comment(diff: dict[str, Any]) -> str:
         f"| Fixed Findings | {counts['fixed']} | — | {'✅' if counts['fixed'] else '—'} |",
         f"| Unchanged | {counts['unchanged']} | {counts['unchanged']} | — |",
     ]
+    stab = diff.get("stability")
+    if stab:
+        base_sp = int(round(stab["baseline"] * 100))
+        curr_sp = int(round(stab["current"] * 100))
+        sd = stab["delta"]
+        stab_delta_str = f"{'+' if sd >= 0 else ''}{int(round(sd * 100))}%"
+        stab_flag = "⚠️" if sd < -0.05 else ("✅" if sd > 0.005 else "—")
+        lines.append(
+            f"| Stability | {base_sp}% | {curr_sp}% | {stab_delta_str} {stab_flag} |"
+        )
 
     if diff["new_findings"]:
         lines.extend([
