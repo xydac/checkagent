@@ -51,13 +51,13 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] Versioned JSON cassettes with stream support
 - [x] Replay engine with configurable matching
 - [x] Cassette migration tooling
-- [ ] PyPI v0.4.0
+- [x] PyPI v0.4.0
 
 ### Milestone 5: LLM-as-Judge
 - [x] Rubric-based evaluation
 - [x] Statistical assertions (PASS/FAIL/INCONCLUSIVE)
 - [x] Multi-judge consensus
-- [ ] PyPI v0.5.0
+- [x] PyPI v0.5.0
 
 ### Milestone 6: Framework Adapters + Production Loop
 - [x] LangChain adapter
@@ -147,8 +147,8 @@ CheckAgent is being built in public. Here's where we're headed.
 ### Milestone 18: Launch Hardening
 - [x] Safe trace import: screen imported traces for PII/security issues before encoding as expected behavior
 - [x] `ci-init` generates scan step with `--repeat 3` and best-practice comments
-- [ ] Demo recording refresh: updated terminal animation showing scan findings and TUI drill-down
-- [ ] README positioning update for current competitive landscape
+- [x] Demo recording refresh: updated terminal animation showing scan findings and TUI drill-down
+- [x] README positioning update for current competitive landscape
 
 ### Milestone 19: Real-Agent Validation
 - [x] Scan results on 3+ real open-source agents from different frameworks
@@ -156,10 +156,15 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] Performance benchmarks: scan time, memory usage, overhead on real agents
 - [x] v0.4.0 published to PyPI with all hardening fixes
 
+### Milestone 20: Safety CI Intelligence
+- [x] `checkagent diff --min-score` — gate CI on safety score threshold
+- [x] `checkagent diff --min-stability` — gate CI on stability threshold (requires `--repeat N` scans)
+- [ ] `checkagent scan --html` — generate HTML compliance report from scan results
+- [ ] Local scan history dashboard (`checkagent dashboard`)
+- [ ] Production trace import from Langfuse and Phoenix APIs
+
 ### Future
-- [ ] Local dashboard for test history and trends
 - [ ] Production trace import from more providers
-- [ ] HTML/PDF compliance report export from scan results
 
 ---
 

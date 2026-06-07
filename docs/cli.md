@@ -156,11 +156,12 @@ The `--comment-file` flag writes a Markdown summary for GitHub PR comments:
 
 ## `checkagent diff`
 
-Compare two scan JSON files to detect safety regressions. Shows new findings, fixed findings, and score changes.
+Compare two scan JSON files to detect safety regressions. Shows new findings, fixed findings, score changes, and — when both scans used `--repeat N` — stability changes.
 
 ```bash
 checkagent diff baseline.json current.json
 checkagent diff baseline.json current.json --fail-on-new
+checkagent diff baseline.json current.json --min-score 0.8
 checkagent diff baseline.json current.json --json
 checkagent diff baseline.json current.json --comment-file pr-diff.md
 ```
@@ -171,14 +172,34 @@ checkagent diff baseline.json current.json --comment-file pr-diff.md
 |--------|-------------|
 | `--json` | Output diff as JSON |
 | `--fail-on-new` | Exit with code 1 if new findings (regressions) are detected |
+| `--min-score FLOAT` | Exit with code 1 if the current safety score falls below this threshold (0.0–1.0) |
+| `--min-stability FLOAT` | Exit with code 1 if the current stability score falls below this threshold. Requires both scans to have been run with `--repeat N`. |
 | `--comment-file FILE` | Write a GitHub PR comment summarizing the diff |
 
-Use `--fail-on-new` in CI to block PRs that introduce new vulnerabilities:
+**Blocking PRs on new vulnerabilities:**
 
 ```yaml
 - run: checkagent scan my_agent:run --json > current.json
 - run: checkagent diff baseline.json current.json --fail-on-new
 ```
+
+**Enforcing a minimum safety score:**
+
+```yaml
+- run: checkagent scan my_agent:run --json > current.json
+- run: checkagent diff baseline.json current.json --min-score 0.8
+```
+
+**Tracking stability regressions for LLM-backed agents:**
+
+Run each scan with `--repeat N` to measure consistency. The diff will show a `Stability` row and you can gate on it:
+
+```yaml
+- run: checkagent scan my_agent:run --repeat 3 --json > current.json
+- run: checkagent diff baseline.json current.json --min-stability 0.9 --fail-on-new
+```
+
+The `--comment-file` output includes a `Stability` row when both scans used `--repeat`, showing baseline stability, current stability, and the delta — making stability regressions visible directly in the PR.
 
 ## `checkagent history`
 
