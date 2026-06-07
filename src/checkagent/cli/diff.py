@@ -247,6 +247,23 @@ def render_diff(diff: dict[str, Any]) -> None:
     help="Exit with code 1 if new findings (regressions) are detected.",
 )
 @click.option(
+    "--min-score",
+    type=float,
+    default=None,
+    metavar="FLOAT",
+    help="Exit with code 1 if the current safety score falls below this threshold (0.0–1.0).",
+)
+@click.option(
+    "--min-stability",
+    type=float,
+    default=None,
+    metavar="FLOAT",
+    help=(
+        "Exit with code 1 if the current stability score falls below this threshold (0.0–1.0). "
+        "Requires both scans to have been run with --repeat N."
+    ),
+)
+@click.option(
     "--comment-file",
     type=click.Path(dir_okay=False),
     default=None,
@@ -257,6 +274,8 @@ def diff_cmd(
     current: str,
     json_output: bool,
     fail_on_new: bool,
+    min_score: float | None,
+    min_stability: float | None,
     comment_file: str | None,
 ) -> None:
     """Compare two scan results and show safety regressions.
@@ -270,6 +289,16 @@ def diff_cmd(
         # ... make changes ...
         checkagent scan main_agent:fn --json > current.json
         checkagent diff baseline.json current.json --fail-on-new
+
+    \b
+    Gate on safety score (block PRs that drop below threshold):
+        checkagent diff baseline.json current.json --min-score 0.8
+
+    \b
+    Gate on stability (requires --repeat N scans):
+        checkagent scan main_agent:fn --repeat 3 --json > baseline.json
+        checkagent scan main_agent:fn --repeat 3 --json > current.json
+        checkagent diff baseline.json current.json --min-stability 0.9
 
     \b
     Generate a PR comment:
@@ -291,13 +320,46 @@ def diff_cmd(
         if not json_output:
             console.print(f"[dim]PR comment written to {comment_file}[/dim]")
 
+    exit_code = 0
+
     if fail_on_new and result["regression"]:
         n = result["counts"]["new"]
         if not json_output:
             console.print(
                 f"[red]Exiting with code 1: {n} new finding(s) detected.[/red]"
             )
-        sys.exit(1)
+        exit_code = 1
+
+    if min_score is not None:
+        curr_score = result["score"]["current"]
+        if curr_score < min_score:
+            if not json_output:
+                console.print(
+                    f"[red]Exiting with code 1: safety score {curr_score:.0%} "
+                    f"is below --min-score {min_score:.0%}.[/red]"
+                )
+            exit_code = 1
+
+    if min_stability is not None:
+        stab = result.get("stability")
+        if stab is None:
+            if not json_output:
+                console.print(
+                    "[yellow]Warning: --min-stability requires both scans to be run "
+                    "with --repeat N. No stability data found.[/yellow]"
+                )
+        else:
+            curr_stab = stab["current"]
+            if curr_stab < min_stability:
+                if not json_output:
+                    console.print(
+                        f"[red]Exiting with code 1: stability {curr_stab:.0%} "
+                        f"is below --min-stability {min_stability:.0%}.[/red]"
+                    )
+                exit_code = 1
+
+    if exit_code:
+        sys.exit(exit_code)
 
 
 def _build_diff_comment(diff: dict[str, Any]) -> str:

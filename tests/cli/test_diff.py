@@ -444,3 +444,171 @@ class TestStabilityDiff:
         data = json.loads(result.output)
         assert data["stability"]["baseline_repeat"] == 3
         assert data["stability"]["current_repeat"] == 3
+
+
+class TestDiffMinScoreGate:
+    """Tests for --min-score exit gate."""
+
+    def _make_scan(self, score, findings=None):
+        return {
+            "target": "my_agent:run",
+            "summary": {
+                "total": 10,
+                "passed": int(score * 10),
+                "failed": 10 - int(score * 10),
+                "errors": 0,
+                "score": score,
+                "elapsed_seconds": 1.0,
+                "evaluator": "regex",
+            },
+            "findings": findings or [],
+        }
+
+    def test_min_score_passes_when_above_threshold(self, tmp_path):
+        base = tmp_path / "base.json"
+        curr = tmp_path / "curr.json"
+        base.write_text(json.dumps(self._make_scan(0.8)), encoding="utf-8")
+        curr.write_text(json.dumps(self._make_scan(0.9)), encoding="utf-8")
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["diff", str(base), str(curr), "--min-score", "0.8"])
+        assert result.exit_code == 0
+
+    def test_min_score_fails_when_below_threshold(self, tmp_path):
+        base = tmp_path / "base.json"
+        curr = tmp_path / "curr.json"
+        base.write_text(json.dumps(self._make_scan(0.9)), encoding="utf-8")
+        curr.write_text(json.dumps(self._make_scan(0.7)), encoding="utf-8")
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["diff", str(base), str(curr), "--min-score", "0.8"])
+        assert result.exit_code == 1
+        assert "min-score" in result.output
+
+    def test_min_score_fails_at_exact_threshold(self, tmp_path):
+        """Score exactly at threshold passes (gte semantics)."""
+        base = tmp_path / "base.json"
+        curr = tmp_path / "curr.json"
+        base.write_text(json.dumps(self._make_scan(0.9)), encoding="utf-8")
+        curr.write_text(json.dumps(self._make_scan(0.8)), encoding="utf-8")
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["diff", str(base), str(curr), "--min-score", "0.8"])
+        assert result.exit_code == 0
+
+    def test_min_score_independent_of_fail_on_new(self, tmp_path):
+        """--min-score gates on score even when --fail-on-new is not set."""
+        base = tmp_path / "base.json"
+        curr = tmp_path / "curr.json"
+        base.write_text(json.dumps(self._make_scan(0.9)), encoding="utf-8")
+        # Score 0.5, but no "new" findings vs baseline — regression is score-only
+        curr.write_text(json.dumps(self._make_scan(0.5)), encoding="utf-8")
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["diff", str(base), str(curr), "--min-score", "0.7"])
+        assert result.exit_code == 1
+
+    def test_min_score_in_json_mode(self, tmp_path):
+        """--min-score still exits 1 in --json mode."""
+        base = tmp_path / "base.json"
+        curr = tmp_path / "curr.json"
+        base.write_text(json.dumps(self._make_scan(0.9)), encoding="utf-8")
+        curr.write_text(json.dumps(self._make_scan(0.5)), encoding="utf-8")
+
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["diff", str(base), str(curr), "--json", "--min-score", "0.8"]
+        )
+        assert result.exit_code == 1
+        # JSON output should still be valid even when exiting 1
+        data = json.loads(result.output)
+        assert "score" in data
+
+
+class TestDiffMinStabilityGate:
+    """Tests for --min-stability exit gate."""
+
+    def _scan_with_stability(self, score, stability_score):
+        return {
+            "target": "my_agent:run",
+            "summary": {
+                "total": 10,
+                "passed": int(score * 10),
+                "failed": 10 - int(score * 10),
+                "errors": 0,
+                "score": score,
+                "elapsed_seconds": 1.0,
+                "evaluator": "regex",
+            },
+            "stability": {
+                "repeat": 3,
+                "stable_pass": int(stability_score * 10),
+                "stable_fail": 0,
+                "flaky": 10 - int(stability_score * 10),
+                "stability_score": stability_score,
+            },
+            "findings": [],
+        }
+
+    def _scan_without_stability(self, score):
+        return {
+            "target": "my_agent:run",
+            "summary": {
+                "total": 10,
+                "passed": int(score * 10),
+                "failed": 10 - int(score * 10),
+                "errors": 0,
+                "score": score,
+                "elapsed_seconds": 1.0,
+                "evaluator": "regex",
+            },
+            "findings": [],
+        }
+
+    def test_min_stability_passes_when_above_threshold(self, tmp_path):
+        base = tmp_path / "base.json"
+        curr = tmp_path / "curr.json"
+        base.write_text(json.dumps(self._scan_with_stability(0.8, 0.9)), encoding="utf-8")
+        curr.write_text(json.dumps(self._scan_with_stability(0.8, 0.95)), encoding="utf-8")
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["diff", str(base), str(curr), "--min-stability", "0.9"])
+        assert result.exit_code == 0
+
+    def test_min_stability_fails_when_below_threshold(self, tmp_path):
+        base = tmp_path / "base.json"
+        curr = tmp_path / "curr.json"
+        base.write_text(json.dumps(self._scan_with_stability(0.8, 0.95)), encoding="utf-8")
+        curr.write_text(json.dumps(self._scan_with_stability(0.8, 0.7)), encoding="utf-8")
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["diff", str(base), str(curr), "--min-stability", "0.9"])
+        assert result.exit_code == 1
+        assert "min-stability" in result.output
+
+    def test_min_stability_warns_when_no_stability_data(self, tmp_path):
+        base = tmp_path / "base.json"
+        curr = tmp_path / "curr.json"
+        base.write_text(json.dumps(self._scan_without_stability(0.8)), encoding="utf-8")
+        curr.write_text(json.dumps(self._scan_without_stability(0.8)), encoding="utf-8")
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["diff", str(base), str(curr), "--min-stability", "0.9"])
+        # Should not exit 1 — no stability data, warn and pass
+        assert result.exit_code == 0
+        assert "Warning" in result.output or "min-stability" in result.output
+
+    def test_min_stability_and_min_score_combined(self, tmp_path):
+        """Both gates active: exit 1 if either threshold fails."""
+        base = tmp_path / "base.json"
+        curr = tmp_path / "curr.json"
+        base.write_text(json.dumps(self._scan_with_stability(0.9, 0.95)), encoding="utf-8")
+        # Score OK (0.9), stability failing (0.6 < 0.9 threshold)
+        curr.write_text(json.dumps(self._scan_with_stability(0.9, 0.6)), encoding="utf-8")
+
+        runner = CliRunner()
+        result = runner.invoke(
+            main,
+            ["diff", str(base), str(curr), "--min-score", "0.8", "--min-stability", "0.9"],
+        )
+        assert result.exit_code == 1
