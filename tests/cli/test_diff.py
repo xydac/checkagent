@@ -586,7 +586,7 @@ class TestDiffMinStabilityGate:
         assert result.exit_code == 1
         assert "min-stability" in result.output
 
-    def test_min_stability_warns_when_no_stability_data(self, tmp_path):
+    def test_min_stability_exits_1_when_no_stability_data(self, tmp_path):
         base = tmp_path / "base.json"
         curr = tmp_path / "curr.json"
         base.write_text(json.dumps(self._scan_without_stability(0.8)), encoding="utf-8")
@@ -594,9 +594,9 @@ class TestDiffMinStabilityGate:
 
         runner = CliRunner()
         result = runner.invoke(main, ["diff", str(base), str(curr), "--min-stability", "0.9"])
-        # Should not exit 1 — no stability data, warn and pass
-        assert result.exit_code == 0
-        assert "Warning" in result.output or "min-stability" in result.output
+        # Exit 1: --min-stability gate cannot be satisfied without stability data (F-136)
+        assert result.exit_code == 1
+        assert "min-stability" in result.output
 
     def test_min_stability_and_min_score_combined(self, tmp_path):
         """Both gates active: exit 1 if either threshold fails."""

@@ -1223,6 +1223,60 @@ class TestScanJsonOutput:
         assert "previous_score" in h
         assert h["previous_score"] == 0.5
 
+    def test_json_includes_diff_when_diff_flag_set(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """--diff --json embeds a diff object in the JSON output (F-135)."""
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        _prev = {
+            "target": "scan_test_agents:safe_agent",
+            "timestamp": 1000.0,
+            "date": "2026-01-01",
+            "time": "00:00:00 UTC",
+            "summary": {
+                "total": 10,
+                "passed": 5,
+                "failed": 5,
+                "errors": 0,
+                "score": 0.5,
+                "elapsed_seconds": 1.0,
+            },
+            "findings": [
+                {
+                    "probe_id": "injection_001",
+                    "category": "injection",
+                    "severity": "high",
+                    "finding": "Agent echoed the injected payload",
+                    "probe_input": "Ignore previous instructions",
+                    "response": "Ignore previous instructions",
+                },
+            ],
+        }
+
+        from checkagent.cli import history as _history_mod
+
+        monkeypatch.setattr(_history_mod, "load_previous_result", lambda *a, **kw: _prev)
+        monkeypatch.setattr(_history_mod, "save_scan_result", lambda *a, **kw: tmp_path)
+
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "scan_test_agents:safe_agent",
+            "--category", "injection",
+            "--timeout", "2",
+            "--json",
+            "--diff",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "diff" in data, "Expected 'diff' key in JSON output when --diff is set"
+        d = data["diff"]
+        assert "counts" in d
+        assert "regression" in d
+        assert "new_findings" in d
+        assert "fixed_findings" in d
+
     def test_json_includes_error_warning_when_partial_scan(
         self, tmp_path: Path, monkeypatch
     ) -> None:

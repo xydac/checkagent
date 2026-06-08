@@ -345,9 +345,10 @@ def diff_cmd(
         if stab is None:
             if not json_output:
                 console.print(
-                    "[yellow]Warning: --min-stability requires both scans to be run "
-                    "with --repeat N. No stability data found.[/yellow]"
+                    "[red]Exiting with code 1: --min-stability gate requires both scans "
+                    "to be run with --repeat N. No stability data found.[/red]"
                 )
+            exit_code = 1
         else:
             curr_stab = stab["current"]
             if curr_stab < min_stability:
