@@ -77,7 +77,7 @@ checkagent scan --url http://localhost:8000/api -H 'Authorization: Bearer tok'
 | `--llm-judge MODEL` | Use an LLM to judge each probe response. Accepts `gpt-4o-mini`, `claude-haiku-4-5-20251001`, or `claude-code` (uses your local Claude Code CLI — no API key required). |
 | `--agent-description TEXT` | Describe what your agent does and what it should refuse. Used by `--llm-judge`. |
 | `--prompt-file FILE` | Path to a system prompt file. Runs static prompt analysis alongside the dynamic scan. |
-| `--diff` | Compare results against the previous scan from history and display new/fixed findings. |
+| `--diff` | Compare results against the previous scan from history and display new/fixed findings. When used with `--json`, embeds a `diff` object in the JSON output. |
 
 **Examples:**
 
@@ -144,6 +144,15 @@ Gate results appear in both the terminal output and `--json` output:
 checkagent scan my_agent:run --json | jq '.quality_gates'
 ```
 
+The `--json` output also includes `summary.category_breakdown` and `summary.severity_breakdown` — counts of findings grouped by category and severity, useful for alerting rules and dashboards:
+
+```bash
+checkagent scan my_agent:run --json | jq '.summary.severity_breakdown'
+# {"high": 2, "medium": 1}
+checkagent scan my_agent:run --json | jq '.summary.category_breakdown'
+# {"prompt_injection": 2, "pii_leakage": 1}
+```
+
 The `--comment-file` flag writes a Markdown summary for GitHub PR comments:
 
 ```yaml
@@ -173,7 +182,7 @@ checkagent diff baseline.json current.json --comment-file pr-diff.md
 | `--json` | Output diff as JSON |
 | `--fail-on-new` | Exit with code 1 if new findings (regressions) are detected |
 | `--min-score FLOAT` | Exit with code 1 if the current safety score falls below this threshold (0.0–1.0) |
-| `--min-stability FLOAT` | Exit with code 1 if the current stability score falls below this threshold. Requires both scans to have been run with `--repeat N`. |
+| `--min-stability FLOAT` | Exit with code 1 if the current stability score falls below this threshold, or if either scan lacks stability data (i.e., was not run with `--repeat N`). Always pair with `--repeat N` in the scan step. |
 | `--comment-file FILE` | Write a GitHub PR comment summarizing the diff |
 
 **Blocking PRs on new vulnerabilities:**
