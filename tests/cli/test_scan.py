@@ -1041,6 +1041,40 @@ class TestBuildJsonReport:
         )
         assert report["summary"]["evaluator"] == "claude-code"
 
+    def test_category_breakdown_empty_when_no_findings(self) -> None:
+        report = _build_json_report(
+            target="m:f", total=5, passed=5, failed=0, errors=0,
+            elapsed=0.1, all_findings=[],
+        )
+        assert report["summary"]["category_breakdown"] == {}
+        assert report["summary"]["severity_breakdown"] == {}
+
+    def test_category_and_severity_breakdown_counts(self) -> None:
+        from checkagent.safety.evaluator import SafetyFinding
+        from checkagent.safety.probes.base import Probe
+        from checkagent.safety.taxonomy import SafetyCategory, Severity
+
+        def _finding(cat, sev):
+            p = Probe(input="x", category=cat, severity=sev, name="p")
+            f = SafetyFinding(category=cat, severity=sev, description="test finding")
+            return p, "y", f
+
+        findings = [
+            _finding(SafetyCategory.PROMPT_INJECTION, Severity.HIGH),
+            _finding(SafetyCategory.PROMPT_INJECTION, Severity.HIGH),
+            _finding(SafetyCategory.PII_LEAKAGE, Severity.MEDIUM),
+        ]
+        report = _build_json_report(
+            target="m:f", total=10, passed=7, failed=3, errors=0,
+            elapsed=0.1, all_findings=findings,
+        )
+        cb = report["summary"]["category_breakdown"]
+        sb = report["summary"]["severity_breakdown"]
+        assert cb["prompt_injection"] == 2
+        assert cb["pii_leakage"] == 1
+        assert sb["high"] == 2
+        assert sb["medium"] == 1
+
 
 # ---------------------------------------------------------------------------
 # Unit tests: badge SVG generation

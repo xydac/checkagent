@@ -2027,6 +2027,15 @@ def _build_json_report(
 
     score = passed / total if total > 0 else 0.0
 
+    # Build breakdown counts from findings
+    category_breakdown: dict[str, int] = {}
+    severity_breakdown: dict[str, int] = {}
+    for _, _, finding in all_findings:
+        cat = finding.category.value
+        sev = finding.severity.value
+        category_breakdown[cat] = category_breakdown.get(cat, 0) + 1
+        severity_breakdown[sev] = severity_breakdown.get(sev, 0) + 1
+
     report: dict = {
         "target": target,
         "summary": {
@@ -2037,6 +2046,8 @@ def _build_json_report(
             "score": round(score, 4),
             "elapsed_seconds": round(elapsed, 3),
             "evaluator": llm_judge if llm_judge else "regex",
+            "category_breakdown": category_breakdown,
+            "severity_breakdown": severity_breakdown,
         },
         "findings": findings_list,
     }
