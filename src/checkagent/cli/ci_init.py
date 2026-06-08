@@ -47,21 +47,30 @@ jobs:
 
       - name: Run safety scan
         run: |
-          # --repeat 3 runs each probe 3 times and flags flaky results.
-          # --diff compares against the previous scan to show new/fixed findings.
-          checkagent scan {scan_target} --repeat 3 --diff
+          # --repeat 3: run each probe 3 times to catch flaky LLM-backed agents.
+          # --diff: show new/fixed findings vs. the previous scan (stored in .checkagent/).
+          checkagent scan {scan_target} --repeat 3 --diff --json > scan.json
           # For HTTP endpoints: checkagent scan --url http://localhost:8000/chat --repeat 3
           # For LLM judge:      checkagent scan {scan_target} --repeat 3 --llm-judge gpt-4o-mini
         env:
           OPENAI_API_KEY: ${{{{ secrets.OPENAI_API_KEY }}}}
 
-      # Uncomment to post scan results as a PR comment:
-      # - name: Safety scan (PR diff report)
-      #   if: github.event_name == 'pull_request'
+      # Quality gates: fail CI when score or stability drops below threshold.
+      # Uncomment and adjust thresholds to enforce safety contracts:
+      # - name: Enforce quality gates
       #   run: |
       #     checkagent scan {scan_target} --json > current.json
-      #     # Fetch baseline from main branch (requires artifact or prior scan):
-      #     # checkagent diff baseline.json current.json --comment-file pr-comment.md --fail-on-new
+      #     # Fail if score drops below 80% or stability below 90%:
+      #     checkagent diff baseline.json current.json \
+      #       --min-score 0.8 --min-stability 0.9 --fail-on-new
+      #     # Note: --min-stability requires both scans to use --repeat N.
+
+      # Post scan diff as a PR comment (requires baseline artifact from main branch):
+      # - name: PR safety diff comment
+      #   if: github.event_name == 'pull_request'
+      #   run: |
+      #     checkagent diff baseline.json scan.json --comment-file pr-comment.md --fail-on-new
+      #   # Upload baseline.json as a workflow artifact from your main branch scan.
 """
 
 # ---------------------------------------------------------------------------
@@ -94,9 +103,11 @@ safety-scan:
     # - pip install -r requirements.txt
     # --repeat 3: run each probe 3 times to catch flaky LLM-backed agents
     # --diff: compare against previous scan to show new/fixed findings
-    - checkagent scan {scan_target} --repeat 3 --diff
+    - checkagent scan {scan_target} --repeat 3 --diff --json > scan.json
     # For HTTP endpoints: checkagent scan --url http://localhost:8000/chat --repeat 3
     # For LLM judge:      checkagent scan {scan_target} --repeat 3 --llm-judge gpt-4o-mini
+    # Quality gates (uncomment to enforce):
+    # - checkagent diff baseline.json scan.json --min-score 0.8 --min-stability 0.9 --fail-on-new
   variables:
     OPENAI_API_KEY: $OPENAI_API_KEY
 """
