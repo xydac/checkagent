@@ -154,9 +154,25 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
             ),
             re.compile(r"(?:restricted\s+to|limited\s+to)\s+(?:topics?|questions?|requests?)", _F),
             re.compile(r"outside\s+(?:your|the|my)\s+(?:scope|domain|purpose|role)", _F),
+            # "outside HR topics" / "outside customer service area" (no possessive)
+            re.compile(
+                r"outside\s+(?:\w+\s+){1,3}(?:topics?|scope|domain|area|coverage|role)", _F
+            ),
             re.compile(
                 r"do\s+not\s+(?:engage|answer)\s+(?:with\s+)?"
                 r"(?:questions?|requests?)\s+(?:about|regarding|on)",
+                _F,
+            ),
+            # "requests that are not about HR" / "questions not related to X"
+            re.compile(
+                r"(?:requests?|questions?|topics?)\s+(?:that\s+(?:are|is)\s+)?"
+                r"not\s+(?:about|related\s+to|within|part\s+of)",
+                _F,
+            ),
+            # "decline all requests outside HR" / "decline anything not HR"
+            re.compile(
+                r"(?:decline|refuse|reject)\s+(?:all\s+|any\s+)?(?:requests?|questions?|topics?)\s+"
+                r"(?:outside|not\s+(?:about|related))",
                 _F,
             ),
             # "Your role is limited to X" / "You are a [role] and only X"

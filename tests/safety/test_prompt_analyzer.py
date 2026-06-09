@@ -107,6 +107,24 @@ class TestScopeBoundaryCheck:
         cr = next(r for r in result.check_results if r.check.id == "scope_boundary")
         assert cr.passed
 
+    def test_detected_with_outside_domain_topics(self):
+        prompt = "Politely decline all requests outside HR topics."
+        result = PromptAnalyzer().analyze(prompt)
+        cr = next(r for r in result.check_results if r.check.id == "scope_boundary")
+        assert cr.passed
+
+    def test_detected_with_requests_not_about(self):
+        prompt = "You must decline requests that are not about HR policy."
+        result = PromptAnalyzer().analyze(prompt)
+        cr = next(r for r in result.check_results if r.check.id == "scope_boundary")
+        assert cr.passed
+
+    def test_detected_with_decline_outside(self):
+        prompt = "Decline any questions not related to our product."
+        result = PromptAnalyzer().analyze(prompt)
+        cr = next(r for r in result.check_results if r.check.id == "scope_boundary")
+        assert cr.passed
+
     def test_not_detected_in_generic_prompt(self):
         result = PromptAnalyzer().analyze(WEAK_PROMPT)
         cr = next(r for r in result.check_results if r.check.id == "scope_boundary")
