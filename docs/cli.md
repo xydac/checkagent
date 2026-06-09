@@ -210,6 +210,35 @@ Run each scan with `--repeat N` to measure consistency. The diff will show a `St
 
 The `--comment-file` output includes a `Stability` row when both scans used `--repeat`, showing baseline stability, current stability, and the delta — making stability regressions visible directly in the PR.
 
+## `checkagent dashboard`
+
+Show a safety overview for **all** agents scanned in this project. Displays the latest score, trend, and finding counts for every target, sorted with the lowest-scoring agents first.
+
+```bash
+checkagent dashboard                 # All agents, lowest-scoring first
+checkagent dashboard --top 10        # Show only the 10 lowest-scoring
+checkagent dashboard --json          # Machine-readable JSON
+```
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--top N` | Show only the N lowest-scoring agents (default: 20) |
+| `--json` | Output results as JSON |
+| `--dir PATH` | Project root containing `.checkagent/` (default: current directory) |
+
+**JSON output:**
+```json
+{
+  "agents": [
+    {"target": "my_agent:fn", "score": 0.73, "failed": 9, "total": 35, "date": "2026-06-09", "scans": 4}
+  ],
+  "total": 1,
+  "showing": 1
+}
+```
+
 ## `checkagent history`
 
 Show scan score trends for a target. Displays a table of past scan results so you can track safety posture over time.
