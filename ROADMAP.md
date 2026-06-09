@@ -159,7 +159,7 @@ CheckAgent is being built in public. Here's where we're headed.
 ### Milestone 20: Safety CI Intelligence
 - [x] `checkagent diff --min-score` — gate CI on safety score threshold
 - [x] `checkagent diff --min-stability` — gate CI on stability threshold (requires `--repeat N` scans)
-- [ ] `checkagent scan --html` — generate HTML compliance report from scan results
+- [x] `checkagent scan --report FILE` — generate HTML compliance report from scan results
 - [ ] Local scan history dashboard (`checkagent dashboard`)
 - [ ] Production trace import from Langfuse and Phoenix APIs
 

@@ -162,6 +162,7 @@ checkagent scan my_agent:agent_fn --badge badge.svg # shields.io-style badge
 checkagent scan my_agent:agent_fn --repeat 3       # run each probe N times for stable CI gates
 checkagent scan my_agent:agent_fn --diff           # compare against last scan — show new/fixed findings
 checkagent scan my_agent:agent_fn --sarif scan.sarif # SARIF 2.1.0 for GitHub Code Scanning
+checkagent scan my_agent:agent_fn --report safety.html # full HTML compliance report (OWASP categories)
 ```
 
 For non-deterministic agents (real LLMs at temperature > 0), `--repeat N` runs each probe multiple times and reports a stability score. A finding is flagged "flaky" when it appears in some runs but not others — useful for distinguishing real vulnerabilities from noise.
