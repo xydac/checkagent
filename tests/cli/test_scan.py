@@ -1310,6 +1310,54 @@ class TestScanJsonOutput:
         assert "regression" in d
         assert "new_findings" in d
         assert "fixed_findings" in d
+        assert data.get("diff_available") is True
+
+    def test_json_diff_available_false_when_no_baseline(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """--diff --json sets diff_available=false when no previous scan exists."""
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        from checkagent.cli import history as _history_mod
+
+        monkeypatch.setattr(_history_mod, "load_previous_result", lambda *a, **kw: None)
+        monkeypatch.setattr(_history_mod, "save_scan_result", lambda *a, **kw: tmp_path)
+
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "scan_test_agents:safe_agent",
+            "--category", "injection",
+            "--timeout", "2",
+            "--json",
+            "--diff",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "diff" not in data, "diff key should be absent when no baseline"
+        assert data.get("diff_available") is False
+
+    def test_json_no_diff_available_when_diff_not_requested(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """diff_available key is absent from JSON when --diff flag not passed."""
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        from checkagent.cli import history as _history_mod
+
+        monkeypatch.setattr(_history_mod, "save_scan_result", lambda *a, **kw: tmp_path)
+
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "scan_test_agents:safe_agent",
+            "--category", "injection",
+            "--timeout", "2",
+            "--json",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "diff_available" not in data
 
     def test_json_includes_error_warning_when_partial_scan(
         self, tmp_path: Path, monkeypatch

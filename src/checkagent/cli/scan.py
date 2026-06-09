@@ -1694,37 +1694,41 @@ def scan_cmd(
                 "current_score": _delta["current_score"],
                 "score_delta": _delta["score_delta"],
             }
-        if show_diff and _scan_previous is not None and "findings" in _scan_previous:
-            from checkagent.cli.diff import compute_diff as _compute_diff
+        if show_diff:
+            if _scan_previous is not None and "findings" in _scan_previous:
+                from checkagent.cli.diff import compute_diff as _compute_diff
 
-            _diff_findings = [
-                {
-                    "probe_id": p.name or p.input[:60],
-                    "category": f.category.value,
-                    "severity": f.severity.value,
-                    "finding": f.description,
-                    "probe_input": p.input,
-                    "response": out,
+                _diff_findings = [
+                    {
+                        "probe_id": p.name or p.input[:60],
+                        "category": f.category.value,
+                        "severity": f.severity.value,
+                        "finding": f.description,
+                        "probe_input": p.input,
+                        "response": out,
+                    }
+                    for p, out, f in all_findings
+                ]
+                _diff_prev = {
+                    "target": _scan_previous.get("target", display_target),
+                    "summary": _scan_previous.get("summary", {}),
+                    "findings": _scan_previous.get("findings", []),
                 }
-                for p, out, f in all_findings
-            ]
-            _diff_prev = {
-                "target": _scan_previous.get("target", display_target),
-                "summary": _scan_previous.get("summary", {}),
-                "findings": _scan_previous.get("findings", []),
-            }
-            _diff_curr = {
-                "target": display_target,
-                "summary": {
-                    "total": total,
-                    "passed": passed,
-                    "failed": failed,
-                    "errors": errors,
-                    "score": round(passed / total if total > 0 else 0.0, 4),
-                },
-                "findings": _diff_findings,
-            }
-            report["diff"] = _compute_diff(_diff_prev, _diff_curr)
+                _diff_curr = {
+                    "target": display_target,
+                    "summary": {
+                        "total": total,
+                        "passed": passed,
+                        "failed": failed,
+                        "errors": errors,
+                        "score": round(passed / total if total > 0 else 0.0, 4),
+                    },
+                    "findings": _diff_findings,
+                }
+                report["diff"] = _compute_diff(_diff_prev, _diff_curr)
+                report["diff_available"] = True
+            else:
+                report["diff_available"] = False
         # Evaluate scan gates and embed in JSON output
         _json_score = passed / total if total > 0 else 0.0
         _json_cfg = load_config()
