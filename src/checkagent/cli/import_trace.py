@@ -14,7 +14,9 @@ from rich.console import Console
 from rich.table import Table
 
 from checkagent.trace_import.json_importer import JsonFileImporter
+from checkagent.trace_import.langfuse_importer import LangfuseAPIImporter
 from checkagent.trace_import.otel_importer import OtelJsonImporter
+from checkagent.trace_import.phoenix_importer import PhoenixAPIImporter
 from checkagent.trace_import.pii import PiiScrubber
 from checkagent.trace_import.testcase_gen import (
     export_dataset_json,
@@ -23,20 +25,45 @@ from checkagent.trace_import.testcase_gen import (
 
 console = Console()
 
-_SOURCE_MAP = {
+_FILE_SOURCE_MAP = {
     "json": JsonFileImporter,
     "jsonl": JsonFileImporter,
     "otel": OtelJsonImporter,
 }
 
+_API_SOURCES = {"langfuse", "phoenix"}
+
 
 @click.command("import-trace")
-@click.argument("file", type=click.Path(exists=True))
+@click.argument("file", type=click.Path(), required=False, default=None)
 @click.option(
     "--source",
-    type=click.Choice(["json", "jsonl", "otel"], case_sensitive=False),
+    type=click.Choice(["json", "jsonl", "otel", "langfuse", "phoenix"], case_sensitive=False),
     default=None,
-    help="Source format. Auto-detected from file extension if not specified.",
+    help=(
+        "Source format. Auto-detected from file extension if not specified. "
+        "Use 'langfuse' or 'phoenix' to fetch directly from the API (no file needed)."
+    ),
+)
+@click.option(
+    "--api-url",
+    default=None,
+    metavar="URL",
+    help=(
+        "API base URL for langfuse/phoenix sources. "
+        "Defaults: Langfuse cloud (https://cloud.langfuse.com), "
+        "Phoenix local (http://localhost:6006)."
+    ),
+)
+@click.option(
+    "--api-key",
+    default=None,
+    metavar="KEY",
+    help=(
+        "API credentials. For Langfuse, use 'public_key:secret_key'. "
+        "For Phoenix, provide the API key. "
+        "Can also be set via LANGFUSE_PUBLIC_KEY/LANGFUSE_SECRET_KEY or PHOENIX_API_KEY env vars."
+    ),
 )
 @click.option(
     "--output",
@@ -72,7 +99,7 @@ _SOURCE_MAP = {
 @click.option(
     "--dataset-name",
     default=None,
-    help="Name for the generated dataset. Defaults to filename stem.",
+    help="Name for the generated dataset. Defaults to filename stem or source name.",
 )
 @click.option(
     "--tag",
@@ -80,8 +107,10 @@ _SOURCE_MAP = {
     help="Additional tags to add to all generated test cases.",
 )
 def import_trace_cmd(
-    file: str,
+    file: str | None,
     source: str | None,
+    api_url: str | None,
+    api_key: str | None,
     output: str | None,
     filter_status: str | None,
     limit: int | None,
@@ -93,6 +122,7 @@ def import_trace_cmd(
     """Import production traces and generate test cases.
 
     FILE is the path to a trace file (JSON, JSONL, or OTLP JSON).
+    For Langfuse and Phoenix, omit FILE and use --source with optional --api-url.
 
     By default, trace outputs are screened for security issues (PII leakage,
     prompt injection, data enumeration). Flagged traces are tagged
@@ -106,25 +136,53 @@ def import_trace_cmd(
         checkagent import-trace otel-export.json --source otel --filter-status error
 
         checkagent import-trace prod-traces.json -o tests/datasets/regression.json
+
+        checkagent import-trace --source langfuse --limit 100
+
+        checkagent import-trace --source phoenix --api-url http://localhost:6006
+
+        checkagent import-trace --source langfuse --api-key pk-lf-...:sk-lf-...
     """
-    file_path = Path(file)
-
-    if source is None:
-        source = _detect_source(file_path)
-
-    importer_cls = _SOURCE_MAP[source]
-    importer = importer_cls()
-
     filters = {}
     if filter_status:
         filters["status"] = filter_status
 
-    console.print(
-        f"[bold]Importing traces from[/bold] {file_path.name}"
-        f" [dim]({source} format)[/dim]"
-    )
+    # API-based import (no file needed)
+    if source in _API_SOURCES:
+        importer, display_name = _build_api_importer(source, api_url, api_key)
+        console.print(
+            f"[bold]Fetching traces from[/bold] [cyan]{display_name}[/cyan]"
+            f" [dim]({source})[/dim]"
+        )
+        try:
+            runs = importer.import_traces(filters=filters or None, limit=limit)
+        except RuntimeError as exc:
+            raise click.ClickException(str(exc)) from exc
+        name = dataset_name or source
+    else:
+        # File-based import
+        if file is None:
+            raise click.UsageError(
+                "Provide a FILE argument, or use --source langfuse/phoenix for API import."
+            )
+        if not Path(file).exists():
+            raise click.ClickException(f"File not found: {file}")
 
-    runs = importer.import_traces(str(file_path), filters=filters or None, limit=limit)
+        file_path = Path(file)
+
+        if source is None:
+            source = _detect_source(file_path)
+
+        importer_cls = _FILE_SOURCE_MAP[source]
+        importer = importer_cls()
+
+        console.print(
+            f"[bold]Importing traces from[/bold] {file_path.name}"
+            f" [dim]({source} format)[/dim]"
+        )
+
+        runs = importer.import_traces(str(file_path), filters=filters or None, limit=limit)
+        name = dataset_name or file_path.stem
 
     if not runs:
         console.print("[yellow]No traces found matching the specified criteria.[/yellow]")
@@ -132,7 +190,6 @@ def import_trace_cmd(
 
     console.print(f"[green]Found {len(runs)} traces[/green]")
 
-    name = dataset_name or file_path.stem
     scrubber = None if no_pii_scrub else PiiScrubber()
 
     dataset, screening = generate_test_cases(
@@ -208,6 +265,31 @@ def import_trace_cmd(
     console.print(
         "[dim]Review the generated test cases and add them to your test suite.[/dim]"
     )
+
+
+def _build_api_importer(
+    source: str,
+    api_url: str | None,
+    api_key: str | None,
+) -> tuple[object, str]:
+    """Build an API-based importer and return (importer, display_name)."""
+    if source == "langfuse":
+        public_key: str | None = None
+        secret_key: str | None = None
+        if api_key and ":" in api_key:
+            public_key, _, secret_key = api_key.partition(":")
+        elif api_key:
+            public_key = api_key
+        host = api_url or "https://cloud.langfuse.com"
+        importer = LangfuseAPIImporter(host=host, public_key=public_key, secret_key=secret_key)
+        return importer, host
+
+    if source == "phoenix":
+        host = api_url or "http://localhost:6006"
+        importer = PhoenixAPIImporter(host=host, api_key=api_key or None)
+        return importer, host
+
+    raise ValueError(f"Unknown API source: {source}")
 
 
 def _detect_source(path: Path) -> str:
