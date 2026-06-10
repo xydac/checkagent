@@ -63,7 +63,7 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] LangChain adapter
 - [x] OpenAI Agents SDK adapter
 - [x] CrewAI, PydanticAI, Anthropic adapters
-- [x] Production trace import (JSON/JSONL, OpenTelemetry; Langfuse/Phoenix API planned)
+- [x] Production trace import (JSON/JSONL, OpenTelemetry, Langfuse API, Phoenix API)
 - [ ] PyPI v1.0.0
 
 ### Milestone 7: Multi-Agent + Ecosystem
@@ -161,7 +161,7 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] `checkagent diff --min-stability` — gate CI on stability threshold (requires `--repeat N` scans)
 - [x] `checkagent scan --report FILE` — generate HTML compliance report from scan results
 - [x] Local scan history dashboard (`checkagent dashboard`)
-- [ ] Production trace import from Langfuse and Phoenix APIs
+- [x] Production trace import from Langfuse and Phoenix APIs
 
 ### Future
 - [ ] Production trace import from more providers

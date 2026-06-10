@@ -1,6 +1,6 @@
 """CheckAgent — The open-source testing framework for AI agents."""
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 from checkagent.adapters.generic import GenericAdapter, wrap
 from checkagent.ci.quality_gate import QualityGateEntry

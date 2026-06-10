@@ -455,7 +455,30 @@ checkagent dataset validate tests/golden/my_cases.json
 Import production traces and convert them to test cases.
 
 ```bash
-checkagent import-trace --source traces.jsonl --output tests/golden/
+# From a local file (JSON, JSONL, or OpenTelemetry)
+checkagent import-trace traces.jsonl
+checkagent import-trace otel-export.json --source otel --filter-status error
+
+# From the Langfuse API (uses LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY env vars)
+checkagent import-trace --source langfuse --limit 100
+checkagent import-trace --source langfuse --api-key pk-lf-...:sk-lf-... -o tests/golden/langfuse.json
+
+# From Arize Phoenix (uses PHOENIX_API_KEY env var; default host: localhost:6006)
+checkagent import-trace --source phoenix
+checkagent import-trace --source phoenix --api-url http://my-phoenix:6006
 ```
 
-Supports JSON, JSONL, and OpenTelemetry trace formats.
+All imported traces are screened for PII and security issues by default.
+Flagged traces are tagged `needs-review` and their outputs are excluded from
+expected assertions to prevent vulnerabilities from becoming regression tests.
+
+| Flag | Description |
+|------|-------------|
+| `--source` | Format: `json`, `jsonl`, `otel`, `langfuse`, `phoenix` |
+| `--api-url` | API base URL for langfuse/phoenix (overrides defaults) |
+| `--api-key` | Credentials: `pk:sk` for Langfuse, API key for Phoenix |
+| `--filter-status` | Keep only `error` or `success` traces |
+| `--limit N` | Max traces to import |
+| `--no-pii-scrub` | Disable PII scrubbing (not recommended) |
+| `--no-safety-check` | Skip security screening (not recommended) |
+| `-o FILE` | Output dataset path |
