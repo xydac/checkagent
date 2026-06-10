@@ -16,19 +16,6 @@ from rich.table import Table
 console = Console()
 
 _HISTORY_DIR = ".checkagent/history"
-_SPARK_CHARS = " ▁▂▃▄▅▆▇█"
-
-
-def _sparkline(scores: list[float]) -> str:
-    if not scores:
-        return ""
-    chars = []
-    for s in scores:
-        idx = min(int(s * (len(_SPARK_CHARS) - 1)), len(_SPARK_CHARS) - 1)
-        chars.append(_SPARK_CHARS[idx])
-    return "".join(chars)
-
-
 def _score_style(score: float) -> str:
     pct = int(round(score * 100))
     if pct >= 80:
@@ -86,7 +73,6 @@ def _load_agent_summary(tdir: Path) -> dict | None:
         "date": latest.get("date", ""),
         "scans": len(files),
         "trend": trend,
-        "sparkline": _sparkline(scores),
     }
 
 
@@ -189,25 +175,21 @@ def dashboard_cmd(base_dir: str | None, top: int, json_output: bool) -> None:
     if total_agents > top:
         title += f" (showing bottom {top} by score)"
     table = Table(title=title, show_lines=False, expand=False)
-    table.add_column("Agent", no_wrap=False)
+    table.add_column("Agent", no_wrap=True)
     table.add_column("Score", justify="right")
     table.add_column("Trend", justify="center")
-    table.add_column("Findings", justify="right")
-    table.add_column("Probes", justify="right")
+    table.add_column("Fail/Total", justify="right")
     table.add_column("Scans", justify="right")
     table.add_column("Last Scan", style="dim")
-    table.add_column("History", style="dim")
 
     for a in displayed:
         table.add_row(
             a["target"],
             _score_style(a["score"]),
             a["trend"],
-            str(a["failed"]),
-            str(a["total"]),
+            f"{a['failed']}/{a['total']}",
             str(a["scans"]),
             a["date"],
-            a["sparkline"],
         )
 
     console.print()
