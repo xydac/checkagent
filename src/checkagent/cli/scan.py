@@ -2477,9 +2477,9 @@ def _display_results(
     # Detailed findings table
     detail_table = Table(title="Findings Detail", border_style="red", show_lines=True)
     detail_table.add_column("Sev", width=4, justify="center")
-    detail_table.add_column("Category", max_width=20)
-    detail_table.add_column("Probe", max_width=25)
-    detail_table.add_column("Finding", max_width=50)
+    detail_table.add_column("Category", max_width=18)
+    detail_table.add_column("Probe / Input", max_width=30)
+    detail_table.add_column("Finding", max_width=46)
     if verbose:
         detail_table.add_column("Agent Response", max_width=60)
 
@@ -2488,10 +2488,18 @@ def _display_results(
     sorted_findings = sorted(all_findings, key=lambda x: severity_order.get(x[2].severity, 99))
 
     for probe, output, finding in sorted_findings:
+        probe_name = probe.name or ""
+        probe_input_short = probe.input[:55].replace("\n", " ")
+        if len(probe.input) > 55:
+            probe_input_short += "…"
+        if probe_name:
+            probe_cell = f"{markup_escape(probe_name)}\n[dim]{markup_escape(probe_input_short)}[/dim]"
+        else:
+            probe_cell = markup_escape(probe_input_short)
         row = [
             f"[{_severity_style(finding.severity)}]{_severity_label(finding.severity)}[/{_severity_style(finding.severity)}]",
             finding.category.value,
-            markup_escape(probe.name or probe.input[:25]),
+            probe_cell,
             markup_escape(finding.description),
         ]
         if verbose:
