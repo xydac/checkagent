@@ -1,0 +1,139 @@
+name: CheckAgent Safety Scan
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  # ─── Job 1: Run scan on every push and PR ───────────────────────────────────
+  scan:
+    name: Agent Safety Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install checkagent
+          # pip install -r requirements.txt
+
+      - name: Run agent tests
+        run: pytest tests/ -q --tb=short
+
+      - name: Run safety scan
+        run: |
+          # --repeat 3: run each probe 3 times for stability scoring on LLM-backed agents.
+          checkagent scan sample_agent:sample_agent --repeat 3 --json > scan.json
+          # For HTTP endpoints: checkagent scan --url http://localhost:8000/chat --repeat 3
+          # For LLM eval:       checkagent scan sample_agent:sample_agent --repeat 3 --llm-judge gpt-4o-mini
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Upload scan result
+        uses: actions/upload-artifact@v4
+        with:
+          name: scan-result-${{ github.sha }}
+          path: scan.json
+          retention-days: 30
+
+  # ─── Job 2: Diff against main-branch baseline and post PR comment ───────────
+  pr-diff:
+    name: PR Safety Diff
+    runs-on: ubuntu-latest
+    needs: scan
+    if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+      actions: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install checkagent
+        run: pip install checkagent
+
+      - name: Download current scan
+        uses: actions/download-artifact@v4
+        with:
+          name: scan-result-${{ github.sha }}
+
+      - name: Download baseline from main branch
+        id: baseline
+        run: |
+          # Find the latest successful main-branch run that produced a scan artifact.
+          RUN_ID=$(gh api "repos/${{ github.repository }}/actions/runs?branch=main&status=success&per_page=20" \
+            --jq '.workflow_runs | map(select(.name == "CheckAgent Safety Scan")) | first | .id // empty')
+          if [ -z "$RUN_ID" ]; then
+            echo "No completed main-branch scan found — skipping diff on first PR."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          ARTIFACT_ID=$(gh api "repos/${{ github.repository }}/actions/runs/$RUN_ID/artifacts" \
+            --jq ".artifacts[] | select(.name | startswith(\"scan-result-\")) | .id // empty" | head -1)
+          if [ -z "$ARTIFACT_ID" ]; then
+            echo "Baseline artifact not found — skipping diff."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          gh api "repos/${{ github.repository }}/actions/artifacts/$ARTIFACT_ID/zip" > baseline.zip
+          unzip -p baseline.zip > baseline.json && echo "found=true" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Diff and enforce quality gates
+        if: steps.baseline.outputs.found == 'true'
+        run: |
+          checkagent diff baseline.json scan.json \
+            --comment-file pr-comment.md \
+            --fail-on-new \
+            --min-score 0.8
+          # Remove --fail-on-new to comment without blocking CI.
+          # Remove --min-score to skip score-threshold enforcement.
+          # Add --min-stability 0.9 if both scans used --repeat N.
+
+      - name: Post PR comment
+        if: steps.baseline.outputs.found == 'true' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs')
+            if (!fs.existsSync('pr-comment.md')) process.exit(0)
+            const body = fs.readFileSync('pr-comment.md', 'utf8')
+            const { data: comments } = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            })
+            const existing = comments.find(c => c.user.type === 'Bot' && c.body.includes('CheckAgent'))
+            if (existing) {
+              await github.rest.issues.updateComment({
+                comment_id: existing.id,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body,
+              })
+            } else {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body,
+              })
+            }

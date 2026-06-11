@@ -23,9 +23,12 @@ on:
     branches: [main, master]
 
 jobs:
-  agent-safety:
+  # ─── Job 1: Run scan on every push and PR ───────────────────────────────────
+  scan:
     name: Agent Safety Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -39,7 +42,6 @@ jobs:
       - name: Install dependencies
         run: |
           pip install checkagent
-          # Install your agent's dependencies, e.g.:
           # pip install -r requirements.txt
 
       - name: Run agent tests
@@ -47,30 +49,110 @@ jobs:
 
       - name: Run safety scan
         run: |
-          # --repeat 3: run each probe 3 times to catch flaky LLM-backed agents.
-          # --diff: show new/fixed findings vs. the previous scan (stored in .checkagent/).
-          checkagent scan {scan_target} --repeat 3 --diff --json > scan.json
+          # --repeat 3: run each probe 3 times for stability scoring on LLM-backed agents.
+          checkagent scan {scan_target} --repeat 3 --json > scan.json
           # For HTTP endpoints: checkagent scan --url http://localhost:8000/chat --repeat 3
-          # For LLM judge:      checkagent scan {scan_target} --repeat 3 --llm-judge gpt-4o-mini
+          # For LLM eval:       checkagent scan {scan_target} --repeat 3 --llm-judge gpt-4o-mini
         env:
           OPENAI_API_KEY: ${{{{ secrets.OPENAI_API_KEY }}}}
 
-      # Quality gates: fail CI when score or stability drops below threshold.
-      # Uncomment and adjust thresholds to enforce safety contracts:
-      # - name: Enforce quality gates
-      #   run: |
-      #     checkagent scan {scan_target} --json > current.json
-      #     # Fail if score drops below 80% or stability below 90%:
-      #     checkagent diff baseline.json current.json \
-      #       --min-score 0.8 --min-stability 0.9 --fail-on-new
-      #     # Note: --min-stability requires both scans to use --repeat N.
+      - name: Upload scan result
+        uses: actions/upload-artifact@v4
+        with:
+          name: scan-result-${{{{ github.sha }}}}
+          path: scan.json
+          retention-days: 30
 
-      # Post scan diff as a PR comment (requires baseline artifact from main branch):
-      # - name: PR safety diff comment
-      #   if: github.event_name == 'pull_request'
-      #   run: |
-      #     checkagent diff baseline.json scan.json --comment-file pr-comment.md --fail-on-new
-      #   # Upload baseline.json as a workflow artifact from your main branch scan.
+  # ─── Job 2: Diff against main-branch baseline and post PR comment ───────────
+  pr-diff:
+    name: PR Safety Diff
+    runs-on: ubuntu-latest
+    needs: scan
+    if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+      actions: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install checkagent
+        run: pip install checkagent
+
+      - name: Download current scan
+        uses: actions/download-artifact@v4
+        with:
+          name: scan-result-${{{{ github.sha }}}}
+
+      - name: Download baseline from main branch
+        id: baseline
+        run: |
+          # Find the latest successful main-branch run that produced a scan artifact.
+          RUN_ID=$(gh api "repos/${{{{ github.repository }}}}/actions/runs?branch=main&status=success&per_page=20" \\
+            --jq '.workflow_runs | map(select(.name == "CheckAgent Safety Scan")) | first | .id // empty')
+          if [ -z "$RUN_ID" ]; then
+            echo "No completed main-branch scan found — skipping diff on first PR."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          ARTIFACT_ID=$(gh api "repos/${{{{ github.repository }}}}/actions/runs/$RUN_ID/artifacts" \\
+            --jq ".artifacts[] | select(.name | startswith(\\"scan-result-\\")) | .id // empty" | head -1)
+          if [ -z "$ARTIFACT_ID" ]; then
+            echo "Baseline artifact not found — skipping diff."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          gh api "repos/${{{{ github.repository }}}}/actions/artifacts/$ARTIFACT_ID/zip" > baseline.zip
+          unzip -p baseline.zip > baseline.json && echo "found=true" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{{{ secrets.GITHUB_TOKEN }}}}
+
+      - name: Diff and enforce quality gates
+        if: steps.baseline.outputs.found == 'true'
+        run: |
+          checkagent diff baseline.json scan.json \\
+            --comment-file pr-comment.md \\
+            --fail-on-new \\
+            --min-score 0.8
+          # Remove --fail-on-new to comment without blocking CI.
+          # Remove --min-score to skip score-threshold enforcement.
+          # Add --min-stability 0.9 if both scans used --repeat N.
+
+      - name: Post PR comment
+        if: steps.baseline.outputs.found == 'true' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs')
+            if (!fs.existsSync('pr-comment.md')) process.exit(0)
+            const body = fs.readFileSync('pr-comment.md', 'utf8')
+            const {{ data: comments }} = await github.rest.issues.listComments({{
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            }})
+            const existing = comments.find(c => c.user.type === 'Bot' && c.body.includes('CheckAgent'))
+            if (existing) {{
+              await github.rest.issues.updateComment({{
+                comment_id: existing.id,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body,
+              }})
+            }} else {{
+              await github.rest.issues.createComment({{
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body,
+              }})
+            }}
 """
 
 # ---------------------------------------------------------------------------
@@ -205,9 +287,10 @@ def ci_init_cmd(
     console.print("\n[bold]Next steps:[/bold]")
     if platform_lower in ("github", "both"):
         console.print("  1. Commit and push the workflow file to your repository")
-        console.print("  2. Add OPENAI_API_KEY to your GitHub repository secrets")
-        console.print("     (only needed if using --llm-judge in the scan step)")
-        console.print("  3. Open a pull request to trigger the workflow")
+        console.print("  2. Push to main to run the first scan (creates the baseline)")
+        console.print("  3. Open a pull request — CheckAgent will diff against the baseline")
+        console.print("     and post a safety summary comment on the PR automatically")
+        console.print("  4. [optional] Add OPENAI_API_KEY to repository secrets for LLM judge")
     if platform_lower in ("gitlab", "both"):
         console.print("  1. Commit .gitlab-ci.yml to your repository")
         console.print("  2. Add OPENAI_API_KEY to CI/CD → Variables in GitLab settings")

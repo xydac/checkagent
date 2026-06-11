@@ -144,12 +144,30 @@ class TestCiInitCommand:
         ci = (tmp_path / ".gitlab-ci.yml").read_text()
         assert "--repeat 3" in ci
 
-    def test_diff_flag_in_github_workflow(self, tmp_path: Path) -> None:
-        """Generated GitHub workflow includes --diff for regression detection."""
+    def test_pr_diff_job_in_github_workflow(self, tmp_path: Path) -> None:
+        """Generated GitHub workflow has a separate pr-diff job that calls checkagent diff."""
         runner = CliRunner()
         runner.invoke(ci_init_cmd, ["--directory", str(tmp_path)])
         wf = (tmp_path / ".github" / "workflows" / "checkagent.yml").read_text()
-        assert "--diff" in wf
+        assert "checkagent diff" in wf
+        assert "pr-diff" in wf
+        assert "pull-requests: write" in wf
+
+    def test_baseline_artifact_upload_in_github_workflow(self, tmp_path: Path) -> None:
+        """Generated GitHub workflow uploads the scan result as an artifact."""
+        runner = CliRunner()
+        runner.invoke(ci_init_cmd, ["--directory", str(tmp_path)])
+        wf = (tmp_path / ".github" / "workflows" / "checkagent.yml").read_text()
+        assert "upload-artifact" in wf
+        assert "download-artifact" in wf
+
+    def test_pr_comment_in_github_workflow(self, tmp_path: Path) -> None:
+        """Generated GitHub workflow posts PR comments using github-script."""
+        runner = CliRunner()
+        runner.invoke(ci_init_cmd, ["--directory", str(tmp_path)])
+        wf = (tmp_path / ".github" / "workflows" / "checkagent.yml").read_text()
+        assert "github-script" in wf
+        assert "pr-comment.md" in wf
 
     def test_diff_flag_in_gitlab_ci(self, tmp_path: Path) -> None:
         """Generated GitLab CI includes --diff for regression detection."""
