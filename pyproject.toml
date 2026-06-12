@@ -94,6 +94,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["E402"]  # imports after path manipulation
+"src/checkagent/cli/ci_init.py" = ["E501"]  # embedded shell/YAML/JS strings cannot be reformatted
 
 [tool.mypy]
 python_version = "3.10"

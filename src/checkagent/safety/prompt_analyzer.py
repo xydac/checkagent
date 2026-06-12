@@ -123,6 +123,28 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
                 _F,
             ),
             re.compile(r"injection\s+(?:guard|protection|prevention|resistant)", _F),
+            # "do not act on instructions from user messages/documents/emails"
+            re.compile(
+                r"do\s+not\s+act\s+on\s+instructions?\s+(?:from|in|embedded)",
+                _F,
+            ),
+            # "if a message seems to override / appears to override your instructions"
+            re.compile(
+                r"(?:if\s+(?:a|you\s+(?:receive|see|encounter))\s+(?:a\s+)?(?:message|input|request))"
+                r".{0,50}(?:override|bypass|ignore|circumvent|manipulate)",
+                _F,
+            ),
+            # "treat all/any user input as potentially adversarial / untrusted"
+            re.compile(
+                r"treat\s+(?:all|any)\s+.{0,20}(?:input|messages?|requests?)\s+as\s+"
+                r"(?:potentially\s+)?(?:adversarial|untrusted|unsafe|suspect)",
+                _F,
+            ),
+            # "users may try to manipulate / trick / jailbreak you"
+            re.compile(
+                r"(?:users?|people|someone)\s+may\s+(?:try\s+to\s+)?(?:manipulate|trick|jailbreak|bypass|override)",
+                _F,
+            ),
         ],
         recommendation=(
             "Add an injection guard: "
@@ -179,6 +201,34 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
             re.compile(r"(?:your\s+role|your\s+purpose)\s+is\s+(?:limited|restricted|only)", _F),
             re.compile(r"(?:you\s+are\s+a\s+)?(?:hr|finance|support|sales|legal)\s+"
                        r"(?:agent|assistant|bot)\s+(?:and\s+)?(?:only|solely)", _F),
+            # "focus (exclusively|only|solely) on [topic] questions/requests"
+            re.compile(
+                r"focus\s+(?:exclusively|only|solely|entirely)\s+on\s+.{0,40}"
+                r"(?:questions?|requests?|topics?|domain|area|issues?)",
+                _F,
+            ),
+            # "focus on [topic] (questions|requests) only"
+            re.compile(
+                r"focus\s+on\s+.{0,50}\s+(?:questions?|requests?|topics?)\s+(?:only|exclusively)",
+                _F,
+            ),
+            # "stay within (the context|scope|topic|domain) of"
+            re.compile(
+                r"stay\s+within\s+(?:the\s+)?(?:context|scope|topic|domain|bounds?|limits?|area)",
+                _F,
+            ),
+            # "do not discuss/address/answer topics/questions unrelated to"
+            re.compile(
+                r"do\s+not\s+(?:discuss|address|answer|respond\s+to)\s+"
+                r"(?:topics?|questions?|requests?|issues?)\s+(?:un)?related\s+to",
+                _F,
+            ),
+            # "your area of expertise / your domain / within your scope"
+            re.compile(
+                r"(?:within\s+)?(?:your\s+)?(?:area\s+of\s+(?:expertise|responsibility)|"
+                r"domain\s+of\s+(?:expertise|knowledge)|assigned\s+(?:scope|role|domain))",
+                _F,
+            ),
         ],
         recommendation=(
             "Define scope boundaries: "
@@ -250,6 +300,26 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
             re.compile(
                 r"(?:if\s+.{0,40}insufficient|cannot\s+(?:find|answer|provide|address))\s*"
                 r".{0,30}(?:say|state|respond|indicate)",
+                _F,
+            ),
+            # "explain what you can help with (instead)" — common soft refusal phrasing
+            re.compile(
+                r"explain\s+what\s+(?:you\s+)?(?:can|are\s+able\s+to)\s+(?:help|assist)\s+with",
+                _F,
+            ),
+            # "I can only help with / I am only able to assist with"
+            re.compile(
+                r"(?:I\s+can\s+only|I\s+am\s+only\s+able\s+to)\s+(?:help|assist)\s+with",
+                _F,
+            ),
+            # "if the request is outside / if the question is unrelated"
+            re.compile(
+                r"if\s+(?:the\s+)?(?:request|question|topic)\s+is\s+(?:outside|unrelated|irrelevant)",
+                _F,
+            ),
+            # "not able to help with that" / "unable to assist with requests about"
+            re.compile(
+                r"(?:not\s+able\s+to\s+help|unable\s+to\s+assist)\s+with",
                 _F,
             ),
         ],

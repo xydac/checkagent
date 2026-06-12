@@ -2493,7 +2493,10 @@ def _display_results(
         if len(probe.input) > 55:
             probe_input_short += "…"
         if probe_name:
-            probe_cell = f"{markup_escape(probe_name)}\n[dim]{markup_escape(probe_input_short)}[/dim]"
+            probe_cell = (
+                f"{markup_escape(probe_name)}\n"
+                f"[dim]{markup_escape(probe_input_short)}[/dim]"
+            )
         else:
             probe_cell = markup_escape(probe_input_short)
         row = [
