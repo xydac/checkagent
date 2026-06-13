@@ -56,7 +56,8 @@ Paste your agent's system prompt at **[xydac.github.io/checkagent/playground](ht
 
 ```bash
 pip install checkagent
-checkagent demo
+checkagent demo          # 8 tests, mock layer, zero API keys
+checkagent demo --scan   # 101 safety probes on a built-in agent — see findings immediately
 ```
 
 ### Start a new project
@@ -166,6 +167,15 @@ checkagent scan my_agent:agent_fn --report safety.html # full HTML compliance re
 ```
 
 For non-deterministic agents (real LLMs at temperature > 0), `--repeat N` runs each probe multiple times and reports a stability score. A finding is flagged "flaky" when it appears in some runs but not others — useful for distinguishing real vulnerabilities from noise.
+
+**Use your existing Claude Code subscription as the LLM judge — no extra API key needed:**
+
+```bash
+# If you have Claude Code installed, this requires zero additional setup:
+checkagent scan my_agent:agent_fn --llm-judge claude-code
+```
+
+`--llm-judge` replaces regex matching with LLM evaluation — dramatically reduces false positives on agents that refuse correctly. The `claude-code` provider shells out to your local `claude` CLI, so there's no API key to configure and no extra billing.
 
 **Tested on real open-source agents** — CheckAgent runs against popular agents without modifying their code:
 

@@ -64,7 +64,7 @@ CheckAgent is being built in public. Here's where we're headed.
 - [x] OpenAI Agents SDK adapter
 - [x] CrewAI, PydanticAI, Anthropic adapters
 - [x] Production trace import (JSON/JSONL, OpenTelemetry, Langfuse API, Phoenix API)
-- [ ] PyPI v1.0.0
+- [x] PyPI v1.0.0
 
 ### Milestone 7: Multi-Agent + Ecosystem
 - [x] Multi-agent trace capture and handoff testing
