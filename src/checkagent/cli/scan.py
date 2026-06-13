@@ -575,6 +575,38 @@ def _resolve_callable(target: str) -> object:
         checkagent scan my_module:agent_instance   # instance → auto-detect .run()
         checkagent scan my_module:agent_fn         # function → used directly
     """
+    # Detect bare file path (e.g. "my_agent.py" without ":function") and give a helpful error.
+    _is_bare_py = target.endswith(".py") and ":" not in target
+    if _is_bare_py:
+        file_path = Path(target)
+        if not file_path.is_absolute():
+            file_path = Path.cwd() / file_path
+        _suggestions: list[str] = []
+        if file_path.exists():
+            try:
+                import ast as _ast  # noqa: PLC0415
+                _tree = _ast.parse(file_path.read_text(encoding="utf-8"))
+                _suggestions = [
+                    n.name
+                    for n in _ast.walk(_tree)
+                    if isinstance(n, (_ast.FunctionDef, _ast.AsyncFunctionDef, _ast.ClassDef))
+                    and not n.name.startswith("_")
+                    and isinstance(getattr(n, "col_offset", 0), int)
+                    and n.col_offset == 0  # top-level only
+                ]
+            except Exception:
+                pass
+        hint = (
+            f"\n  Found callables: {', '.join(_suggestions[:5])}"
+            f"\n  Try: checkagent scan {target}:{_suggestions[0]}"
+            if _suggestions
+            else f"\n  Try: checkagent scan {target}:my_agent_fn"
+        )
+        raise click.BadParameter(
+            f"Missing function name for '{target}'.{hint}",
+            param_hint="TARGET",
+        )
+
     if ":" in target:
         module_path, attr_name = target.rsplit(":", 1)
     elif "." in target:

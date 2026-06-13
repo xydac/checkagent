@@ -148,6 +148,31 @@ class TestResolveCallable:
         with pytest.raises(click.exceptions.BadParameter, match="Cannot parse"):
             _resolve_callable("just_a_name")
 
+    def test_bare_py_file_suggests_functions(self, tmp_path: Path) -> None:
+        """Bare .py path without :function gives helpful error with suggestions."""
+        import click
+        import pytest
+
+        agent_file = tmp_path / "my_agent.py"
+        agent_file.write_text("async def answer(prompt): return 'ok'\n")
+        with pytest.raises(click.exceptions.BadParameter) as exc_info:
+            _resolve_callable(str(agent_file))
+        msg = str(exc_info.value)
+        assert "Missing function name" in msg
+        assert "answer" in msg  # suggests the found callable
+        assert ":answer" in msg  # shows exact command to run
+
+    def test_bare_py_file_no_functions_still_helpful(self, tmp_path: Path) -> None:
+        """Bare .py path with no public functions still gives a clear error."""
+        import click
+        import pytest
+
+        agent_file = tmp_path / "empty_agent.py"
+        agent_file.write_text("# nothing public\n_private = 1\n")
+        with pytest.raises(click.exceptions.BadParameter) as exc_info:
+            _resolve_callable(str(agent_file))
+        assert "Missing function name" in str(exc_info.value)
+
 
 # ---------------------------------------------------------------------------
 # Unit tests: _resolve_callable — class-based agent auto-detection
