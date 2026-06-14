@@ -91,9 +91,14 @@ class TestDashboardWithHistory:
         data = json.loads(result.output)
         assert data["total"] == 1
         assert data["showing"] == 1
-        assert data["agents"][0]["target"] == "my_agent:fn"
-        assert data["agents"][0]["score"] == pytest.approx(0.8, abs=0.01)
-        assert data["agents"][0]["scans"] == 3
+        agent = data["agents"][0]
+        assert agent["target"] == "my_agent:fn"
+        assert agent["score"] == pytest.approx(0.8, abs=0.01)
+        assert agent["scans"] == 3
+        assert "trend" in agent       # F-139: trend must be in JSON output
+        assert agent["trend"] == "up"  # scores improved 0.6 → 0.7 → 0.8
+        assert "average_score" in agent  # F-139: average_score must be in JSON output
+        assert agent["average_score"] == pytest.approx(0.7, abs=0.01)
 
     def test_lowest_score_first(self, tmp_path: Path) -> None:
         _write_history(tmp_path, "good_agent:fn", [0.9])

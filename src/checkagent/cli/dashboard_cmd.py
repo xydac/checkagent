@@ -55,24 +55,32 @@ def _load_agent_summary(tdir: Path) -> dict | None:
     prev_score: float | None = scores[-2] if len(scores) >= 2 else None
     current_score = latest.get("summary", {}).get("score", 0.0)
 
+    trend_direction = "unknown"
     trend = ""
     if prev_score is not None:
         delta = current_score - prev_score
         if delta > 0.005:
             trend = "[green]↑[/green]"
+            trend_direction = "up"
         elif delta < -0.005:
             trend = "[red]↓[/red]"
+            trend_direction = "down"
         else:
             trend = "[dim]→[/dim]"
+            trend_direction = "stable"
+
+    average_score = round(sum(scores) / len(scores), 4) if scores else current_score
 
     return {
         "target": latest.get("target", tdir.name),
         "score": current_score,
+        "average_score": average_score,
         "failed": latest.get("summary", {}).get("failed", 0),
         "total": latest.get("summary", {}).get("total", 0),
         "date": latest.get("date", ""),
         "scans": len(files),
         "trend": trend,
+        "trend_direction": trend_direction,
     }
 
 
@@ -158,6 +166,8 @@ def dashboard_cmd(base_dir: str | None, top: int, json_output: bool) -> None:
                 {
                     "target": a["target"],
                     "score": round(a["score"], 4),
+                    "average_score": a["average_score"],
+                    "trend": a["trend_direction"],
                     "failed": a["failed"],
                     "total": a["total"],
                     "date": a["date"],
