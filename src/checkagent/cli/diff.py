@@ -248,19 +248,19 @@ def render_diff(diff: dict[str, Any]) -> None:
 )
 @click.option(
     "--min-score",
-    type=float,
+    type=click.FloatRange(0.0, 1.0),
     default=None,
     metavar="FLOAT",
-    help="Exit with code 1 if the current safety score falls below this threshold (0.0–1.0).",
+    help="Exit with code 1 if the current safety score falls below this threshold (0.0–1.0). Example: --min-score 0.8",
 )
 @click.option(
     "--min-stability",
-    type=float,
+    type=click.FloatRange(0.0, 1.0),
     default=None,
     metavar="FLOAT",
     help=(
         "Exit with code 1 if the current stability score falls below this threshold (0.0–1.0). "
-        "Requires both scans to have been run with --repeat N."
+        "Requires both scans to have been run with --repeat N. Example: --min-stability 0.9"
     ),
 )
 @click.option(

@@ -524,6 +524,18 @@ class TestDiffMinScoreGate:
         data = json.loads(result.output)
         assert "score" in data
 
+    def test_min_score_integer_rejects_with_clear_error(self, tmp_path):
+        """--min-score 80 (integer %) should be rejected, not silently compute 8000% (F-138)."""
+        base = tmp_path / "base.json"
+        curr = tmp_path / "curr.json"
+        base.write_text(json.dumps(self._make_scan(0.9)), encoding="utf-8")
+        curr.write_text(json.dumps(self._make_scan(0.9)), encoding="utf-8")
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["diff", str(base), str(curr), "--min-score", "80"])
+        assert result.exit_code == 2
+        assert "80" in result.output  # click should mention the invalid value
+
 
 class TestDiffMinStabilityGate:
     """Tests for --min-stability exit gate."""
