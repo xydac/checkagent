@@ -576,7 +576,10 @@ def _resolve_callable(target: str) -> object:
         checkagent scan my_module:agent_fn         # function → used directly
     """
     # Detect bare file path (e.g. "my_agent.py" without ":function") and give a helpful error.
-    _is_bare_py = target.endswith(".py") and ":" not in target
+    # On Windows, absolute paths contain ":" (drive letter, e.g. "C:\path\file.py").
+    # Treat as bare .py if: ends with .py AND either no colon, or colon is Windows drive letter (pos 1).
+    _has_drive_colon = len(target) >= 3 and target[1] == ":" and target[2] in "/\\"
+    _is_bare_py = target.endswith(".py") and (":" not in target or _has_drive_colon)
     if _is_bare_py:
         file_path = Path(target)
         if not file_path.is_absolute():
