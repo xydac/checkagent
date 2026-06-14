@@ -434,8 +434,18 @@ class TestAnalyzePromptFix:
         assert result.exit_code in (0, 1)
 
     def test_fix_combined_with_json_shows_hardened_prompt_field(self):
-        # --fix --json: for now just verify no crash and hardened output is shown
         runner = CliRunner()
         result = runner.invoke(main, ["analyze-prompt", "--fix", WEAK_PROMPT])
-        # The hardened prompt should contain the original text
         assert WEAK_PROMPT in result.output
+
+    def test_fix_json_produces_single_valid_json_object(self):
+        """--fix --json must produce a single JSON object parseable by json.load (F-141)."""
+        import json
+
+        runner = CliRunner()
+        result = runner.invoke(main, ["analyze-prompt", "--fix", "--json", WEAK_PROMPT])
+        assert result.exit_code in (0, 1), f"Unexpected exit code: {result.exit_code}"
+        data = json.loads(result.output)
+        assert "hardened_prompt" in data
+        assert "score" in data
+        assert "checks" in data

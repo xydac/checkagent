@@ -446,7 +446,6 @@ def analyze_prompt_cmd(
             "llm_warning": llm_skip_reason,
             "checks": checks_out,
         }
-        click.echo(json.dumps(data, indent=2))
     else:
         _render_result(result, prompt_text, llm_verified=llm_verified, llm_model=llm_model)
 
@@ -470,15 +469,13 @@ def analyze_prompt_cmd(
                 _console.print(hardened)
                 _console.print()
             else:
-                # For JSON output, add hardened_prompt to the output
-                data_with_fix = {
-                    **json.loads(click.get_current_context().obj or "{}"),
-                    "hardened_prompt": hardened,
-                }
-                click.echo(json.dumps(data_with_fix, indent=2))
+                data["hardened_prompt"] = hardened
         elif not output_json:
             _console.print("[green]No fixes needed — all checks passed.[/green]")
             _console.print()
+
+    if output_json:
+        click.echo(json.dumps(data, indent=2))
 
     # Exit with non-zero if any HIGH checks are still missing after LLM verification
     if still_missing_high:
