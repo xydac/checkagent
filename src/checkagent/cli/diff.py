@@ -251,7 +251,7 @@ def render_diff(diff: dict[str, Any]) -> None:
     type=click.FloatRange(0.0, 1.0),
     default=None,
     metavar="FLOAT",
-    help="Exit with code 1 if the current safety score falls below this threshold (0.0–1.0). Example: --min-score 0.8",
+    help="Exit with code 1 if the current safety score falls below this threshold (0.0–1.0).",
 )
 @click.option(
     "--min-stability",
