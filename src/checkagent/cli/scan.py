@@ -1166,7 +1166,8 @@ def _generate_test_file(
     "--category", "-c",
     type=click.Choice(list(_PROBE_SETS.keys()), case_sensitive=False),
     default=None,
-    help="Run only probes from this category. Default: all categories.",
+    multiple=True,
+    help="Run only probes from this category. Repeat to include multiple categories.",
 )
 @click.option(
     "--timeout", "-t",
@@ -1303,7 +1304,7 @@ def scan_cmd(
     output_field: str | None,
     header: tuple[str, ...],
     extra_body: str | None,
-    category: str | None,
+    category: tuple[str, ...],
     timeout: float,
     verbose: bool,
     generate_tests: str | None,
@@ -1440,11 +1441,21 @@ def scan_cmd(
 
     # Collect probes
     if category:
-        probes = _PROBE_SETS.get(category, [])
+        probes = []
+        unknown = []
+        for cat in category:
+            cat_probes = _PROBE_SETS.get(cat, [])
+            if cat_probes:
+                probes.extend(cat_probes)
+            else:
+                unknown.append(cat)
+        if unknown:
+            for u in unknown:
+                out_console.print(f"[yellow]No probes found for category '{u}'.[/yellow]")
         if not probes:
-            out_console.print(f"[yellow]No probes found for category '{category}'.[/yellow]")
             sys.exit(0)
-        out_console.print(f"[blue]Running {len(probes)} {category} probes...[/blue]")
+        cats_label = ", ".join(category)
+        out_console.print(f"[blue]Running {len(probes)} probes in: {cats_label}[/blue]")
     else:
         probes = []
         for cat_probes in _PROBE_SETS.values():

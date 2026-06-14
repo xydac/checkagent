@@ -413,6 +413,22 @@ class TestScanCommand:
         assert "Scan Summary" in result.output
         assert "10" in result.output  # 10 PII probes
 
+    def test_multiple_category_filter(self, tmp_path: Path, monkeypatch) -> None:
+        """--category can be specified multiple times to run probes from multiple categories."""
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "scan_test_agents:safe_agent",
+            "--category", "pii",
+            "--category", "jailbreak",
+            "--timeout", "2",
+        ])
+        assert "Scan Summary" in result.output
+        # pii=10 + jailbreak=15 = 25 probes
+        assert "25" in result.output
+        assert "pii, jailbreak" in result.output
+
     def test_scan_in_help(self) -> None:
         runner = CliRunner()
         result = runner.invoke(main, ["--help"])
