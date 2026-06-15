@@ -360,12 +360,21 @@ Reports which controls are present and which are missing.
 | Option | Description |
 |--------|-------------|
 | `--json` | Output results as JSON |
+| `--llm MODEL` | Use an LLM for semantic verification of failing checks. More accurate than pattern matching for non-canonical phrasing. Examples: `gpt-4o-mini`, `claude-haiku-4-5-20251001` |
+| `--fix` | Output a hardened version of the prompt with boilerplate security controls added for each missing check |
 
 **Examples:**
 
 ```bash
 checkagent analyze-prompt system_prompt.txt
 checkagent analyze-prompt system_prompt.txt --json
+
+# Semantic verification — catches controls with non-canonical phrasing
+checkagent analyze-prompt system_prompt.txt --llm gpt-4o-mini
+
+# Generate a hardened version with security boilerplate
+checkagent analyze-prompt system_prompt.txt --fix
+checkagent analyze-prompt system_prompt.txt --fix > hardened_prompt.txt
 ```
 
 Combine with `checkagent scan` using `--prompt-file` to run both static prompt analysis and dynamic probe scanning in a single step:
@@ -373,6 +382,35 @@ Combine with `checkagent scan` using `--prompt-file` to run both static prompt a
 ```bash
 checkagent scan my_agent:run --prompt-file system_prompt.txt
 ```
+
+---
+
+## `checkagent watch`
+
+Watch a system prompt file and re-analyze on every save. Displays a live safety score that updates instantly as you edit — ideal for iterating on a system prompt until all security checks pass.
+
+```bash
+checkagent watch PROMPT_FILE [OPTIONS]
+```
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--llm MODEL` | Use an LLM for semantic verification (e.g. `gpt-4o-mini`) |
+| `--interval SECONDS` | Polling interval in seconds (default: `1.0`) |
+
+**Examples:**
+
+```bash
+checkagent watch system_prompt.txt
+checkagent watch system_prompt.txt --llm gpt-4o-mini
+checkagent watch system_prompt.txt --interval 0.5
+```
+
+The command runs until you press `Ctrl+C`. Each time you save the file, the panel updates with the new score and a list of still-missing controls.
+
+---
 
 ## `checkagent ci-init`
 
