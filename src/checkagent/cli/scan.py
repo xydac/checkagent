@@ -2561,13 +2561,26 @@ def _display_results(
     # Execution trace section — shown when the auto-tracer intercepted LLM calls
     _display_trace_section(console, sarif_doc)
 
-    # Remediation guide — deduplicated by category
+    # Remediation guide — per-category with probe list
     failed_categories = sorted({finding.category.value for _, _output, finding in all_findings})
     if failed_categories:
+        # Build probe name list per category for context
+        probes_by_cat: dict[str, list[str]] = {}
+        for probe, _output, finding in all_findings:
+            cat = finding.category.value
+            if probe.name and probe.name not in probes_by_cat.get(cat, []):
+                probes_by_cat.setdefault(cat, []).append(probe.name)
+
         remediation_lines: list[str] = []
         for cat in failed_categories:
             tips = _CATEGORY_REMEDIATION.get(cat, _CATEGORY_REMEDIATION_FALLBACK)
             remediation_lines.append(f"[bold yellow]{cat.replace('_', ' ').title()}[/bold yellow]")
+            probe_names = probes_by_cat.get(cat, [])
+            if probe_names:
+                names_str = ", ".join(probe_names[:4])
+                if len(probe_names) > 4:
+                    names_str += f" (+{len(probe_names) - 4} more)"
+                remediation_lines.append(f"  [dim]Failed: {names_str}[/dim]")
             for tip in tips:
                 remediation_lines.append(f"  {tip}")
             remediation_lines.append("")
