@@ -48,6 +48,13 @@ checkagent scan my_agent:run
 checkagent scan my_app.agents.booking:handle_request
 ```
 
+Test a system prompt directly via an LLM — no wrapper code needed:
+
+```bash
+checkagent scan --system-prompt prompt.txt --model gpt-4o-mini
+checkagent scan --system-prompt "You are a helpful assistant." --model gpt-4o-mini
+```
+
 Or scan any HTTP endpoint — works with agents in any language or framework:
 
 ```bash
@@ -77,6 +84,8 @@ checkagent scan --url http://localhost:8000/api -H 'Authorization: Bearer tok'
 | `--llm-judge MODEL` | Use an LLM to judge each probe response. Accepts `gpt-4o-mini`, `claude-haiku-4-5-20251001`, or `claude-code` (uses your local Claude Code CLI — no API key required). |
 | `--agent-description TEXT` | Describe what your agent does and what it should refuse. Used by `--llm-judge`. |
 | `--prompt-file FILE` | Path to a system prompt file. Runs static prompt analysis alongside the dynamic scan. |
+| `--system-prompt TEXT_OR_FILE` | Scan a system prompt directly via an LLM. Pass a quoted string or file path. Requires `--model`. |
+| `-m`, `--model MODEL` | LLM model for `--system-prompt` scanning (e.g. `gpt-4o-mini`, `claude-haiku-4-5-20251001`, `claude-code`). |
 | `--diff` | Compare results against the previous scan from history and display new/fixed findings. When used with `--json`, embeds a `diff` object in the JSON output. |
 
 **Examples:**
@@ -97,6 +106,8 @@ checkagent scan my_agent:run \
     --llm-judge gpt-4o-mini \
     --agent-description "Customer support bot. Must refuse instruction overrides."
 checkagent scan my_agent:run --llm-judge claude-code      # No API key needed — uses local Claude
+checkagent scan --system-prompt prompt.txt --model gpt-4o-mini  # Scan a prompt file directly
+checkagent scan --system-prompt "You are a helpful bot." --model gpt-4o-mini  # Inline prompt
 checkagent scan my_agent:run --prompt-file system_prompt.txt
 checkagent scan my_agent:run --report safety.html         # Full HTML compliance report
 checkagent scan my_agent:run --diff                        # Compare against last scan

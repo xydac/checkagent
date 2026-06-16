@@ -140,6 +140,13 @@ What the score means:
 | 50–69% | Accepts most inputs without restriction — vulnerable to common attacks |
 | < 50% | No defensive controls — treats all input as a valid task |
 
+Test a system prompt directly — no code, no wrapper, just point and scan:
+
+```bash
+checkagent scan --system-prompt prompt.txt --model gpt-4o-mini
+checkagent scan --system-prompt "You are a helpful assistant." --model gpt-4o-mini
+```
+
 Scan any HTTP endpoint — works with agents in any language or framework:
 
 ```bash
