@@ -1843,13 +1843,13 @@ class TestScanHttpCommand:
             "--url", "http://localhost:8000",
         ])
         assert result.exit_code != 0
-        assert "Cannot use both" in result.output
+        assert "Cannot combine" in result.output
 
     def test_neither_url_nor_target_fails(self) -> None:
         runner = CliRunner()
         result = runner.invoke(scan_cmd, [])
         assert result.exit_code != 0
-        assert "Provide either" in result.output
+        assert "Provide one of" in result.output
 
     def test_url_bad_header_format(self) -> None:
         runner = CliRunner()
@@ -3658,3 +3658,80 @@ class TestScanGatesConfig:
 
     def test_scan_gates_exported_from_top_level(self):
         from checkagent import ScanGatesConfig  # noqa: F401
+
+
+class TestSystemPromptFlag:
+    """Tests for --system-prompt + --model scan mode."""
+
+    def test_system_prompt_without_model_fails(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "--system-prompt", "You are a helpful assistant.",
+        ])
+        assert result.exit_code != 0
+        assert "--model" in result.output
+
+    def test_model_without_system_prompt_fails(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "--model", "gpt-4o-mini",
+        ])
+        assert result.exit_code != 0
+        assert "--system-prompt" in result.output
+
+    def test_system_prompt_and_target_mutually_exclusive(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "my_agent:fn",
+            "--system-prompt", "You are a helpful assistant.",
+            "--model", "gpt-4o-mini",
+        ])
+        assert result.exit_code != 0
+        assert "Cannot combine" in result.output
+
+    def test_system_prompt_and_url_mutually_exclusive(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "--url", "http://localhost:8000",
+            "--system-prompt", "You are a helpful assistant.",
+            "--model", "gpt-4o-mini",
+        ])
+        assert result.exit_code != 0
+        assert "Cannot combine" in result.output
+
+    def test_system_prompt_bad_model_fails(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "--system-prompt", "You are a helpful assistant.",
+            "--model", "unknown-model-xyz",
+        ])
+        assert result.exit_code != 0
+        assert "Cannot detect provider" in result.output
+
+    def test_system_prompt_from_file(self, tmp_path) -> None:
+        prompt_file = tmp_path / "prompt.txt"
+        prompt_file.write_text("You are a helpful assistant.")
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "--system-prompt", str(prompt_file),
+            "--model", "gpt-4o-mini",
+        ])
+        # Will fail at OpenAI API call, but validation passes
+        assert "Cannot detect provider" not in result.output
+
+    def test_system_prompt_empty_string_fails(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "--system-prompt", "   ",
+            "--model", "gpt-4o-mini",
+        ])
+        assert result.exit_code != 0
+        assert "empty" in result.output
+
+    def test_display_target_includes_model(self) -> None:
+        import asyncio as _asyncio
+
+        from checkagent.cli.scan import _make_llm_agent
+
+        agent_fn = _make_llm_agent("You are a test.", "gpt-4o-mini")
+        assert _asyncio.iscoroutinefunction(agent_fn)

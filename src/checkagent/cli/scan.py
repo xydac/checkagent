@@ -699,6 +699,77 @@ def _resolve_callable(target: str) -> object:
     return fn
 
 
+def _make_llm_agent(system_prompt: str, model: str) -> object:
+    """Create an async callable that sends probes to an LLM with a system prompt.
+
+    Returns an async callable ``(probe_input: str) -> str`` that sends each
+    probe as a user message to the specified LLM with the given system prompt.
+    """
+    provider = _detect_llm_provider(model)
+
+    async def _do_llm_call(probe_input: str) -> str:
+        if provider == "claude-code":
+            import subprocess  # noqa: PLC0415
+
+            loop = asyncio.get_event_loop()
+
+            def _invoke() -> str:
+                result = subprocess.run(
+                    [
+                        "claude", "--print", "--bare",
+                        "--system-prompt", system_prompt,
+                        probe_input,
+                    ],
+                    capture_output=True, text=True, timeout=30,
+                )
+                if result.returncode != 0:
+                    raise RuntimeError(
+                        result.stderr[:200] or "claude CLI exited non-zero"
+                    )
+                return result.stdout.strip()
+
+            return await loop.run_in_executor(None, _invoke)
+
+        if provider == "openai":
+            try:
+                import openai  # noqa: PLC0415
+            except ImportError as exc:
+                raise click.ClickException(
+                    "The 'openai' package is required for --model with OpenAI models.\n"
+                    "Install it with:  pip install openai"
+                ) from exc
+            async with openai.AsyncOpenAI() as client:
+                response = await client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": probe_input},
+                    ],
+                    max_tokens=512,
+                    temperature=0,
+                )
+            return response.choices[0].message.content or ""
+
+        # provider == "anthropic"
+        try:
+            import anthropic  # noqa: PLC0415
+        except ImportError as exc:
+            raise click.ClickException(
+                "The 'anthropic' package is required for --model with Claude models.\n"
+                "Install it with:  pip install anthropic"
+            ) from exc
+        async with anthropic.AsyncAnthropic() as client:
+            response = await client.messages.create(
+                model=model,
+                max_tokens=512,
+                system=system_prompt,
+                messages=[{"role": "user", "content": probe_input}],
+            )
+        return response.content[0].text if response.content else ""
+
+    return _do_llm_call
+
+
 def _make_http_agent(
     url: str,
     *,
@@ -1297,6 +1368,31 @@ def _generate_test_file(
         "Requires at least one prior scan of the same target."
     ),
 )
+@click.option(
+    "--system-prompt",
+    "system_prompt",
+    type=str,
+    default=None,
+    metavar="TEXT_OR_FILE",
+    help=(
+        "Scan a system prompt directly via an LLM — no Python code needed. "
+        "Pass a quoted string or a file path (auto-detected). "
+        "Requires --model to specify which LLM to use. "
+        "Example: checkagent scan --system-prompt prompt.txt --model gpt-4o-mini"
+    ),
+)
+@click.option(
+    "--model", "-m",
+    type=str,
+    default=None,
+    metavar="MODEL",
+    help=(
+        "LLM model for --system-prompt scanning. "
+        "Accepts OpenAI (gpt-4o-mini), Anthropic (claude-haiku-4-5-20251001), "
+        "or claude-code (local CLI, no API key). "
+        "Required when using --system-prompt."
+    ),
+)
 def scan_cmd(
     target: str | None,
     url: str | None,
@@ -1319,11 +1415,14 @@ def scan_cmd(
     interactive: bool = False,
     comment_file: str | None = None,
     show_diff: bool = False,
+    system_prompt: str | None = None,
+    model: str | None = None,
 ) -> None:
     """Scan an agent for safety vulnerabilities.
 
     TARGET is a Python callable in 'module:function' format.
-    Alternatively, use --url to scan an HTTP endpoint.
+    Alternatively, use --url to scan an HTTP endpoint, or --system-prompt
+    to test a prompt directly via an LLM.
 
     \b
     Examples:
@@ -1331,26 +1430,33 @@ def scan_cmd(
         checkagent scan --url http://localhost:8000/chat
         checkagent scan --url http://localhost:8000/api -H 'Authorization: Bearer tok'
         checkagent scan --url http://localhost:8000/chat --input-field query
-        checkagent scan --url http://dify/v1/chat-messages \
-            --extra-body '{"inputs":{},"user":"test","response_mode":"blocking"}'
+        checkagent scan --system-prompt prompt.txt --model gpt-4o-mini
+        checkagent scan --system-prompt "You are a helpful assistant." --model gpt-4o-mini
         checkagent scan my_agent:run --category injection
         checkagent scan my_agent:run --llm-judge gpt-4o-mini
-        checkagent scan my_agent:run --llm-judge gpt-4o-mini \
-            --agent-description "Customer support bot. Must refuse instruction overrides."
         checkagent scan my_agent:run --json
         checkagent scan my_agent:run --sarif scan.sarif
-        checkagent scan my_agent:run --badge badge.svg
-        checkagent scan my_agent:run --category data_enumeration
         checkagent scan my_agent:run --interactive
     """
-    # Validate: exactly one of target or url must be provided
-    if not target and not url:
+    # Validate: exactly one scan mode must be provided
+    modes = sum(bool(x) for x in (target, url, system_prompt))
+    if modes == 0:
         raise click.UsageError(
-            "Provide either a TARGET (module:function) or --url (HTTP endpoint)."
+            "Provide one of: TARGET (module:function), --url (HTTP endpoint), "
+            "or --system-prompt (test a prompt via LLM)."
         )
-    if target and url:
+    if modes > 1:
         raise click.UsageError(
-            "Cannot use both TARGET and --url. Pick one."
+            "Cannot combine TARGET, --url, and --system-prompt. Pick one."
+        )
+    if system_prompt and not model:
+        raise click.UsageError(
+            "--system-prompt requires --model to specify which LLM to use.\n"
+            "Example: checkagent scan --system-prompt prompt.txt --model gpt-4o-mini"
+        )
+    if model and not system_prompt:
+        raise click.UsageError(
+            "--model is only used with --system-prompt."
         )
     if repeat < 1:
         raise click.BadParameter(
@@ -1358,9 +1464,11 @@ def scan_cmd(
             param_hint="--repeat",
         )
 
-    # Validate --llm-judge model name (detect provider early, before running probes)
+    # Validate model names early (detect provider before running probes)
     if llm_judge:
         _detect_llm_provider(llm_judge)  # raises click.BadParameter if unrecognised
+    if model:
+        _detect_llm_provider(model)
         # Connectivity check happens inside _scan_probes_async (single event loop)
 
     # Parse headers
@@ -1393,8 +1501,24 @@ def scan_cmd(
             "(only applies to --url scans).[/yellow]"
         )
 
+    # Resolve --system-prompt: read from file if it's a path, else use as-is
+    resolved_system_prompt: str | None = None
+    if system_prompt:
+        prompt_path = Path(system_prompt)
+        if prompt_path.is_file():
+            resolved_system_prompt = prompt_path.read_text(encoding="utf-8").strip()
+        else:
+            resolved_system_prompt = system_prompt.strip()
+        if not resolved_system_prompt:
+            raise click.UsageError("--system-prompt is empty.")
+
     # Display name for the scan target
-    display_target = target if target else url
+    if system_prompt:
+        sp_path = Path(system_prompt)
+        prompt_label = sp_path.name if sp_path.is_file() else "inline-prompt"
+        display_target = f"{prompt_label} via {model}"
+    else:
+        display_target = target if target else url
     assert display_target is not None
 
     # Use a quiet console for JSON mode (suppresses Rich output)
@@ -1410,23 +1534,30 @@ def scan_cmd(
     ))
     out_console.print()
 
-    # Static prompt analysis (if --prompt-file is provided)
+    # Static prompt analysis (if --prompt-file or --system-prompt is provided)
     prompt_analysis = None
+    prompt_text_for_analysis = None
     if prompt_file:
+        prompt_text_for_analysis = Path(prompt_file).read_text(encoding="utf-8").strip()
+    elif resolved_system_prompt:
+        prompt_text_for_analysis = resolved_system_prompt
+    if prompt_text_for_analysis:
         from checkagent.safety.prompt_analyzer import PromptAnalyzer
 
-        prompt_text = Path(prompt_file).read_text(encoding="utf-8").strip()
-        if prompt_text:
-            analyzer = PromptAnalyzer()
-            prompt_analysis = analyzer.analyze(prompt_text)
+        analyzer = PromptAnalyzer()
+        prompt_analysis = analyzer.analyze(prompt_text_for_analysis)
 
-            if not json_output:
-                from checkagent.cli.analyze_prompt import _render_result
+        if not json_output:
+            from checkagent.cli.analyze_prompt import _render_result
 
-                _render_result(prompt_analysis, prompt_text)
+            _render_result(prompt_analysis, prompt_text_for_analysis)
 
-    # Resolve the callable — either Python import or HTTP wrapper
-    if url:
+    # Resolve the callable — Python import, HTTP wrapper, or LLM-backed prompt
+    if system_prompt:
+        assert resolved_system_prompt is not None
+        assert model is not None
+        agent_fn = _make_llm_agent(resolved_system_prompt, model)
+    elif url:
         agent_fn = _make_http_agent(
             url,
             input_field=input_field,
