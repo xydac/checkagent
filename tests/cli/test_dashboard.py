@@ -138,3 +138,15 @@ class TestDashboardWithHistory:
         result = runner.invoke(dashboard_cmd, ["--dir", str(tmp_path)])
         assert result.exit_code == 0
         assert "↓" in result.output
+
+    def test_json_overall_average_score(self, tmp_path: Path) -> None:
+        _write_history(tmp_path, "agent_a:fn", [0.8])
+        _write_history(tmp_path, "agent_b:fn", [0.4])
+        runner = CliRunner()
+        result = runner.invoke(
+            dashboard_cmd, ["--dir", str(tmp_path), "--json"]
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "average_score" in data
+        assert data["average_score"] == pytest.approx(0.6, abs=0.01)

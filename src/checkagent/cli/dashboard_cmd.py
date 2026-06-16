@@ -161,6 +161,9 @@ def dashboard_cmd(base_dir: str | None, top: int, json_output: bool) -> None:
     displayed = agents[:top]
 
     if json_output:
+        overall_avg = round(
+            sum(a["score"] for a in agents) / total_agents, 4
+        )
         out = {
             "agents": [
                 {
@@ -177,6 +180,7 @@ def dashboard_cmd(base_dir: str | None, top: int, json_output: bool) -> None:
             ],
             "total": total_agents,
             "showing": len(displayed),
+            "average_score": overall_avg,
         }
         print(json_mod.dumps(out, indent=2))
         return
