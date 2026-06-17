@@ -87,6 +87,7 @@ checkagent scan --url http://localhost:8000/api -H 'Authorization: Bearer tok'
 | `--system-prompt TEXT_OR_FILE` | Scan a system prompt directly via an LLM. Pass a quoted string or file path. Requires `--model`. |
 | `-m`, `--model MODEL` | LLM model for `--system-prompt` scanning (e.g. `gpt-4o-mini`, `claude-haiku-4-5-20251001`, `claude-code`). |
 | `--diff` | Compare results against the previous scan from history and display new/fixed findings. When used with `--json`, embeds a `diff` object in the JSON output. |
+| `--exit-zero` | Always exit 0, even when findings are present. Quality gates (`--min-score`, `--fail-on-new`) still exit 2 when triggered. Useful in CI when you want to collect scan results as an artifact without blocking the pipeline. |
 
 **Examples:**
 
@@ -111,6 +112,7 @@ checkagent scan --system-prompt "You are a helpful bot." --model gpt-4o-mini  # 
 checkagent scan my_agent:run --prompt-file system_prompt.txt
 checkagent scan my_agent:run --report safety.html         # Full HTML compliance report
 checkagent scan my_agent:run --diff                        # Compare against last scan
+checkagent scan my_agent:run --json --exit-zero > scan.json  # CI: collect results, don't block
 ```
 
 The `--generate-tests` flag creates a pytest file with one test per finding, so you can track safety regressions in CI:

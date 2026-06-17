@@ -2771,6 +2771,8 @@ def _display_results(
         f"across {failed} probe(s).\n\n"
         "Generate tests from these findings:\n"
         "  [cyan]checkagent scan TARGET -g test_safety.py[/cyan]\n\n"
+        "In CI? Collect results without blocking the pipeline:\n"
+        "  [cyan]checkagent scan TARGET --exit-zero --json > scan.json[/cyan]\n\n"
         "Learn more:\n"
         "  [dim]https://checkagent.xydac.com/guides/safety/[/dim]",
         title="Scan Complete",
