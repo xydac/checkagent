@@ -33,7 +33,9 @@ jobs:
       - name: Run safety scan
         run: |
           # --repeat 3: run each probe 3 times for stability scoring on LLM-backed agents.
-          checkagent scan sample_agent:sample_agent --repeat 3 --json > scan.json
+          # --exit-zero: always exit 0 so the scan artifact is uploaded even when findings
+          # exist. Quality gates in the diff step (--fail-on-new, --min-score) control CI pass/fail.
+          checkagent scan sample_agent:sample_agent --repeat 3 --json --exit-zero > scan.json
           # For HTTP endpoints: checkagent scan --url http://localhost:8000/chat --repeat 3
           # For LLM eval:       checkagent scan sample_agent:sample_agent --repeat 3 --llm-judge gpt-4o-mini
         env:

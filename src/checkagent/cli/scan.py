@@ -699,16 +699,24 @@ def _resolve_callable(target: str) -> object:
     return fn
 
 
-def _make_llm_agent(system_prompt: str, model: str) -> object:
-    """Create an async callable that sends probes to an LLM with a system prompt.
+class _LLMAgent:
+    """Async callable that sends probes to an LLM with a fixed system prompt.
 
-    Returns an async callable ``(probe_input: str) -> str`` that sends each
-    probe as a user message to the specified LLM with the given system prompt.
+    Uses a single shared client across all probe calls to avoid per-probe
+    connection overhead and the ``RuntimeError: Event loop is closed`` teardown
+    noise that comes from creating/destroying 101 short-lived httpx clients.
+    The client is created lazily on first call (so it initialises inside the
+    running event loop) and cleaned up via ``aclose()``.
     """
-    provider = _detect_llm_provider(model)
 
-    async def _do_llm_call(probe_input: str) -> str:
-        if provider == "claude-code":
+    def __init__(self, system_prompt: str, model: str, provider: str) -> None:
+        self._system_prompt = system_prompt
+        self._model = model
+        self._provider = provider
+        self._client: object | None = None
+
+    async def __call__(self, probe_input: str) -> str:
+        if self._provider == "claude-code":
             import subprocess  # noqa: PLC0415
 
             loop = asyncio.get_event_loop()
@@ -717,7 +725,7 @@ def _make_llm_agent(system_prompt: str, model: str) -> object:
                 result = subprocess.run(
                     [
                         "claude", "--print", "--bare",
-                        "--system-prompt", system_prompt,
+                        "--system-prompt", self._system_prompt,
                         probe_input,
                     ],
                     capture_output=True, text=True, timeout=30,
@@ -730,7 +738,7 @@ def _make_llm_agent(system_prompt: str, model: str) -> object:
 
             return await loop.run_in_executor(None, _invoke)
 
-        if provider == "openai":
+        if self._provider == "openai":
             try:
                 import openai  # noqa: PLC0415
             except ImportError as exc:
@@ -738,16 +746,17 @@ def _make_llm_agent(system_prompt: str, model: str) -> object:
                     "The 'openai' package is required for --model with OpenAI models.\n"
                     "Install it with:  pip install openai"
                 ) from exc
-            async with openai.AsyncOpenAI() as client:
-                response = await client.chat.completions.create(
-                    model=model,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": probe_input},
-                    ],
-                    max_tokens=512,
-                    temperature=0,
-                )
+            if self._client is None:
+                self._client = openai.AsyncOpenAI()
+            response = await self._client.chat.completions.create(  # type: ignore[union-attr]
+                model=self._model,
+                messages=[
+                    {"role": "system", "content": self._system_prompt},
+                    {"role": "user", "content": probe_input},
+                ],
+                max_tokens=512,
+                temperature=0,
+            )
             return response.choices[0].message.content or ""
 
         # provider == "anthropic"
@@ -758,16 +767,30 @@ def _make_llm_agent(system_prompt: str, model: str) -> object:
                 "The 'anthropic' package is required for --model with Claude models.\n"
                 "Install it with:  pip install anthropic"
             ) from exc
-        async with anthropic.AsyncAnthropic() as client:
-            response = await client.messages.create(
-                model=model,
-                max_tokens=512,
-                system=system_prompt,
-                messages=[{"role": "user", "content": probe_input}],
-            )
+        if self._client is None:
+            self._client = anthropic.AsyncAnthropic()
+        response = await self._client.messages.create(  # type: ignore[union-attr]
+            model=self._model,
+            max_tokens=512,
+            system=self._system_prompt,
+            messages=[{"role": "user", "content": probe_input}],
+        )
         return response.content[0].text if response.content else ""
 
-    return _do_llm_call
+    async def aclose(self) -> None:
+        if self._client is not None:
+            await self._client.aclose()  # type: ignore[union-attr]
+            self._client = None
+
+
+def _make_llm_agent(system_prompt: str, model: str) -> _LLMAgent:
+    """Create an async callable that sends probes to an LLM with a system prompt.
+
+    Returns an ``_LLMAgent`` instance that reuses a single shared async client
+    across all probe calls.  Call ``await agent.aclose()`` when done.
+    """
+    provider = _detect_llm_provider(model)
+    return _LLMAgent(system_prompt, model, provider)
 
 
 def _make_http_agent(
@@ -1393,6 +1416,17 @@ def _generate_test_file(
         "Required when using --system-prompt."
     ),
 )
+@click.option(
+    "--exit-zero",
+    "exit_zero",
+    is_flag=True,
+    default=False,
+    help=(
+        "Always exit 0, even when findings are present. "
+        "Quality gates (--min-score, --fail-on-new) still exit 2 when triggered. "
+        "Useful in CI when you want scan results without blocking the pipeline."
+    ),
+)
 def scan_cmd(
     target: str | None,
     url: str | None,
@@ -1417,6 +1451,7 @@ def scan_cmd(
     show_diff: bool = False,
     system_prompt: str | None = None,
     model: str | None = None,
+    exit_zero: bool = False,
 ) -> None:
     """Scan an agent for safety vulnerabilities.
 
@@ -2101,7 +2136,8 @@ def scan_cmd(
         sys.exit(2)
 
     # Exit with non-zero if any findings (and no gates configured, or all gates passed)
-    if all_findings and not gate_results:
+    # --exit-zero suppresses this so scan results can be collected without blocking CI.
+    if all_findings and not gate_results and not exit_zero:
         sys.exit(1)
     elif all_findings and gate_results and not _gate_blocked:
         # Gates configured and none blocked — user explicitly chose to allow these findings
@@ -2158,25 +2194,31 @@ async def _scan_probes_async(
     baseline_response = await _run_baseline(agent_fn, timeout)
 
     all_runs: list[list[tuple[Probe, str | None, Exception | None, list[dict]]]] = []
-    for run_idx in range(repeat):
-        run_results = await _run_all_probes(agent_fn, probes, timeout)
-        all_runs.append(run_results)
-        if repeat > 1:
-            out_console.print(f"[dim]  Round {run_idx + 1}/{repeat} complete[/dim]")
+    try:
+        for run_idx in range(repeat):
+            run_results = await _run_all_probes(agent_fn, probes, timeout)
+            all_runs.append(run_results)
+            if repeat > 1:
+                out_console.print(f"[dim]  Round {run_idx + 1}/{repeat} complete[/dim]")
 
-    if not llm_judge:
-        return all_runs, None, baseline_response
+        if not llm_judge:
+            return all_runs, None, baseline_response
 
-    # LLM evaluation — batch per run so all judge calls share one event loop.
-    all_llm_findings: list[list[list[SafetyFinding]]] = []
-    for run_results in all_runs:
-        simplified = [(p, o, e) for p, o, e, _traces in run_results]
-        evaluated = await _evaluate_all_with_llm(
-            simplified, llm_judge, agent_description=agent_description
-        )
-        all_llm_findings.append([findings for _, _, _, findings in evaluated])
+        # LLM evaluation — batch per run so all judge calls share one event loop.
+        all_llm_findings: list[list[list[SafetyFinding]]] = []
+        for run_results in all_runs:
+            simplified = [(p, o, e) for p, o, e, _traces in run_results]
+            evaluated = await _evaluate_all_with_llm(
+                simplified, llm_judge, agent_description=agent_description
+            )
+            all_llm_findings.append([findings for _, _, _, findings in evaluated])
 
-    return all_runs, all_llm_findings, baseline_response
+        return all_runs, all_llm_findings, baseline_response
+    finally:
+        # Close shared client for _LLMAgent (--system-prompt mode) to avoid
+        # "Event loop is closed" noise from httpx connection-pool teardown.
+        if isinstance(agent_fn, _LLMAgent):
+            await agent_fn.aclose()
 
 
 def _build_json_report(

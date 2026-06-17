@@ -3731,7 +3731,11 @@ class TestSystemPromptFlag:
     def test_display_target_includes_model(self) -> None:
         import asyncio as _asyncio
 
-        from checkagent.cli.scan import _make_llm_agent
+        from checkagent.cli.scan import _LLMAgent, _make_llm_agent
 
         agent_fn = _make_llm_agent("You are a test.", "gpt-4o-mini")
-        assert _asyncio.iscoroutinefunction(agent_fn)
+        assert isinstance(agent_fn, _LLMAgent)
+        # Calling the agent produces a coroutine (the meaningful runtime check)
+        coro = agent_fn("hello")
+        assert _asyncio.iscoroutine(coro)
+        coro.close()  # clean up without running
