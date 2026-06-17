@@ -50,9 +50,11 @@ jobs:
       - name: Run safety scan
         run: |
           # --repeat 3: run each probe 3 times for stability scoring on LLM-backed agents.
-          checkagent scan {scan_target} --repeat 3 --json > scan.json
-          # For HTTP endpoints: checkagent scan --url http://localhost:8000/chat --repeat 3
-          # For LLM eval:       checkagent scan {scan_target} --repeat 3 --llm-judge gpt-4o-mini
+          # --exit-zero: always exit 0 so the artifact uploads even when findings exist.
+          # Quality gates in the diff step (--fail-on-new, --min-score) control CI pass/fail.
+          checkagent scan {scan_target} --repeat 3 --json --exit-zero > scan.json
+          # For HTTP endpoints: checkagent scan --url http://localhost:8000/chat --repeat 3 --exit-zero
+          # For LLM eval:       checkagent scan {scan_target} --repeat 3 --llm-judge gpt-4o-mini --exit-zero
         env:
           OPENAI_API_KEY: ${{{{ secrets.OPENAI_API_KEY }}}}
 
@@ -184,10 +186,11 @@ safety-scan:
     # Install your agent's dependencies, e.g.:
     # - pip install -r requirements.txt
     # --repeat 3: run each probe 3 times to catch flaky LLM-backed agents
-    # --diff: compare against previous scan to show new/fixed findings
-    - checkagent scan {scan_target} --repeat 3 --diff --json > scan.json
-    # For HTTP endpoints: checkagent scan --url http://localhost:8000/chat --repeat 3
-    # For LLM judge:      checkagent scan {scan_target} --repeat 3 --llm-judge gpt-4o-mini
+    # --exit-zero: always exit 0; quality gates below control CI pass/fail
+    # --diff: show new/fixed findings vs. previous scan inline
+    - checkagent scan {scan_target} --repeat 3 --json --exit-zero --diff > scan.json
+    # For HTTP endpoints: checkagent scan --url http://localhost:8000/chat --repeat 3 --exit-zero
+    # For LLM judge:      checkagent scan {scan_target} --repeat 3 --llm-judge gpt-4o-mini --exit-zero
     # Quality gates (uncomment to enforce):
     # - checkagent diff baseline.json scan.json --min-score 0.8 --min-stability 0.9 --fail-on-new
   variables:

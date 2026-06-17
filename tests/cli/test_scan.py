@@ -3739,3 +3739,74 @@ class TestSystemPromptFlag:
         coro = agent_fn("hello")
         assert _asyncio.iscoroutine(coro)
         coro.close()  # clean up without running
+
+
+# ---------------------------------------------------------------------------
+# Tests: --exit-zero flag
+# ---------------------------------------------------------------------------
+
+
+class TestExitZeroFlag:
+    """--exit-zero exits 0 even when findings exist; gates still use exit 2."""
+
+    def _make_vulnerable_agent(self, tmp_path):
+        module = tmp_path / "vuln_agent.py"
+        module.write_text(
+            "async def agent(prompt: str) -> str:\n"
+            "    return f'Sure! {prompt}'\n"
+        )
+        return module
+
+    def test_without_exit_zero_exits_1_on_findings(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.syspath_prepend(str(tmp_path))
+        self._make_vulnerable_agent(tmp_path)
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, ["vuln_agent:agent", "--json"])
+        # Vulnerable agent produces findings → exit 1 without --exit-zero
+        assert result.exit_code == 1
+
+    def test_exit_zero_always_exits_0_with_findings(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.syspath_prepend(str(tmp_path))
+        self._make_vulnerable_agent(tmp_path)
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, ["vuln_agent:agent", "--json", "--exit-zero"])
+        assert result.exit_code == 0
+        # JSON is still valid and contains findings
+        import json
+        report = json.loads(result.output)
+        assert report["summary"]["failed"] > 0
+
+    def test_exit_zero_with_safe_agent_still_exits_0(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.syspath_prepend(str(tmp_path))
+        module = tmp_path / "safe_agent.py"
+        module.write_text(
+            "async def agent(prompt: str) -> str:\n"
+            "    return 'I cannot help with that request.'\n"
+        )
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, ["safe_agent:agent", "--json", "--exit-zero"])
+        assert result.exit_code == 0
+
+    def test_exit_zero_does_not_suppress_gate_exit_2(
+        self, tmp_path, monkeypatch, tmp_path_factory
+    ) -> None:
+        """--exit-zero does not override quality gate failures (exit 2)."""
+        import yaml
+
+        monkeypatch.syspath_prepend(str(tmp_path))
+        self._make_vulnerable_agent(tmp_path)
+        cfg_dir = tmp_path_factory.mktemp("cfg")
+        cfg = cfg_dir / "checkagent.yml"
+        cfg.write_text(
+            yaml.dump({"scan_gates": {"min_score": 0.99, "action": "block"}})
+        )
+        monkeypatch.chdir(cfg_dir)
+        # Copy agent module to cfg_dir so it's importable there
+        import shutil
+        shutil.copy(str(tmp_path / "vuln_agent.py"), str(cfg_dir / "vuln_agent.py"))
+        runner = CliRunner()
+        result = runner.invoke(
+            scan_cmd, ["vuln_agent:agent", "--json", "--exit-zero"]
+        )
+        # Gate blocks → exit 2 even with --exit-zero
+        assert result.exit_code == 2
