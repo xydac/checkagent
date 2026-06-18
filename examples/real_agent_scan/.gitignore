@@ -1,0 +1,3 @@
+.checkagent/
+__pycache__/
+*.pyc
