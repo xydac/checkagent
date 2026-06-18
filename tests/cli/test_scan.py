@@ -3810,3 +3810,74 @@ class TestExitZeroFlag:
         )
         # Gate blocks → exit 2 even with --exit-zero
         assert result.exit_code == 2
+
+
+class TestHelpTextAccuracy:
+    """Help text should not reference flags that don't exist on the command."""
+
+    def test_exit_zero_help_does_not_claim_scan_has_min_score(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, ["--help"])
+        # --fail-on-new is not a scan flag and should never appear in scan help
+        assert "--fail-on-new" not in result.output
+        # --min-score may appear but only as a reference to the diff command,
+        # not as an option on scan itself — verify via the diff reference
+        assert "checkagent diff" in result.output
+
+
+class TestSystemPromptErrorMessage:
+    """Error message when all probes fail should reflect the scan mode."""
+
+    def _make_all_error_sarif(self) -> dict:
+        return {
+            "runs": [{
+                "invocations": [{"exitCode": 0, "properties": {
+                    "probesRun": 5,
+                    "probesPassed": 0,
+                    "probesFailed": 0,
+                    "probesErrored": 5,
+                    "elapsedSeconds": 0.1,
+                }}],
+                "properties": {"passRate": 0.0},
+                "results": [],
+            }],
+        }
+
+    def test_system_prompt_mode_error_mentions_api_key(self, monkeypatch) -> None:
+        from checkagent.cli.scan import _display_results
+        from rich.console import Console
+        from io import StringIO
+
+        captured = StringIO()
+        console_obj = Console(file=captured, no_color=True)
+        monkeypatch.setattr("checkagent.cli.scan.console", console_obj)
+
+        _display_results(
+            sarif_doc=self._make_all_error_sarif(),
+            all_findings=[],
+            findings_by_category={},
+            verbose=False,
+            is_system_prompt_mode=True,
+        )
+        output = captured.getvalue()
+        assert "API key" in output
+        assert "importable" not in output
+
+    def test_regular_mode_error_mentions_importable(self, monkeypatch) -> None:
+        from checkagent.cli.scan import _display_results
+        from rich.console import Console
+        from io import StringIO
+
+        captured = StringIO()
+        console_obj = Console(file=captured, no_color=True)
+        monkeypatch.setattr("checkagent.cli.scan.console", console_obj)
+
+        _display_results(
+            sarif_doc=self._make_all_error_sarif(),
+            all_findings=[],
+            findings_by_category={},
+            verbose=False,
+            is_system_prompt_mode=False,
+        )
+        output = captured.getvalue()
+        assert "importable" in output

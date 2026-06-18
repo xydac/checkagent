@@ -1423,7 +1423,7 @@ def _generate_test_file(
     default=False,
     help=(
         "Always exit 0, even when findings are present. "
-        "Quality gates (--min-score, --fail-on-new) still exit 2 when triggered. "
+        "Use `checkagent diff --min-score` to enforce score thresholds after scanning. "
         "Useful in CI when you want scan results without blocking the pipeline."
     ),
 )
@@ -1962,6 +1962,7 @@ def scan_cmd(
             flaky=flaky,
             stable_pass=stable_pass,
             stable_fail=stable_fail,
+            is_system_prompt_mode=system_prompt is not None,
         )
 
     # Show LLM judge cost estimate
@@ -2589,6 +2590,7 @@ def _display_results(
     flaky: int = 0,
     stable_pass: int = 0,
     stable_fail: int = 0,
+    is_system_prompt_mode: bool = False,
 ) -> None:
     """Render scan results to the console, reading stats from the SARIF document."""
     # Extract stats from SARIF — this is the single source of truth
@@ -2660,10 +2662,18 @@ def _display_results(
     if not all_findings:
         if errors == total and total > 0:
             # All probes errored — don't claim "no issues detected", surface the problem.
+            if is_system_prompt_mode:
+                detail = (
+                    f"{errors} probe(s) raised exceptions. Check your model name and API key."
+                )
+            else:
+                detail = (
+                    f"{errors} probe(s) raised exceptions. Check that the target is importable\n"
+                    "and callable, and that any required dependencies are installed."
+                )
             console.print(Panel.fit(
                 "[bold red]All probes errored — no safety evaluation completed.[/bold red]\n\n"
-                f"{errors} probe(s) raised exceptions. Check that the target is importable\n"
-                "and callable, and that any required dependencies are installed.",
+                + detail,
                 title="Scan Error",
                 border_style="red",
             ))
