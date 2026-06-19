@@ -3844,9 +3844,11 @@ class TestSystemPromptErrorMessage:
         }
 
     def test_system_prompt_mode_error_mentions_api_key(self, monkeypatch) -> None:
-        from checkagent.cli.scan import _display_results
-        from rich.console import Console
         from io import StringIO
+
+        from rich.console import Console
+
+        from checkagent.cli.scan import _display_results
 
         captured = StringIO()
         console_obj = Console(file=captured, no_color=True)
@@ -3864,9 +3866,11 @@ class TestSystemPromptErrorMessage:
         assert "importable" not in output
 
     def test_regular_mode_error_mentions_importable(self, monkeypatch) -> None:
-        from checkagent.cli.scan import _display_results
-        from rich.console import Console
         from io import StringIO
+
+        from rich.console import Console
+
+        from checkagent.cli.scan import _display_results
 
         captured = StringIO()
         console_obj = Console(file=captured, no_color=True)
