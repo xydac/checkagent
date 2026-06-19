@@ -21,6 +21,7 @@ Usage::
 
 from __future__ import annotations
 
+import ast
 import importlib
 import inspect
 import sys
@@ -30,6 +31,136 @@ import click
 from rich.console import Console
 
 console = Console()
+
+
+# ---------------------------------------------------------------------------
+# AST-based system prompt extraction (no-import mode)
+# ---------------------------------------------------------------------------
+
+_PROMPT_VAR_KEYWORDS = ("system_prompt", "prompt", "instruction", "persona", "system")
+
+
+def _extract_string_value(node: ast.expr) -> str | None:
+    """Return string value from a Constant or JoinedStr node, or None."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.JoinedStr):
+        parts = []
+        for elt in node.values:
+            if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
+                parts.append(elt.value)
+            else:
+                parts.append("{...}")
+        return "".join(parts)
+    return None
+
+
+def _looks_like_system_prompt(name: str, value: str) -> bool:
+    """Heuristic: is this variable likely a system prompt?"""
+    name_lower = name.lower()
+    if not any(kw in name_lower for kw in _PROMPT_VAR_KEYWORDS):
+        return False
+    return len(value) > 30
+
+
+def _resolve_import_to_file(
+    module_name: str, search_roots: list[Path]
+) -> Path | None:
+    """Try to find the .py file for a dotted module name under given roots."""
+    parts = module_name.split(".")
+    rel = Path(*parts).with_suffix(".py")
+    for root in search_roots:
+        candidate = root / rel
+        if candidate.exists():
+            return candidate
+        pkg_init = root / Path(*parts) / "__init__.py"
+        if pkg_init.exists():
+            return pkg_init
+    return None
+
+
+def extract_system_prompts(source_path: Path) -> list[tuple[str, str]]:
+    """Extract likely system prompt strings from a Python source file.
+
+    Returns a list of (variable_name, prompt_text) tuples found in the file
+    or in files it imports from (one level deep for local imports).
+    """
+    results: list[tuple[str, str]] = []
+    try:
+        tree = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
+    except SyntaxError:
+        return results
+
+    # Build search roots: walk up from the file to find all package ancestors,
+    # then add the directory *above* the top-most package (the install root).
+    search_roots: list[Path] = []
+    candidate = source_path.parent
+    last_package = candidate
+    for _ in range(10):
+        search_roots.append(candidate)
+        if (candidate / "__init__.py").exists():
+            last_package = candidate
+        parent = candidate.parent
+        if parent == candidate:
+            break
+        candidate = parent
+    # The install root is the parent of the top-level package directory
+    install_root = last_package.parent
+    if install_root not in search_roots:
+        search_roots.append(install_root)
+    search_roots.append(Path.cwd())
+
+    imported_names: dict[str, tuple[str, str]] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            for alias in node.names:
+                imported_names[alias.asname or alias.name] = (node.module, alias.name)
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            value_str = _extract_string_value(node.value)
+            if value_str is None:
+                continue
+            for target in node.targets:
+                if isinstance(target, ast.Name) and _looks_like_system_prompt(
+                    target.id, value_str
+                ):
+                    results.append((target.id, value_str))
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            value_str = _extract_string_value(node.value)
+            if (
+                value_str
+                and isinstance(node.target, ast.Name)
+                and _looks_like_system_prompt(node.target.id, value_str)
+            ):
+                results.append((node.target.id, value_str))
+
+    for local_name, (module, attr) in imported_names.items():
+        if not _looks_like_system_prompt(local_name, "x" * 31):
+            continue
+        import_file = _resolve_import_to_file(module, search_roots)
+        if import_file is None:
+            continue
+        try:
+            sub_tree = ast.parse(
+                import_file.read_text(encoding="utf-8"), filename=str(import_file)
+            )
+        except SyntaxError:
+            continue
+        for sub_node in ast.walk(sub_tree):
+            if isinstance(sub_node, ast.Assign):
+                val = _extract_string_value(sub_node.value)
+                if val is None:
+                    continue
+                for tgt in sub_node.targets:
+                    if (
+                        isinstance(tgt, ast.Name)
+                        and tgt.id == attr
+                        and _looks_like_system_prompt(attr, val)
+                    ):
+                        results.append((f"{module}.{attr}", val))
+
+    return results
 
 # ---------------------------------------------------------------------------
 # Code templates
@@ -240,7 +371,18 @@ def _resolve_object(target: str) -> tuple[object, str, str]:
     try:
         module = importlib.import_module(module_path)
     except ModuleNotFoundError as exc:
-        raise click.ClickException(f"Cannot import module '{module_path}': {exc}") from exc
+        file_guess = Path(*module_path.split(".")).with_suffix(".py")
+        tip = ""
+        if file_guess.exists():
+            tip = (
+                f"\n\nThe module has uninstalled dependencies. "
+                f"To scan its security posture without installing them:\n"
+                f"  [bold]checkagent wrap {file_guess} --extract-prompt[/bold]\n"
+                f"  [bold]checkagent scan --system-prompt <extracted_prompt.txt>[/bold]"
+            )
+        raise click.ClickException(
+            f"Cannot import module '{module_path}': {exc}{tip}"
+        ) from exc
 
     if not hasattr(module, attr_name):
         raise click.ClickException(
@@ -304,13 +446,25 @@ def _detect_kind(obj: object) -> str:
     help="Output filename for the generated wrapper.",
 )
 @click.option("--force", is_flag=True, help="Overwrite existing output file.")
-def wrap_cmd(target: str, output: str, force: bool) -> None:
+@click.option(
+    "--extract-prompt",
+    is_flag=True,
+    help=(
+        "Extract system prompts from the source file using AST analysis — "
+        "no imports required. TARGET must be a .py file path."
+    ),
+)
+def wrap_cmd(target: str, output: str, force: bool, extract_prompt: bool) -> None:
     """Generate a wrapper module for an agent object.
 
     TARGET is a 'module:name' or 'module.name' reference to a Python
     object.  CheckAgent inspects the object and writes a wrapper file
     exposing ``checkagent_target(prompt)`` that ``checkagent scan`` can
     use directly.
+
+    Use --extract-prompt to extract system prompts from a source file without
+    importing it — useful when the agent has heavy dependencies (databases,
+    vector stores) that aren't installed in your test environment.
 
     \b
     Detection order:
@@ -325,7 +479,56 @@ def wrap_cmd(target: str, output: str, force: bool) -> None:
         checkagent wrap my_module:my_agent
         checkagent wrap my_module:MyAgent --output agent_wrapper.py
         checkagent wrap my_module:crew --force
+        checkagent wrap agents/qa/agent.py --extract-prompt
     """
+    if extract_prompt:
+        source_path = Path(target)
+        if not source_path.exists():
+            raise click.ClickException(f"File not found: {source_path}")
+        if source_path.suffix != ".py":
+            raise click.ClickException(
+                f"--extract-prompt requires a .py file path, got: {target}"
+            )
+        prompts = extract_system_prompts(source_path)
+        if not prompts:
+            console.print(
+                f"[yellow]No system prompts found in {source_path}.[/yellow]\n"
+                "Looked for string assignments to variables containing: "
+                + ", ".join(_PROMPT_VAR_KEYWORDS)
+            )
+            console.print(
+                "\nIf the prompt is in a separate file, pass that file instead:\n"
+                "  [bold]checkagent wrap <prompts_file.py> --extract-prompt[/bold]"
+            )
+            return
+
+        for var_name, prompt_text in prompts:
+            console.print(f"\n[bold cyan]{var_name}[/bold cyan] ({len(prompt_text)} chars):")
+            preview = prompt_text[:200].replace("\n", " ")
+            if len(prompt_text) > 200:
+                preview += "..."
+            console.print(f"  [dim]{preview}[/dim]")
+
+            prompt_file = Path(f"{var_name.replace('.', '_')}.txt")
+            if prompt_file.exists() and not force:
+                console.print(
+                    f"\n  [yellow]'{prompt_file}' already exists. "
+                    "Use --force to overwrite.[/yellow]"
+                )
+            else:
+                prompt_file.write_text(prompt_text, encoding="utf-8")
+                console.print(f"\n  [green]✓[/green] Saved to [cyan]{prompt_file}[/cyan]")
+
+            console.print(
+                f"\n  Scan it: [bold]checkagent scan "
+                f"--system-prompt {prompt_file} --model claude-haiku-4-5-20251001[/bold]"
+            )
+            console.print(
+                f"  Zero-config: [bold]checkagent scan "
+                f"--system-prompt {prompt_file} --model claude-code[/bold]"
+            )
+        return
+
     obj, module_path, attr_name = _resolve_object(target)
     kind = _detect_kind(obj)
 
