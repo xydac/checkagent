@@ -162,6 +162,50 @@ def extract_system_prompts(source_path: Path) -> list[tuple[str, str]]:
 
     return results
 
+
+# ---------------------------------------------------------------------------
+# AST-based target listing (no-import mode)
+# ---------------------------------------------------------------------------
+
+_AGENT_METHOD_NAMES = {"run", "invoke", "kickoff", "answer", "chat", "query", "execute", "call"}
+
+
+def list_scan_targets(source_path: Path) -> list[dict]:
+    """List potential scan targets in a Python source file using AST analysis.
+
+    Returns a list of dicts with keys: name, kind, line.
+    kind is one of: 'function', 'async_function', 'class', 'class_with_agent_method'.
+    """
+    try:
+        tree = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
+    except SyntaxError:
+        return []
+
+    targets = []
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            targets.append({
+                "name": node.name,
+                "kind": "async_function" if isinstance(node, ast.AsyncFunctionDef) else "function",
+                "line": node.lineno,
+            })
+        elif isinstance(node, ast.ClassDef):
+            methods = [
+                n.name
+                for n in ast.walk(node)
+                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and n.name in _AGENT_METHOD_NAMES
+            ]
+            kind = "class_with_agent_method" if methods else "class"
+            targets.append({
+                "name": node.name,
+                "kind": kind,
+                "line": node.lineno,
+                "methods": methods,
+            })
+    return targets
+
+
 # ---------------------------------------------------------------------------
 # Code templates
 # ---------------------------------------------------------------------------
@@ -454,7 +498,17 @@ def _detect_kind(obj: object) -> str:
         "no imports required. TARGET must be a .py file path."
     ),
 )
-def wrap_cmd(target: str, output: str, force: bool, extract_prompt: bool) -> None:
+@click.option(
+    "--list-targets",
+    is_flag=True,
+    help=(
+        "List callable functions and classes in a .py file that could be scan targets — "
+        "no imports required. TARGET must be a .py file path."
+    ),
+)
+def wrap_cmd(
+    target: str, output: str, force: bool, extract_prompt: bool, list_targets: bool
+) -> None:
     """Generate a wrapper module for an agent object.
 
     TARGET is a 'module:name' or 'module.name' reference to a Python
@@ -462,9 +516,8 @@ def wrap_cmd(target: str, output: str, force: bool, extract_prompt: bool) -> Non
     exposing ``checkagent_target(prompt)`` that ``checkagent scan`` can
     use directly.
 
-    Use --extract-prompt to extract system prompts from a source file without
-    importing it — useful when the agent has heavy dependencies (databases,
-    vector stores) that aren't installed in your test environment.
+    Use --extract-prompt to extract system prompts without importing the file.
+    Use --list-targets to discover callable functions and classes in a file.
 
     \b
     Detection order:
@@ -480,7 +533,41 @@ def wrap_cmd(target: str, output: str, force: bool, extract_prompt: bool) -> Non
         checkagent wrap my_module:MyAgent --output agent_wrapper.py
         checkagent wrap my_module:crew --force
         checkagent wrap agents/qa/agent.py --extract-prompt
+        checkagent wrap agents/qa/agent.py --list-targets
     """
+    if list_targets:
+        source_path = Path(target)
+        if not source_path.exists():
+            raise click.ClickException(f"File not found: {source_path}")
+        if source_path.suffix != ".py":
+            raise click.ClickException(
+                f"--list-targets requires a .py file path, got: {target}"
+            )
+        found = list_scan_targets(source_path)
+        if not found:
+            console.print(f"[yellow]No scan targets found in {source_path}.[/yellow]")
+            return
+        module_name = source_path.stem
+        console.print(f"\n[bold]Scan targets in [cyan]{source_path.name}[/cyan]:[/bold]\n")
+        for item in found:
+            kind = item["kind"]
+            name = item["name"]
+            line = item["line"]
+            if kind == "async_function":
+                label = "[green]async fn[/green]"
+            elif kind == "function":
+                label = "[blue]function[/blue]"
+            elif kind == "class_with_agent_method":
+                methods = item.get("methods", [])
+                label = f"[magenta]class[/magenta] (has .{'/'.join(methods[:2])}())"
+            else:
+                label = "[dim]class[/dim]"
+            console.print(f"  {label:30s} [bold]{name}[/bold] [dim](line {line})[/dim]")
+            console.print(
+                f"            [dim]checkagent scan {module_name}:{name}[/dim]"
+            )
+        return
+
     if extract_prompt:
         source_path = Path(target)
         if not source_path.exists():

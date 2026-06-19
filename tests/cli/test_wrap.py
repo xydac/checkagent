@@ -564,3 +564,72 @@ class TestExtractPrompt:
 
         results = extract_system_prompts(src)
         assert results == []
+
+
+class TestListTargets:
+    """Tests for ``checkagent wrap --list-targets``."""
+
+    def test_lists_functions(self, tmp_path):
+        src = tmp_path / "agent.py"
+        src.write_text(
+            "def my_agent(prompt): return 'ok'\n"
+            "async def async_agent(prompt): return 'ok'\n",
+            encoding="utf-8",
+        )
+        from checkagent.cli.wrap import list_scan_targets
+
+        targets = list_scan_targets(src)
+        names = [t["name"] for t in targets]
+        assert "my_agent" in names
+        assert "async_agent" in names
+
+    def test_classifies_async_functions(self, tmp_path):
+        src = tmp_path / "agent.py"
+        src.write_text("async def my_agent(prompt): return 'ok'\n", encoding="utf-8")
+        from checkagent.cli.wrap import list_scan_targets
+
+        targets = list_scan_targets(src)
+        assert targets[0]["kind"] == "async_function"
+
+    def test_detects_class_with_agent_method(self, tmp_path):
+        src = tmp_path / "agent.py"
+        src.write_text(
+            "class MyAgent:\n"
+            "    async def run(self, prompt): return 'ok'\n",
+            encoding="utf-8",
+        )
+        from checkagent.cli.wrap import list_scan_targets
+
+        targets = list_scan_targets(src)
+        agent_class = next(t for t in targets if t["name"] == "MyAgent")
+        assert agent_class["kind"] == "class_with_agent_method"
+        assert "run" in agent_class["methods"]
+
+    def test_cli_list_targets_shows_output(self, tmp_path):
+        src = tmp_path / "agent.py"
+        src.write_text(
+            "async def chat_agent(prompt): return prompt\n"
+            "class BotAgent:\n"
+            "    def invoke(self, p): return p\n",
+            encoding="utf-8",
+        )
+        runner = CliRunner()
+        result = runner.invoke(
+            wrap_cmd, [str(src), "--list-targets"], catch_exceptions=False
+        )
+        assert result.exit_code == 0, result.output
+        assert "chat_agent" in result.output
+        assert "BotAgent" in result.output
+        assert "invoke" in result.output
+
+    def test_cli_list_targets_file_not_found(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(wrap_cmd, [str(tmp_path / "nofile.py"), "--list-targets"])
+        assert result.exit_code != 0
+
+    def test_list_targets_syntax_error_returns_empty(self, tmp_path):
+        src = tmp_path / "bad.py"
+        src.write_text("def (broken\n", encoding="utf-8")
+        from checkagent.cli.wrap import list_scan_targets
+
+        assert list_scan_targets(src) == []
