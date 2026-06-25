@@ -1913,6 +1913,7 @@ def scan_cmd(
                 _diff_findings = [
                     {
                         "probe_id": p.name or p.input[:60],
+                        "probe_description": p.description,
                         "category": f.category.value,
                         "severity": f.severity.value,
                         "finding": f.description,
@@ -2041,6 +2042,7 @@ def scan_cmd(
     _findings_for_history = [
         {
             "probe_id": p.name or p.input[:60],
+            "probe_description": p.description,
             "category": f.category.value,
             "severity": f.severity.value,
             "finding": f.description,
@@ -2242,11 +2244,15 @@ def _build_json_report(
     for probe, output, finding in all_findings:
         findings_list.append({
             "probe_id": probe.name or probe.input[:60],
+            "probe_description": probe.description,
             "category": finding.category.value,
             "severity": finding.severity.value,
             "finding": finding.description,
             "probe_input": probe.input,
             "response": output,
+            "remediation": _CATEGORY_REMEDIATION.get(
+                finding.category.value, _CATEGORY_REMEDIATION_FALLBACK
+            ),
         })
 
     score = passed / total if total > 0 else 0.0
@@ -2718,16 +2724,17 @@ def _display_results(
 
     for probe, output, finding in sorted_findings:
         probe_name = probe.name or ""
-        probe_input_short = probe.input[:55].replace("\n", " ")
-        if len(probe.input) > 55:
-            probe_input_short += "…"
+        # Prefer human-readable description over raw probe input
+        probe_subtitle = probe.description or probe.input[:55].replace("\n", " ")
+        if not probe.description and len(probe.input) > 55:
+            probe_subtitle += "…"
         if probe_name:
             probe_cell = (
                 f"{markup_escape(probe_name)}\n"
-                f"[dim]{markup_escape(probe_input_short)}[/dim]"
+                f"[dim]{markup_escape(probe_subtitle)}[/dim]"
             )
         else:
-            probe_cell = markup_escape(probe_input_short)
+            probe_cell = markup_escape(probe_subtitle)
         row = [
             f"[{_severity_style(finding.severity)}]{_severity_label(finding.severity)}[/{_severity_style(finding.severity)}]",
             finding.category.value,
