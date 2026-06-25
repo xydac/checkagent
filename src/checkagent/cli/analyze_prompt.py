@@ -188,8 +188,19 @@ def _render_result(
             note = f'LLM: "{llm_evidence[:60]}"' if llm_evidence else "LLM verified"
         else:
             status = "[red]✗ MISSING[/red]"
-            note = ""
-
+            # Extract a short example phrase from the recommendation to hint what to add
+            rec = cr.check.recommendation
+            import re as _re
+            # U+201C left double quotation mark, U+201D right double quotation mark
+            lq = chr(0x201C)
+            rq = chr(0x201D)
+            _pat = "[" + lq + r'"]([^' + rq + r'"]{10,})[' + rq + '"]'
+            quoted = _re.findall(_pat, rec)
+            if quoted:
+                hint = quoted[0]
+                note = "Try: \"" + hint[:52] + ("..." if len(hint) > 52 else "") + "\""
+            else:
+                note = ""
         sev_color = _severity_color(cr.check.severity)
         severity = f"[{sev_color}]{cr.check.severity.upper()}[/{sev_color}]"
         table.add_row(cr.check.name, status, severity, note)

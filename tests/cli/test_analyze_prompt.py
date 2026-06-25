@@ -50,6 +50,12 @@ class TestAnalyzePromptOutput:
         result = runner.invoke(main, ["analyze-prompt", WEAK_PROMPT])
         assert "MISSING" in result.output
 
+    def test_missing_checks_show_example_hint(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["analyze-prompt", WEAK_PROMPT])
+        # MISSING checks should show a "Try: ..." hint with an example phrase
+        assert 'Try: "' in result.output
+
     def test_output_contains_present_for_role_clarity(self):
         runner = CliRunner()
         result = runner.invoke(main, ["analyze-prompt", WEAK_PROMPT])
