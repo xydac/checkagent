@@ -633,3 +633,51 @@ class TestListTargets:
         from checkagent.cli.wrap import list_scan_targets
 
         assert list_scan_targets(src) == []
+
+    def test_list_targets_shows_constructor_args(self, tmp_path):
+        """Classes with constructor args show requires hint and extract-prompt suggestion."""
+        src = tmp_path / "agent.py"
+        src.write_text(
+            "class MyAgent:\n"
+            "    def __init__(self, client, api_key):\n"
+            "        self.client = client\n"
+            "    def run(self, prompt): return prompt\n",
+            encoding="utf-8",
+        )
+        runner = CliRunner()
+        result = runner.invoke(wrap_cmd, [str(src), "--list-targets"], catch_exceptions=False)
+        assert result.exit_code == 0, result.output
+        assert "Requires:" in result.output
+        assert "client" in result.output
+        assert "api_key" in result.output
+        assert "--extract-prompt" in result.output
+
+    def test_list_targets_no_args_class_shows_scan_command(self, tmp_path):
+        """Classes without constructor args show direct scan command."""
+        src = tmp_path / "agent.py"
+        src.write_text(
+            "class SimpleAgent:\n"
+            "    def run(self, prompt): return prompt\n",
+            encoding="utf-8",
+        )
+        runner = CliRunner()
+        result = runner.invoke(wrap_cmd, [str(src), "--list-targets"], catch_exceptions=False)
+        assert result.exit_code == 0, result.output
+        assert "checkagent scan" in result.output
+        assert "Requires:" not in result.output
+
+    def test_list_scan_targets_init_args(self, tmp_path):
+        """list_scan_targets returns init_args for classes with __init__."""
+        from checkagent.cli.wrap import list_scan_targets
+
+        src = tmp_path / "agent.py"
+        src.write_text(
+            "class MyAgent:\n"
+            "    def __init__(self, db, key, timeout=30):\n"
+            "        pass\n"
+            "    def run(self, prompt): return prompt\n",
+            encoding="utf-8",
+        )
+        targets = list_scan_targets(src)
+        assert len(targets) == 1
+        assert targets[0]["init_args"] == ["db", "key", "timeout"]

@@ -2713,7 +2713,7 @@ def _display_results(
     detail_table = Table(title="Findings Detail", border_style="red", show_lines=True)
     detail_table.add_column("Sev", width=4, justify="center")
     detail_table.add_column("Category", max_width=18)
-    detail_table.add_column("Probe / Input", max_width=30)
+    detail_table.add_column("Probe", max_width=30)
     detail_table.add_column("Finding", max_width=46)
     if verbose:
         detail_table.add_column("Agent Response", max_width=60)

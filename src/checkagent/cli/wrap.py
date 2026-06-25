@@ -197,11 +197,20 @@ def list_scan_targets(source_path: Path) -> list[dict]:
                 and n.name in _AGENT_METHOD_NAMES
             ]
             kind = "class_with_agent_method" if methods else "class"
+            # Extract non-self constructor arg names from __init__
+            init_args: list[str] = []
+            for n in ast.walk(node):
+                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == "__init__":
+                    init_args = [
+                        arg.arg for arg in n.args.args if arg.arg != "self"
+                    ]
+                    break
             targets.append({
                 "name": node.name,
                 "kind": kind,
                 "line": node.lineno,
                 "methods": methods,
+                "init_args": init_args,
             })
     return targets
 
@@ -553,6 +562,7 @@ def wrap_cmd(
             kind = item["kind"]
             name = item["name"]
             line = item["line"]
+            init_args = item.get("init_args", [])
             if kind == "async_function":
                 label = "[green]async fn[/green]"
             elif kind == "function":
@@ -563,9 +573,22 @@ def wrap_cmd(
             else:
                 label = "[dim]class[/dim]"
             console.print(f"  {label:30s} [bold]{name}[/bold] [dim](line {line})[/dim]")
-            console.print(
-                f"            [dim]checkagent scan {module_name}:{name}[/dim]"
-            )
+            if init_args:
+                # Class needs constructor args — scanning directly won't work
+                args_str = ", ".join(init_args)
+                console.print(
+                    f"            [dim]Requires: {args_str}[/dim]"
+                )
+                console.print(
+                    "            [dim]→ Write an adapter or scan the system prompt:[/dim]"
+                )
+                console.print(
+                    f"            [dim]  checkagent wrap {source_path} --extract-prompt[/dim]"
+                )
+            else:
+                console.print(
+                    f"            [dim]checkagent scan {module_name}:{name}[/dim]"
+                )
         return
 
     if extract_prompt:
