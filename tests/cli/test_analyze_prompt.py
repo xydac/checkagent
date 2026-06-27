@@ -198,11 +198,11 @@ class TestAnalyzePromptFileInput:
 
 class TestAnalyzePromptRichEscaping:
     def test_bracket_text_preserved_in_output(self):
-        """F-093: Rich should not strip [bracket] placeholders."""
+        """F-093 / F-145: Rich should not strip [bracket] placeholders in table or recs."""
         runner = CliRunner()
         result = runner.invoke(main, ["analyze-prompt", WEAK_PROMPT])
-        # Recommendations contain text like "[your domain]" — ensure visible
-        # The weak prompt is missing scope_boundary which recommends "[your domain]"
+        # Both the table Note column and the Recommendations section must preserve
+        # "[your domain]" — the Note column was the F-145 regression site.
         assert "[your domain]" in result.output or result.exit_code != 0
 
     def test_bracket_text_preserved_in_json(self):

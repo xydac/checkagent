@@ -198,7 +198,8 @@ def _render_result(
             quoted = _re.findall(_pat, rec)
             if quoted:
                 hint = quoted[0]
-                note = "Try: \"" + hint[:52] + ("..." if len(hint) > 52 else "") + "\""
+                truncated = hint[:52] + ("..." if len(hint) > 52 else "")
+                note = 'Try: "' + rich_escape(truncated) + '"'
             else:
                 note = ""
         sev_color = _severity_color(cr.check.severity)
