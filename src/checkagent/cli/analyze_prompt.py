@@ -140,7 +140,7 @@ def _render_result(
     _console.print("─" * 46)
     if prompt_preview:
         preview = prompt_preview[:72] + ("…" if len(prompt_preview) > 72 else "")
-        _console.print(f"[dim]Prompt:[/dim] {preview}")
+        _console.print(f"[dim]Prompt:[/dim] {rich_escape(preview)}")
         _console.print()
 
     # Score bar

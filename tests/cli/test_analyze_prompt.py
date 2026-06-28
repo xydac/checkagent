@@ -205,6 +205,12 @@ class TestAnalyzePromptRichEscaping:
         # "[your domain]" — the Note column was the F-145 regression site.
         assert "[your domain]" in result.output or result.exit_code != 0
 
+    def test_bracket_text_preserved_in_prompt_header(self):
+        """F-146: Rich must not strip [brackets] from the Prompt: header preview line."""
+        runner = CliRunner()
+        result = runner.invoke(main, ["analyze-prompt", "Only help with [your domain] questions."])
+        assert "[your domain]" in result.output
+
     def test_bracket_text_preserved_in_json(self):
         runner = CliRunner()
         result = runner.invoke(main, ["analyze-prompt", "--json", WEAK_PROMPT])
