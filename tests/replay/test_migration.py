@@ -243,11 +243,29 @@ class TestMigrateFile:
         # File unchanged
         assert path.read_text(encoding="utf-8") == original_content
 
-    def test_no_migration_path(self, tmp_path: Path):
+    def test_no_migration_path(self, tmp_path: Path, monkeypatch):
+        """A version with no registered migration reports failure."""
+        import checkagent.replay.migration as mod
+
+        # Use a hypothetical very old version that has no migration registered
+        monkeypatch.setattr(mod, "CASSETTE_SCHEMA_VERSION", 99)
         path = _write_cassette(tmp_path, "old.json", version=0)
         result = migrate_file(path)
         assert not result.success
         assert "No migration registered" in result.error
+
+    def test_v0_to_v1_migration(self, tmp_path: Path):
+        """F-045: v0 cassettes migrate successfully to v1 with all fields filled."""
+        path = _write_cassette(tmp_path, "v0.json", version=0)
+        result = migrate_file(path, backup=False)
+        assert result.success
+        assert result.from_version == 0
+        assert result.to_version == 1
+        data = json.loads(path.read_text(encoding="utf-8"))
+        assert data["meta"]["schema_version"] == 1
+        assert "checkagent_version" in data["meta"]
+        assert "content_hash" in data["meta"]
+        assert "test_id" in data["meta"]
 
 
 # --- migrate_directory ---

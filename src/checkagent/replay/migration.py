@@ -209,3 +209,46 @@ def migrate_directory(
         )
 
     return results
+
+
+# ---------------------------------------------------------------------------
+# Built-in migrations
+# ---------------------------------------------------------------------------
+
+@register_migration(from_version=0, to_version=1)
+def _migrate_v0_to_v1(data: dict[str, Any]) -> dict[str, Any]:
+    """Upgrade a v0 cassette to v1.
+
+    v0 cassettes may be missing: meta.checkagent_version, meta.content_hash,
+    meta.test_id, and interaction-level id/sequence fields.  The v1 format
+    adds these fields for integrity checking and git-friendly diffs.
+    """
+    import hashlib
+
+    meta = data.setdefault("meta", {})
+    meta.setdefault("checkagent_version", "")
+    meta.setdefault("content_hash", "")
+    meta.setdefault("test_id", "")
+    meta.setdefault("recorded_at", "")
+
+    for idx, interaction in enumerate(data.get("interactions", [])):
+        interaction.setdefault("sequence", idx)
+
+        if not interaction.get("id"):
+            req = interaction.get("request", {})
+            raw = json.dumps(
+                {"method": req.get("method", ""), "body": req.get("body", {})},
+                sort_keys=True,
+                default=str,
+            )
+            interaction["id"] = hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+        interaction.setdefault("metadata", {})
+        req = interaction.setdefault("request", {})
+        req.setdefault("kind", "llm")
+        req.setdefault("method", "")
+        req.setdefault("body", {})
+        resp = interaction.setdefault("response", {})
+        resp.setdefault("status", "ok")
+
+    return data
