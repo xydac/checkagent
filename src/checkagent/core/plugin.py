@@ -22,6 +22,9 @@ from checkagent.mock.fault import FaultInjector
 from checkagent.mock.llm import MockLLM
 from checkagent.mock.mcp import MockMCPServer
 from checkagent.mock.tool import MockTool
+from checkagent.replay.cassette import Cassette
+from checkagent.replay.engine import MatchStrategy, ReplayEngine
+from checkagent.replay.recorder import CassetteRecorder
 from checkagent.safety.injection import PromptInjectionDetector
 from checkagent.safety.pii import PIILeakageScanner
 from checkagent.safety.refusal import RefusalComplianceChecker
@@ -319,6 +322,112 @@ def ca_tracer() -> Any:
     if ctx._active:
         ctx.end()
     uninstall_patches()
+
+
+class CassetteFixture:
+    """Context object returned by the ``ap_cassette`` fixture.
+
+    Attributes:
+        mode: ``"record"`` when no cassette file exists yet; ``"replay"`` when
+            an existing cassette was loaded.
+        path: Resolved path to the cassette file.
+        recorder: A :class:`~checkagent.replay.recorder.CassetteRecorder` in
+            record mode, ``None`` in replay mode.
+        engine: A :class:`~checkagent.replay.engine.ReplayEngine` in replay
+            mode, ``None`` in record mode.
+        cassette: The loaded :class:`~checkagent.replay.cassette.Cassette` in
+            replay mode, ``None`` in record mode.
+    """
+
+    def __init__(
+        self,
+        mode: str,
+        path: Path,
+        recorder: CassetteRecorder | None = None,
+        engine: ReplayEngine | None = None,
+        cassette: Cassette | None = None,
+    ) -> None:
+        self.mode = mode
+        self.path = path
+        self.recorder = recorder
+        self.engine = engine
+        self.cassette = cassette
+
+    def is_recording(self) -> bool:
+        """Return True when in record mode."""
+        return self.mode == "record"
+
+    def is_replaying(self) -> bool:
+        """Return True when in replay mode."""
+        return self.mode == "replay"
+
+
+@pytest.fixture
+def ap_cassette(request: pytest.FixtureRequest) -> Any:
+    """Record-and-replay cassette fixture.
+
+    The fixture automatically selects the operating mode:
+
+    * **Record mode** — when no cassette file exists at the target path.
+      A fresh :class:`~checkagent.replay.recorder.CassetteRecorder` is
+      created.  After the test completes the cassette is finalized and
+      saved to disk.
+    * **Replay mode** — when a cassette file already exists.  The cassette
+      is loaded and a :class:`~checkagent.replay.engine.ReplayEngine` is
+      created in ``SEQUENCE`` strategy (matches by call order).
+
+    The cassette path is resolved in priority order:
+
+    1. ``@pytest.mark.cassette(path="cassettes/my.json")`` on the test.
+    2. ``cassettes/<module_path>/<test_name>.json`` relative to the
+       directory that contains the test file.
+
+    Example::
+
+        @pytest.mark.agent_test(layer="replay")
+        async def test_greeting(ap_cassette, my_agent):
+            if ap_cassette.is_recording():
+                result = await my_agent.run("hello")
+                ap_cassette.recorder.record_llm_call(
+                    method="chat.completions.create",
+                    request_body={"messages": [{"role": "user", "content": "hello"}]},
+                    response_body={"choices": [{"message": {"content": "Hi!"}}]},
+                )
+            else:
+                interaction = ap_cassette.engine.match(
+                    ap_cassette.cassette.interactions[0].request
+                )
+                assert interaction is not None
+    """
+    # --- Resolve cassette path ---
+    marker = request.node.get_closest_marker("cassette")
+    if marker and marker.args:
+        cassette_path = Path(marker.args[0])
+    elif marker and "path" in marker.kwargs:
+        cassette_path = Path(marker.kwargs["path"])
+    else:
+        # Default: cassettes/<relative_module>/<test_name>.json
+        test_file = Path(request.node.fspath)
+        module_rel = test_file.stem  # e.g. "test_agent"
+        test_name = request.node.name.replace("::", "_").replace("[", "_").replace("]", "")
+        cassette_path = test_file.parent / "cassettes" / module_rel / f"{test_name}.json"
+
+    # --- Choose mode ---
+    if cassette_path.exists():
+        # REPLAY mode
+        cassette = Cassette.load(cassette_path)
+        engine = ReplayEngine(cassette, strategy=MatchStrategy.SEQUENCE)
+        ctx = CassetteFixture(mode="replay", path=cassette_path, engine=engine, cassette=cassette)
+        yield ctx
+    else:
+        # RECORD mode — save cassette after the test body completes
+        test_id = request.node.nodeid
+        recorder = CassetteRecorder(test_id=test_id)
+        ctx = CassetteFixture(mode="record", path=cassette_path, recorder=recorder)
+        yield ctx
+        # Post-test: finalize and save
+        cassette = recorder.finalize()
+        cassette.save(cassette_path)
 
 
 def pytest_collection_modifyitems(

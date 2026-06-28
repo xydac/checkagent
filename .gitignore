@@ -40,3 +40,4 @@ site/
 # Local config and notes
 .*.md
 !.github/**
+tests/**/cassettes/

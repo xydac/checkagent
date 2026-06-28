@@ -16,7 +16,7 @@ from checkagent.core.cost import (
     CostTracker,
     calculate_run_cost,
 )
-from checkagent.core.plugin import TracerContext
+from checkagent.core.plugin import CassetteFixture, TracerContext
 from checkagent.core.tracer import (
     begin_probe_trace,
     end_probe_trace,
@@ -198,6 +198,7 @@ __all__ = [
     "MultiAgentTrace",
     # Replay
     "Cassette",
+    "CassetteFixture",
     "ReplayEngine",
     # Safety
     "check_behavioral_compliance",
