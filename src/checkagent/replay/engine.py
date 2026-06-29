@@ -56,10 +56,12 @@ class ReplayEngine:
         strategy: MatchStrategy = MatchStrategy.EXACT,
         *,
         block_unmatched: bool = True,
+        strict_kind: bool = False,
     ) -> None:
         self._cassette = cassette
         self._strategy = strategy
         self._block_unmatched = block_unmatched
+        self._strict_kind = strict_kind
         self._sequence_index = 0
         self._used: set[int] = set()
 
@@ -95,13 +97,27 @@ class ReplayEngine:
         raise ValueError(f"Unknown strategy: {self._strategy}")
 
     def _match_sequence(self, request: RecordedRequest) -> Interaction | None:
-        """Match by position in the interaction sequence."""
+        """Match by position in the interaction sequence.
+
+        When ``strict_kind=True``, the interaction at the current position must
+        have the same ``kind`` as the request (e.g. "llm" vs "tool").  Callers
+        that mix LLM and tool calls in a known order can enable this to catch
+        mis-ordered replay.
+        """
         idx = self._sequence_index
         if idx >= len(self._cassette.interactions):
             if self._block_unmatched:
                 raise CassetteMismatchError(request, "sequence")
             return None
         interaction = self._cassette.interactions[idx]
+        if self._strict_kind and interaction.request.kind != request.kind:
+            if self._block_unmatched:
+                raise CassetteMismatchError(
+                    request,
+                    f"sequence[strict_kind]: expected kind={interaction.request.kind!r}, "
+                    f"got kind={request.kind!r} at position {idx}",
+                )
+            return None
         self._sequence_index += 1
         self._used.add(idx)
         return interaction

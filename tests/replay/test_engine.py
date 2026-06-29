@@ -163,6 +163,44 @@ class TestSequenceMatch:
         with pytest.raises(CassetteMismatchError, match="sequence"):
             engine.match(RecordedRequest(kind="llm", method="chat", body={}))
 
+    def test_strict_kind_passes_when_kind_matches(self):
+        cassette = _make_cassette([
+            _llm_interaction("chat", {}, "resp"),
+            _tool_interaction("search", {}, "result"),
+        ])
+        engine = ReplayEngine(cassette, MatchStrategy.SEQUENCE, strict_kind=True)
+        r1 = engine.match(RecordedRequest(kind="llm", method="chat", body={}))
+        r2 = engine.match(RecordedRequest(kind="tool", method="search", body={}))
+        assert r1.response.body == "resp"
+        assert r2.response.body == "result"
+
+    def test_strict_kind_raises_on_kind_mismatch(self):
+        cassette = _make_cassette([
+            _llm_interaction("chat", {}, "resp"),
+        ])
+        engine = ReplayEngine(cassette, MatchStrategy.SEQUENCE, strict_kind=True)
+        with pytest.raises(CassetteMismatchError, match="strict_kind"):
+            engine.match(RecordedRequest(kind="tool", method="search", body={}))
+
+    def test_strict_kind_returns_none_when_block_unmatched_false(self):
+        cassette = _make_cassette([
+            _llm_interaction("chat", {}, "resp"),
+        ])
+        engine = ReplayEngine(
+            cassette, MatchStrategy.SEQUENCE, block_unmatched=False, strict_kind=True
+        )
+        result = engine.match(RecordedRequest(kind="tool", method="search", body={}))
+        assert result is None
+        assert engine._sequence_index == 0  # not advanced on kind mismatch
+
+    def test_strict_kind_false_ignores_kind(self):
+        cassette = _make_cassette([
+            _llm_interaction("chat", {}, "resp"),
+        ])
+        engine = ReplayEngine(cassette, MatchStrategy.SEQUENCE, strict_kind=False)
+        r = engine.match(RecordedRequest(kind="tool", method="whatever", body={}))
+        assert r.response.body == "resp"
+
 
 # --- Subset matching ---
 
