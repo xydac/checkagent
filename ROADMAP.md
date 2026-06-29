@@ -69,7 +69,7 @@ CheckAgent is being built in public. Here's where we're headed.
 ### Milestone 7: Multi-Agent + Ecosystem
 - [x] Multi-agent trace capture and handoff testing
 - [x] Credit assignment heuristics
-- [ ] PyPI v1.1.0
+- [x] PyPI v1.1.0
 
 ## Phase 4: Launch Readiness
 

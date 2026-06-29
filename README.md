@@ -73,7 +73,10 @@ pytest tests/ -v
 Point `checkagent scan` at any Python function — it runs 101 attack probes across 6 categories and reports exactly what it finds:
 
 ```bash
-# Use a file path — no PYTHONPATH setup needed
+# Discover scan targets in a file (no imports needed)
+checkagent wrap src/my_agent.py --list-targets
+
+# Scan a function
 checkagent scan src/my_agent.py:agent_fn
 
 # Or module path
@@ -414,15 +417,16 @@ async def test_no_prompt_injection():
 | **Mock layer** | MockLLM with pattern matching, MockTool with schema validation, streaming mocks |
 | **Fault injection** | Timeouts, rate limits, server errors, malformed responses — fluent builder API |
 | **Assertions** | `assert_tool_called`, `assert_output_schema`, `assert_output_matches` with dirty-equals |
-| **Safety scanning** | 101 attack probes, scan Python callables or HTTP endpoints, SARIF output for GitHub Code Scanning |
+| **Safety scanning** | 101 attack probes, scan Python callables or HTTP endpoints, SARIF output, HTML compliance reports |
 | **Evaluation metrics** | Task completion, tool correctness, step efficiency, trajectory matching |
-| **Record & replay** | JSON cassettes with content-addressed filenames, migration tooling, stream support |
+| **Record & replay** | JSON cassettes, `ap_cassette` fixture for auto record/replay, migration tooling |
 | **LLM-as-judge** | Rubric-based evaluation, statistical pass/fail, multi-judge consensus |
 | **Framework adapters** | LangChain, OpenAI Agents SDK, CrewAI, PydanticAI, Anthropic, or any callable |
 | **CI/CD** | GitHub Action with quality gates, JUnit XML, compliance reports |
 | **Cost tracking** | Token usage per test, budget limits, cost breakdown by layer |
 | **Multi-agent** | Trace capture across agent handoffs, credit assignment heuristics |
 | **Production traces** | Import JSON/JSONL or OpenTelemetry traces and generate tests from them |
+| **Scan history** | `checkagent history` and `checkagent dashboard` track safety scores over time |
 | **Browser playground** | Paste a system prompt, get an instant safety score — [try it](https://xydac.github.io/checkagent/playground/) |
 
 ## Framework Support
