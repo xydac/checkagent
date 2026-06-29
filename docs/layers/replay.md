@@ -31,22 +31,36 @@ cassette.save("tests/cassettes/booking.json")
 
 ### Using the `ap_cassette` fixture (recommended)
 
-The `ap_cassette` fixture handles recording and replaying automatically. On first run it records the session; on subsequent runs it replays from the saved cassette file:
+The `ap_cassette` fixture handles recording and replaying automatically:
+
+- **First run (record mode):** no cassette file exists → `ap_cassette.is_recording()` is `True`. Run your agent and record interactions via `ap_cassette.recorder`. After the test, the cassette is saved automatically.
+- **Subsequent runs (replay mode):** cassette file found → `ap_cassette.is_replaying()` is `True`. Use `ap_cassette.engine` to match requests against recorded responses. No real API calls are made.
 
 ```python
-import pytest
-from checkagent.replay import CassetteFixture
+from checkagent.replay import CassetteRecorder, RecordedRequest
 
 @pytest.mark.agent_test(layer="replay")
-async def test_booking_regression(ap_cassette):
-    # First run: records real interactions to cassettes/test_booking_regression.json
-    # Later runs: replays from that file — no real API calls made
-    response = ap_cassette.cassette  # access the loaded/saved cassette
-
-    assert ap_cassette.is_replaying() or ap_cassette.is_recording()
+async def test_booking_regression(ap_cassette, my_agent):
+    if ap_cassette.is_recording():
+        # Record mode: run your agent and capture interactions
+        result = await my_agent.run("Book a flight to Tokyo")
+        ap_cassette.recorder.record_llm_call(
+            method="chat.completions.create",
+            request_body={"messages": [{"role": "user", "content": "Book a flight to Tokyo"}]},
+            response_body={"choices": [{"message": {"content": "Booking confirmed!"}}]},
+            model="gpt-4o",
+        )
+        assert "Booking" in result
+    else:
+        # Replay mode: verify agent uses recorded responses
+        assert ap_cassette.cassette is not None
+        assert len(ap_cassette.cassette.interactions) > 0
+        # Run against replayed data — no live API calls
+        result = await my_agent.run("Book a flight to Tokyo")
+        assert "Booking" in result
 ```
 
-Override the cassette path with a marker:
+The cassette is saved to `cassettes/<test_module>/<test_name>.json` by default. Override the path with a marker:
 
 ```python
 @pytest.mark.cassette(path="tests/cassettes/booking_v2.json")
@@ -54,6 +68,8 @@ Override the cassette path with a marker:
 async def test_booking_v2(ap_cassette):
     ...
 ```
+
+Add `tests/**/cassettes/` to `.gitignore` to keep recorded cassettes out of version control during development (or commit them to lock regression baselines).
 
 ### Manual replay
 
@@ -84,6 +100,13 @@ The replay engine supports three matching strategies:
 from checkagent.replay import MatchStrategy
 
 engine = ReplayEngine(cassette, strategy=MatchStrategy.SUBSET)
+```
+
+For `SEQUENCE` mode, enable `strict_kind=True` to verify that LLM and tool calls arrive in the correct order. Useful when an agent mixes LLM calls and tool calls in a fixed sequence:
+
+```python
+# Raises CassetteMismatchError if the call kind (llm/tool) doesn't match
+engine = ReplayEngine(cassette, strategy=MatchStrategy.SEQUENCE, strict_kind=True)
 ```
 
 ## Passthrough Mode
