@@ -323,6 +323,28 @@ checkagent wrap TARGET [OPTIONS]
 |--------|-------------|
 | `--output TEXT` | Output filename for the generated wrapper (default: `checkagent_target.py`) |
 | `--force` | Overwrite existing output file |
+| `--list-targets` | List scan-ready callables in the file without importing it |
+
+**Discover scan targets without importing:**
+
+Use `--list-targets` to inspect a Python file and see which functions and classes are scannable — without executing any code or requiring agent dependencies to be installed:
+
+```bash
+checkagent wrap agents/my_agent.py --list-targets
+```
+
+Output:
+
+```
+Scan targets in agents/my_agent.py
+┌────────────────┬──────────────┬──────────────────────────────────────────────┐
+│ Name           │ Type         │ Scan hint                                    │
+├────────────────┼──────────────┼──────────────────────────────────────────────┤
+│ run            │ async fn     │ checkagent scan agents.my_agent:run          │
+│ SupportAgent   │ class        │ checkagent scan agents.my_agent:SupportAgent │
+│                │              │ Requires: api_key, model                     │
+└────────────────┴──────────────┴──────────────────────────────────────────────┘
+```
 
 **Examples:**
 
@@ -330,6 +352,7 @@ checkagent wrap TARGET [OPTIONS]
 checkagent wrap my_module:my_agent
 checkagent wrap my_module:MyAgent --output agent_wrapper.py
 checkagent wrap my_module:crew --force
+checkagent wrap agents/hr_agent.py --list-targets    # discover targets first
 ```
 
 After generating the wrapper, pass it as the scan target:

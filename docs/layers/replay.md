@@ -29,6 +29,34 @@ cassette.save("tests/cassettes/booking.json")
 
 ## Replay in Tests
 
+### Using the `ap_cassette` fixture (recommended)
+
+The `ap_cassette` fixture handles recording and replaying automatically. On first run it records the session; on subsequent runs it replays from the saved cassette file:
+
+```python
+import pytest
+from checkagent.replay import CassetteFixture
+
+@pytest.mark.agent_test(layer="replay")
+async def test_booking_regression(ap_cassette):
+    # First run: records real interactions to cassettes/test_booking_regression.json
+    # Later runs: replays from that file — no real API calls made
+    response = ap_cassette.cassette  # access the loaded/saved cassette
+
+    assert ap_cassette.is_replaying() or ap_cassette.is_recording()
+```
+
+Override the cassette path with a marker:
+
+```python
+@pytest.mark.cassette(path="tests/cassettes/booking_v2.json")
+@pytest.mark.agent_test(layer="replay")
+async def test_booking_v2(ap_cassette):
+    ...
+```
+
+### Manual replay
+
 ```python
 from checkagent.replay import Cassette, ReplayEngine
 
