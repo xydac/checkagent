@@ -79,7 +79,7 @@ checkagent scan --url http://localhost:8000/api -H 'Authorization: Bearer tok'
 | `--badge FILE` | Generate a shields.io-style SVG badge |
 | `--sarif FILE` | Write scan results as SARIF 2.1.0 to FILE (for GitHub Code Scanning integration) |
 | `--comment-file FILE` | Write a Markdown PR comment summary to FILE (suitable for GitHub PR comments) |
-| `--report FILE` | Write a full HTML compliance report to FILE (e.g. `--report safety.html`) |
+| `--report FILE` | Write a self-contained HTML compliance report to FILE. Includes a score gauge, per-category breakdown with resistance bars, individual findings with severity badges, collapsible probe details, per-finding remediation steps, and OWASP/EU AI Act regulatory mapping. |
 | `-r`, `--repeat N` | Run each probe N times and aggregate results; reports a stability score (default: 1) |
 | `--llm-judge MODEL` | Use an LLM to judge each probe response. Accepts `gpt-4o-mini`, `claude-haiku-4-5-20251001`, or `claude-code` (uses your local Claude Code CLI — no API key required). |
 | `--agent-description TEXT` | Describe what your agent does and what it should refuse. Used by `--llm-judge`. |
@@ -492,11 +492,22 @@ checkagent record <agent> <input> [OPTIONS]
 
 ## `checkagent report`
 
-Generate an HTML report from test results.
+Generate a standalone HTML report from `checkagent scan` results.
+
+The report includes:
+- **Score gauge** — visual resistance rate (0–100%) with color-coded risk level
+- **Summary cards** — total tests, passed, failed, and finding counts
+- **Category breakdown** — per-OWASP-category table with CSS resistance bars
+- **Security findings** — each finding shows severity badge, probe ID, category, finding description, and collapsible probe input / agent response / remediation steps
+- **Regulatory mapping** — OWASP LLM Top 10 and EU AI Act article mapping
+
+Generate the report directly from a scan:
 
 ```bash
-checkagent report <results>
+checkagent scan my_agent:run --report safety.html
 ```
+
+The resulting `.html` file is fully self-contained (no external dependencies) and safe to attach to tickets, email, or open in any browser — even when probe inputs contain injection payloads (all content is XSS-escaped).
 
 ## `checkagent cost`
 
