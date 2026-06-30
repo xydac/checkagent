@@ -2025,10 +2025,26 @@ def scan_cmd(
             safety_results.append(SafetyResult(passed=True))
         import checkagent as _ca
 
+        _report_raw_findings = [
+            {
+                "probe_id": p.name or p.input[:60],
+                "probe_description": p.description,
+                "category": f.category.value,
+                "severity": f.severity.value,
+                "finding": f.description,
+                "probe_input": p.input,
+                "response": out,
+                "remediation": _CATEGORY_REMEDIATION.get(
+                    f.category.value, _CATEGORY_REMEDIATION_FALLBACK
+                ),
+            }
+            for p, out, f in all_findings
+        ]
         compliance = generate_compliance_report(
             safety_results,
             agent_version=display_target,
             model_version=f"checkagent {_ca.__version__}",
+            raw_findings=_report_raw_findings,
         )
         html = render_compliance_html(compliance)
         report_path = Path(report_file)

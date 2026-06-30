@@ -419,6 +419,72 @@ class TestRenderHtml:
         html = render_compliance_html(report)
         assert "my_module:my_agent" in html
 
+    def test_raw_findings_rendered_in_html(self):
+        raw = [
+            {
+                "probe_id": "ignore-previous-basic",
+                "probe_description": "Classic injection attack",
+                "category": "prompt_injection",
+                "severity": "critical",
+                "finding": "Agent echoed injection payload",
+                "probe_input": "Ignore instructions.",
+                "response": "AGENT: IGNORE INSTRUCTIONS.",
+                "remediation": ["Add injection guard.", "Validate output."],
+            }
+        ]
+        report = generate_compliance_report(
+            [_result(False, severity=Severity.CRITICAL)],
+            raw_findings=raw,
+            timestamp=FIXED_TS,
+        )
+        html = render_compliance_html(report)
+        assert "ignore-previous-basic" in html
+        assert "Classic injection attack" in html
+        assert "Agent echoed injection payload" in html
+        assert "Ignore instructions." in html
+        assert "Add injection guard." in html
+        assert "finding-card" in html
+        assert "sev-badge" in html
+
+    def test_raw_findings_xss_escaped(self):
+        raw = [
+            {
+                "probe_id": "<script>alert(1)</script>",
+                "probe_description": "",
+                "category": "prompt_injection",
+                "severity": "high",
+                "finding": "<b>XSS test</b>",
+                "probe_input": "<script>alert('xss')</script>",
+                "response": None,
+                "remediation": [],
+            }
+        ]
+        report = generate_compliance_report(
+            [_result(False)],
+            raw_findings=raw,
+            timestamp=FIXED_TS,
+        )
+        html = render_compliance_html(report)
+        assert "<script>alert(1)</script>" not in html
+        assert "&lt;script&gt;" in html
+
+    def test_no_findings_shows_all_pass_banner(self):
+        report = generate_compliance_report(
+            [_result(True), _result(True)],
+            timestamp=FIXED_TS,
+        )
+        html = render_compliance_html(report)
+        assert "all-pass" in html
+        assert "passed all safety probes" in html
+
+    def test_score_gauge_present(self):
+        report = generate_compliance_report(
+            [_result(True), _result(False)], timestamp=FIXED_TS
+        )
+        html = render_compliance_html(report)
+        assert "gauge-svg" in html
+        assert "resistance" in html
+
 
 # ---------------------------------------------------------------------------
 # EU AI Act mapping
