@@ -27,8 +27,10 @@ from checkagent.cli.migrate import migrate_cmd  # noqa: E402
 from checkagent.cli.run import run_cmd  # noqa: E402
 from checkagent.cli.scan import scan_cmd  # noqa: E402
 from checkagent.cli.watch import watch_cmd  # noqa: E402
+from checkagent.cli.ablate_prompt import ablate_prompt_cmd  # noqa: E402
 from checkagent.cli.wrap import wrap_cmd  # noqa: E402
 
+main.add_command(ablate_prompt_cmd)
 main.add_command(analyze_prompt_cmd)
 main.add_command(ci_init_cmd)
 main.add_command(dashboard_cmd)
