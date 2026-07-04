@@ -118,6 +118,57 @@ def _severity_color(severity: str) -> str:
     return {"high": "red", "medium": "yellow", "low": "cyan"}.get(severity, "white")
 
 
+def _render_attack_surface(surface: object) -> None:
+    """Render attack surface prediction to the terminal."""
+    from checkagent.safety.attack_surface import AttackSurface  # noqa: PLC0415
+
+    if not isinstance(surface, AttackSurface):
+        return
+
+    if not surface.vectors:
+        _console.print("[green]No predicted attack vectors — all controls present.[/green]")
+        _console.print()
+        return
+
+    _console.print("[bold]Predicted Attack Surface[/bold]")
+    _console.print("─" * 50)
+
+    risk_colors = {"critical": "red", "high": "red", "medium": "yellow", "low": "cyan"}
+    color = risk_colors.get(surface.risk_level, "white")
+    _console.print(
+        f"Risk level: [{color}]{surface.risk_level.upper()}[/{color}] "
+        f"({surface.risk_score:.0%})"
+    )
+    _console.print(
+        f"[dim]Estimated vulnerable probes:[/dim] {surface.total_exposed_probes}"
+    )
+    _console.print()
+
+    table = Table(box=box.SIMPLE, show_header=True, header_style="bold dim")
+    table.add_column("Missing Control", style="white", min_width=18)
+    table.add_column("Vulnerable To", min_width=18)
+    table.add_column("Risk", min_width=8)
+    table.add_column("Why", style="dim", max_width=50)
+
+    for v in surface.vectors:
+        risk_color = risk_colors.get(v.risk, "white")
+        risk_str = f"[{risk_color}]{v.risk.upper()}[/{risk_color}]"
+        table.add_row(
+            v.missing_check,
+            v.probe_category,
+            risk_str,
+            v.description,
+        )
+
+    _console.print(table)
+    _console.print()
+    _console.print(
+        "[dim]Run [bold]checkagent scan[/bold] to confirm these predictions "
+        "with dynamic probes.[/dim]"
+    )
+    _console.print()
+
+
 def _render_result(
     result: PromptAnalysisResult,
     prompt_preview: str,
@@ -323,8 +374,19 @@ def _generate_hardened_prompt(
         "controls added for each missing check."
     ),
 )
+@click.option(
+    "--predict",
+    "show_predict",
+    is_flag=True,
+    default=False,
+    help=(
+        "Predict attack surface — show which scan probes would "
+        "likely succeed based on missing controls."
+    ),
+)
 def analyze_prompt_cmd(
-    prompt_source: str, output_json: bool, llm_model: str | None, show_fix: bool
+    prompt_source: str, output_json: bool, llm_model: str | None, show_fix: bool,
+    show_predict: bool,
 ) -> None:
     """Analyze a system prompt for security best practices.
 
@@ -485,6 +547,16 @@ def analyze_prompt_cmd(
         elif not output_json:
             _console.print("[green]No fixes needed — all checks passed.[/green]")
             _console.print()
+
+    # --predict: show attack surface prediction
+    if show_predict:
+        from checkagent.safety.attack_surface import predict_attack_surface  # noqa: PLC0415
+
+        surface = predict_attack_surface(result)
+        if output_json:
+            data["attack_surface"] = surface.to_dict()
+        else:
+            _render_attack_surface(surface)
 
     if output_json:
         click.echo(json.dumps(data, indent=2))
