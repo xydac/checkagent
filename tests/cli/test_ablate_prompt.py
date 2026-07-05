@@ -6,7 +6,12 @@ import json
 
 from click.testing import CliRunner
 
-from checkagent.cli.ablate_prompt import _ablation_analysis, _split_sentences, ablate_prompt_cmd
+from checkagent.cli.ablate_prompt import (
+    _ablation_analysis,
+    _split_sentences,
+    ablate_prompt,
+    ablate_prompt_cmd,
+)
 from checkagent.safety.prompt_analyzer import PromptAnalyzer
 
 GOOD_PROMPT = (
@@ -162,3 +167,35 @@ class TestAblatePromptCLI:
         runner = CliRunner()
         result = runner.invoke(ablate_prompt_cmd, [GOOD_PROMPT])
         assert "Check Coverage Depth" in result.output
+
+
+class TestAblatePromptPublicAPI:
+    """ablate_prompt() must be importable as a Python API."""
+
+    def test_importable_from_checkagent(self):
+        import checkagent
+        assert hasattr(checkagent, "ablate_prompt")
+
+    def test_returns_dict(self):
+        result = ablate_prompt(GOOD_PROMPT)
+        assert isinstance(result, dict)
+
+    def test_returns_expected_keys(self):
+        result = ablate_prompt(GOOD_PROMPT)
+        assert "baseline_score" in result
+        assert "sentences" in result
+        assert "load_bearing" in result
+        assert "redundant" in result
+        assert "single_points_of_failure" in result
+
+    def test_identifies_load_bearing(self):
+        result = ablate_prompt(GOOD_PROMPT)
+        assert len(result["load_bearing"]) > 0
+
+    def test_single_sentence_returns_error(self):
+        result = ablate_prompt("You are a helpful assistant.")
+        assert "error" in result
+
+    def test_baseline_score_in_range(self):
+        result = ablate_prompt(GOOD_PROMPT)
+        assert 0.0 <= result["baseline_score"] <= 1.0

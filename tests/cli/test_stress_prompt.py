@@ -9,6 +9,7 @@ from click.testing import CliRunner
 from checkagent.cli.stress_prompt import (
     _build_transforms,
     _run_stress_test,
+    stress_prompt,
     stress_prompt_cmd,
 )
 
@@ -131,3 +132,69 @@ class TestStressPromptCLI:
             assert "score" in t
             assert "passed" in t
             assert "checks" in t
+
+
+class TestStressPromptNoControls:
+    """F-147: zero-control prompts must not report 100% robustness."""
+
+    BARE_PROMPT = "Be helpful."
+
+    def test_no_controls_score_is_zero(self):
+        data = _run_stress_test(self.BARE_PROMPT)
+        assert data["robustness_score"] == 0.0
+
+    def test_no_controls_flag_set(self):
+        data = _run_stress_test(self.BARE_PROMPT)
+        assert data["no_controls_detected"] is True
+
+    def test_with_controls_flag_not_set(self):
+        data = _run_stress_test(GOOD_PROMPT)
+        assert data.get("no_controls_detected") is False
+
+    def test_cli_shows_warning_not_percent(self):
+        runner = CliRunner()
+        result = runner.invoke(stress_prompt_cmd, [self.BARE_PROMPT])
+        assert result.exit_code == 0
+        assert "N/A" in result.output
+        assert "No security controls detected" in result.output
+
+    def test_cli_no_false_100_percent(self):
+        runner = CliRunner()
+        result = runner.invoke(stress_prompt_cmd, [self.BARE_PROMPT])
+        assert "100%" not in result.output
+
+    def test_json_no_controls_includes_flag(self):
+        runner = CliRunner()
+        result = runner.invoke(stress_prompt_cmd, ["--json", self.BARE_PROMPT])
+        data = json.loads(result.output)
+        assert data["no_controls_detected"] is True
+        assert data["robustness_score"] == 0.0
+
+
+class TestStressPromptPublicAPI:
+    """F-148: stress_prompt() must be importable as a Python API."""
+
+    def test_importable_from_checkagent(self):
+        import checkagent
+        assert hasattr(checkagent, "stress_prompt")
+
+    def test_returns_dict(self):
+        result = stress_prompt(GOOD_PROMPT)
+        assert isinstance(result, dict)
+
+    def test_returns_expected_keys(self):
+        result = stress_prompt(GOOD_PROMPT)
+        assert "robustness_score" in result
+        assert "baseline_passing" in result
+        assert "transforms" in result
+        assert "fragile_checks" in result
+        assert "robust_checks" in result
+
+    def test_bare_prompt_returns_zero(self):
+        result = stress_prompt("Be helpful.")
+        assert result["robustness_score"] == 0.0
+        assert result["no_controls_detected"] is True
+
+    def test_good_prompt_score_in_range(self):
+        result = stress_prompt(GOOD_PROMPT)
+        assert 0.0 <= result["robustness_score"] <= 1.0

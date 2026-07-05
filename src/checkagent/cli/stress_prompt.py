@@ -178,14 +178,16 @@ def _run_stress_test(prompt: str) -> dict:
     total_survived = sum(
         len(r["survived_transform"]) for r in results if r["name"] != "baseline"
     )
+    no_controls_detected = baseline_passing == 0
     robustness_score = (
-        total_survived / max_possible if max_possible > 0 else 1.0
+        total_survived / max_possible if max_possible > 0 else 0.0
     )
 
     return {
         "robustness_score": round(robustness_score, 4),
         "baseline_passing": baseline_passing,
         "total_transforms": total_transforms,
+        "no_controls_detected": no_controls_detected,
         "transforms": results,
         "fragile_checks": fragile_checks,
         "robust_checks": robust_checks,
@@ -198,19 +200,27 @@ def _render_stress_results(data: dict) -> None:
     _console.print("[bold]Prompt Stress Test[/bold]", style="white")
     _console.print("─" * 50)
 
-    score = data["robustness_score"]
-    pct = int(score * 100)
-    if pct >= 80:
-        color = "green"
-    elif pct >= 50:
-        color = "yellow"
+    if data.get("no_controls_detected"):
+        _console.print(
+            "[yellow]Robustness: N/A[/yellow] — "
+            "No security controls detected in this prompt. "
+            "Add scope restrictions, refusal instructions, or confidentiality "
+            "guards before stress testing."
+        )
     else:
-        color = "red"
-    _console.print(
-        f"Robustness: [{color}]{pct}%[/{color}] "
-        f"({data['baseline_passing']} controls tested "
-        f"× {data['total_transforms']} transforms)"
-    )
+        score = data["robustness_score"]
+        pct = int(score * 100)
+        if pct >= 80:
+            color = "green"
+        elif pct >= 50:
+            color = "yellow"
+        else:
+            color = "red"
+        _console.print(
+            f"Robustness: [{color}]{pct}%[/{color}] "
+            f"({data['baseline_passing']} controls tested "
+            f"× {data['total_transforms']} transforms)"
+        )
     _console.print()
 
     table = Table(box=box.SIMPLE, show_header=True, header_style="bold dim")
@@ -279,6 +289,23 @@ def _render_stress_results(data: dict) -> None:
         "adversarial prompt modifications.[/dim]"
     )
     _console.print()
+
+
+def stress_prompt(prompt: str) -> dict:
+    """Stress-test a system prompt against adversarial transformations.
+
+    Applies transformations (case changes, instruction injection, delimiter
+    attacks, negation, truncation, reordering) and checks which security
+    controls survive each one.
+
+    Args:
+        prompt: The system prompt text to stress-test.
+
+    Returns:
+        Dict with robustness_score (0.0–1.0), baseline_passing, transforms
+        list, fragile_checks, robust_checks, and no_controls_detected flag.
+    """
+    return _run_stress_test(prompt)
 
 
 @click.command("stress-prompt")

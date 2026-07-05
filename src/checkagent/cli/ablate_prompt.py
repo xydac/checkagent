@@ -206,6 +206,24 @@ def _render_ablation(data: dict) -> None:
     _console.print()
 
 
+def ablate_prompt(prompt: str) -> dict:
+    """Run ablation analysis on a system prompt to find load-bearing sentences.
+
+    Systematically removes each sentence and measures safety score impact.
+    Identifies which instructions are critical vs redundant for security.
+
+    Args:
+        prompt: The system prompt text to analyze.
+
+    Returns:
+        Dict with baseline_score, sentences list with score_delta per
+        sentence, load_bearing list, redundant list, and
+        single_points_of_failure.
+    """
+    analyzer = PromptAnalyzer()
+    return _ablation_analysis(prompt, analyzer)
+
+
 @click.command("ablate-prompt")
 @click.argument("prompt_source", metavar="PROMPT_OR_FILE", default="-")
 @click.option("--json", "output_json", is_flag=True, default=False, help="Output results as JSON.")
