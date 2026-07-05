@@ -401,3 +401,31 @@ class TestMockLLMIntermittentSlowIntegration:
         llm.stream("hello")
         elapsed_ms = (time.monotonic() - start) * 1000
         assert elapsed_ms >= 40  # timing slack
+
+
+class TestAttachFaultsDoubleCall:
+    """F-079: second attach_faults() must raise, not silently overwrite."""
+
+    def test_tool_second_attach_same_injector_ok(self):
+        tool = MockTool()
+        fault = FaultInjector()
+        tool.attach_faults(fault)
+        tool.attach_faults(fault)  # same object — no error
+
+    def test_tool_second_attach_different_injector_raises(self):
+        tool = MockTool()
+        tool.attach_faults(FaultInjector())
+        with pytest.raises(ValueError, match="already attached"):
+            tool.attach_faults(FaultInjector())
+
+    def test_llm_second_attach_same_injector_ok(self):
+        llm = MockLLM()
+        fault = FaultInjector()
+        llm.attach_faults(fault)
+        llm.attach_faults(fault)  # same object — no error
+
+    def test_llm_second_attach_different_injector_raises(self):
+        llm = MockLLM()
+        llm.attach_faults(FaultInjector())
+        with pytest.raises(ValueError, match="already attached"):
+            llm.attach_faults(FaultInjector())

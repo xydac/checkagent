@@ -225,6 +225,12 @@ class MockLLM:
             fault_injector.on_llm().server_error()
             await llm.complete("hello")  # raises LLMServerError automatically
         """
+        if self._fault_injector is not None and self._fault_injector is not injector:
+            raise ValueError(
+                "A FaultInjector is already attached to this MockLLM. "
+                "Call attach_faults() only once per LLM instance, or use "
+                "the same injector object to add more fault rules."
+            )
         self._fault_injector = injector
         return self
 

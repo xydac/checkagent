@@ -191,6 +191,12 @@ class MockTool:
             fault_injector.on_tool("search").timeout(5)
             await tool.call("search", {})  # raises ToolTimeoutError automatically
         """
+        if self._fault_injector is not None and self._fault_injector is not injector:
+            raise ValueError(
+                "A FaultInjector is already attached to this MockTool. "
+                "Call attach_faults() only once per tool instance, or use "
+                "the same injector object to add more fault rules."
+            )
         self._fault_injector = injector
         return self
 
