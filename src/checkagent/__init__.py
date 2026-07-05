@@ -77,6 +77,11 @@ from checkagent.mock.mcp import MockMCPServer
 from checkagent.mock.tool import MockTool, literal
 from checkagent.multiagent import HandoffType, MultiAgentTrace
 from checkagent.replay import Cassette, ReplayEngine
+from checkagent.safety.attack_surface import (  # noqa: F401
+    AttackSurface,
+    AttackVector,
+    predict_attack_surface,
+)
 from checkagent.safety.behavioral import (
     check_behavioral_compliance,
     check_no_refusal,
@@ -203,6 +208,9 @@ __all__ = [
     "CassetteFixture",
     "ReplayEngine",
     # Safety
+    "AttackSurface",
+    "AttackVector",
+    "predict_attack_surface",
     "check_behavioral_compliance",
     "check_no_refusal",
     "has_refusal",
@@ -224,6 +232,9 @@ __all__ = [
     "SystemPromptLeakDetector",
     "ToolBoundary",
     "ToolCallBoundaryValidator",
+    # Prompt analysis functions
+    "ablate_prompt",
+    "stress_prompt",
     # Streaming
     "StreamCollector",
     # Tracer / auto-instrumentation
