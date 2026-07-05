@@ -166,6 +166,8 @@ class TestToDict:
         assert d["overall_resilience"] == pytest.approx(0.7)
         assert d["baseline"]["tc"] == pytest.approx(1.0)
         assert d["worst_scenario"] == "fault"
+        assert d["best_scenario"] == "fault"
+        assert d["most_resilient_metric"] == "tc"
         assert "fault" in d["scenarios"]
         assert d["scenarios"]["fault"]["resilience"] == pytest.approx(0.7)
         assert d["scenarios"]["fault"]["degradation"]["tc"] == pytest.approx(-0.3)

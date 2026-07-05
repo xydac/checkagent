@@ -155,7 +155,9 @@ class ResilienceProfile:
             "overall_resilience": round(self.overall, 4),
             "baseline": {k: round(v, 4) for k, v in self.baseline.items()},
             "worst_scenario": self.worst_scenario,
+            "best_scenario": self.best_scenario,
             "weakest_metric": self.weakest_metric,
+            "most_resilient_metric": self.most_resilient_metric,
             "scenarios": {
                 name: {
                     "resilience": round(r.resilience, 4),
