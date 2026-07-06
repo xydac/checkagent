@@ -22,6 +22,7 @@ from checkagent.mock.fault import FaultInjector
 from checkagent.mock.llm import MockLLM
 from checkagent.mock.mcp import MockMCPServer
 from checkagent.mock.tool import MockTool
+from checkagent.core.cost import CostTracker
 from checkagent.replay.cassette import Cassette
 from checkagent.replay.engine import MatchStrategy, ReplayEngine
 from checkagent.replay.recorder import CassetteRecorder
@@ -428,6 +429,29 @@ def ap_cassette(request: pytest.FixtureRequest) -> Any:
         # Post-test: finalize and save
         cassette = recorder.finalize()
         cassette.save(cassette_path)
+
+
+@pytest.fixture(scope="session")
+def ap_cost_tracker(pytestconfig: pytest.Config) -> Any:
+    """Session-scoped CostTracker with automatic budget enforcement.
+
+    Provides a :class:`~checkagent.core.cost.CostTracker` pre-configured with
+    the budget from ``checkagent.yml``.  After the session completes the
+    tracker calls ``check_suite_budget()`` — if the total cost exceeds the
+    configured budget the session teardown raises ``BudgetExceededError``.
+
+    Example::
+
+        async def test_my_agent_cost(ap_cost_tracker, my_agent):
+            result = await my_agent.run("hello")
+            ap_cost_tracker.record(result)
+            assert ap_cost_tracker.total_cost < 0.01
+    """
+    cfg: CheckAgentConfig = pytestconfig.stash.get(_config_key, CheckAgentConfig())
+    budget = getattr(cfg, "budget", None)
+    tracker = CostTracker(budget=budget)
+    yield tracker
+    tracker.check_suite_budget()
 
 
 def pytest_collection_modifyitems(
