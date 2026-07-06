@@ -10,8 +10,15 @@ from checkagent.cli.diff import compute_diff  # noqa: F401
 from checkagent.cli.scan import evaluate_output, evaluate_output_with_baseline  # noqa: F401
 from checkagent.cli.stress_prompt import stress_prompt  # noqa: F401
 from checkagent.conversation.session import Conversation, Turn
-from checkagent.core.config import CheckAgentConfig, ScanGatesConfig, load_config
+from checkagent.core.config import (
+    BudgetConfig,
+    CheckAgentConfig,
+    ProviderPricing,
+    ScanGatesConfig,
+    load_config,
+)
 from checkagent.core.cost import (
+    BUILTIN_PRICING,
     BudgetExceededError,
     CostBreakdown,
     CostReport,
@@ -76,6 +83,14 @@ from checkagent.mock.llm import MatchMode, MockLLM
 from checkagent.mock.mcp import MockMCPServer
 from checkagent.mock.tool import MockTool, literal
 from checkagent.multiagent import HandoffType, MultiAgentTrace
+from checkagent.multiagent.credit import (
+    BlameResult,
+    BlameStrategy,
+    assign_blame,
+    assign_blame_ensemble,
+    top_blamed_agent,
+)
+from checkagent.multiagent.trace import Handoff
 from checkagent.replay import Cassette, ReplayEngine
 from checkagent.safety.attack_surface import (  # noqa: F401
     AttackSurface,
@@ -103,6 +118,13 @@ from checkagent.safety.system_prompt import SystemPromptLeakDetector
 from checkagent.safety.taxonomy import SafetyCategory, Severity
 from checkagent.safety.tool_boundary import ToolBoundary, ToolCallBoundaryValidator
 from checkagent.streaming.collector import StreamCollector
+from checkagent.trace_import import (
+    JsonFileImporter,
+    OtelJsonImporter,
+    PiiScrubber,
+    TraceImporter,
+    generate_test_cases,
+)
 
 _LAZY_ADAPTER_IMPORTS: dict[str, tuple[str, str]] = {
     "AnthropicAdapter": ("checkagent.adapters.anthropic", "AnthropicAdapter"),
@@ -142,10 +164,13 @@ __all__ = [
     "OpenAIAgentsAdapter",
     "PydanticAIAdapter",
     # Config
+    "BudgetConfig",
     "CheckAgentConfig",
+    "ProviderPricing",
     "ScanGatesConfig",
     "load_config",
     # Cost
+    "BUILTIN_PRICING",
     "BudgetExceededError",
     "CostBreakdown",
     "CostReport",
@@ -201,8 +226,14 @@ __all__ = [
     "MockTool",
     "literal",
     # Multi-agent
+    "BlameResult",
+    "BlameStrategy",
+    "Handoff",
     "HandoffType",
     "MultiAgentTrace",
+    "assign_blame",
+    "assign_blame_ensemble",
+    "top_blamed_agent",
     # Replay
     "Cassette",
     "CassetteFixture",
@@ -237,6 +268,12 @@ __all__ = [
     "stress_prompt",
     # Streaming
     "StreamCollector",
+    # Trace import
+    "JsonFileImporter",
+    "OtelJsonImporter",
+    "PiiScrubber",
+    "TraceImporter",
+    "generate_test_cases",
     # Tracer / auto-instrumentation
     "TracerContext",
     "begin_probe_trace",

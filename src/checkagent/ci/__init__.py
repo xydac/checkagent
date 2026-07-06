@@ -15,6 +15,7 @@ from checkagent.ci.junit_xml import (
 from checkagent.ci.quality_gate import (
     GateResult,
     GateVerdict,
+    QualityGateEntry,
     QualityGateReport,
     evaluate_gate,
     evaluate_gates,
@@ -26,6 +27,7 @@ __all__ = [
     "GateResult",
     "GateVerdict",
     "JUnitProperty",
+    "QualityGateEntry",
     "JUnitTestCase",
     "JUnitTestSuite",
     "QualityGateReport",

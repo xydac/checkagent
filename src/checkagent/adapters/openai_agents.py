@@ -148,7 +148,16 @@ class OpenAIAgentsAdapter:
         if isinstance(input, str):
             input = AgentInput(query=input)
 
-        from agents import Runner
+        try:
+            from agents import Runner
+        except ImportError as exc:
+            if "Runner" in str(exc):
+                raise ImportError(
+                    "Cannot import Runner from 'agents'. "
+                    "If you have a local 'agents/' directory, it shadows the "
+                    "openai-agents package. Rename it or remove it from sys.path."
+                ) from exc
+            raise
 
         start = time.perf_counter()
         try:
@@ -180,7 +189,16 @@ class OpenAIAgentsAdapter:
         if isinstance(input, str):
             input = AgentInput(query=input)
 
-        from agents import Runner
+        try:
+            from agents import Runner
+        except ImportError as exc:
+            if "Runner" in str(exc):
+                raise ImportError(
+                    "Cannot import Runner from 'agents'. "
+                    "If you have a local 'agents/' directory, it shadows the "
+                    "openai-agents package. Rename it or remove it from sys.path."
+                ) from exc
+            raise
 
         yield StreamEvent(event_type=StreamEventType.RUN_START)
 
