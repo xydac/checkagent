@@ -61,9 +61,8 @@ class TestLangChainIntegrationBasic:
 
         assert result.succeeded
         assert result.steps[0].output_text == "Raw AI response"
-        # final_output is the raw AIMessage
-        assert hasattr(result.final_output, "content")
-        assert result.final_output.content == "Raw AI response"
+        # final_output is the extracted text string
+        assert result.final_output == "Raw AI response"
 
     async def test_custom_input_key(self):
         """Adapter passes query via custom input key."""

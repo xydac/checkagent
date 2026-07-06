@@ -149,7 +149,7 @@ class AnthropicAdapter:
         return AgentRun(
             input=input,
             steps=[step],
-            final_output=message,
+            final_output=text,
             duration_ms=elapsed,
             total_prompt_tokens=tokens["prompt_tokens"],
             total_completion_tokens=tokens["completion_tokens"],
