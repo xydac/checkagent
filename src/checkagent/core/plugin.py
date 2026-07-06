@@ -10,6 +10,7 @@ import pytest
 
 from checkagent.conversation.session import Conversation
 from checkagent.core.config import CheckAgentConfig, load_config
+from checkagent.core.cost import CostTracker
 from checkagent.core.tracer import (
     begin_probe_trace,
     end_probe_trace,
@@ -22,7 +23,6 @@ from checkagent.mock.fault import FaultInjector
 from checkagent.mock.llm import MockLLM
 from checkagent.mock.mcp import MockMCPServer
 from checkagent.mock.tool import MockTool
-from checkagent.core.cost import CostTracker
 from checkagent.replay.cassette import Cassette
 from checkagent.replay.engine import MatchStrategy, ReplayEngine
 from checkagent.replay.recorder import CassetteRecorder
