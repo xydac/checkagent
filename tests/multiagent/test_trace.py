@@ -530,6 +530,40 @@ class TestGetChildrenWarning:
         assert "run-002" in str(w[0].message)
 
 
+class TestGetChildrenByAgent:
+    """F-073 resolution: get_children_by_agent() uses agent_id for consistency."""
+
+    def test_returns_children(self):
+        trace = MultiAgentTrace()
+        trace.add_run(_make_run(run_id="run-001", agent_id="orchestrator"))
+        trace.add_run(_make_run(run_id="run-002", agent_id="worker-a", parent_run_id="run-001"))
+        trace.add_run(_make_run(run_id="run-003", agent_id="worker-b", parent_run_id="run-001"))
+        trace.add_run(_make_run(run_id="run-004", agent_id="other"))
+        children = trace.get_children_by_agent("orchestrator")
+        assert len(children) == 2
+        assert {c.agent_id for c in children} == {"worker-a", "worker-b"}
+
+    def test_returns_empty_for_unknown_agent(self):
+        trace = MultiAgentTrace()
+        trace.add_run(_make_run(run_id="run-001", agent_id="orchestrator"))
+        assert trace.get_children_by_agent("nonexistent") == []
+
+    def test_returns_empty_for_leaf_agent(self):
+        trace = MultiAgentTrace()
+        trace.add_run(_make_run(run_id="run-001", agent_id="orchestrator"))
+        trace.add_run(_make_run(run_id="run-002", agent_id="worker", parent_run_id="run-001"))
+        assert trace.get_children_by_agent("worker") == []
+
+    def test_agent_with_multiple_runs(self):
+        trace = MultiAgentTrace()
+        trace.add_run(_make_run(run_id="run-A", agent_id="orch"))
+        trace.add_run(_make_run(run_id="run-B", agent_id="orch"))
+        trace.add_run(_make_run(run_id="run-C", agent_id="worker", parent_run_id="run-A"))
+        trace.add_run(_make_run(run_id="run-D", agent_id="worker", parent_run_id="run-B"))
+        children = trace.get_children_by_agent("orch")
+        assert len(children) == 2
+
+
 class TestMultiagentNamespace:
     def test_handoff_type_importable_from_multiagent(self):
         """F-071: HandoffType should be accessible from checkagent.multiagent."""

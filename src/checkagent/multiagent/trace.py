@@ -92,6 +92,20 @@ class MultiAgentTrace(BaseModel):
                 )
         return children
 
+    def get_children_by_agent(self, agent_id: str) -> list[AgentRun]:
+        """Get all child runs spawned by any run belonging to *agent_id*.
+
+        This is the agent-ID counterpart to :meth:`get_children` (which takes a
+        run ID).  Consistent with :meth:`get_handoffs_from`, :meth:`get_handoffs_to`,
+        and :meth:`get_runs_by_agent` — all of which use agent IDs.
+
+        Example::
+
+            children = trace.get_children_by_agent("orchestrator")
+        """
+        parent_run_ids = {r.run_id for r in self.runs if r.agent_id == agent_id and r.run_id}
+        return [r for r in self.runs if r.parent_run_id in parent_run_ids]
+
     def get_handoffs_from(self, agent_id: str) -> list[Handoff]:
         """Get all handoffs originating from an agent."""
         return [h for h in self.handoffs if h.from_agent_id == agent_id]
