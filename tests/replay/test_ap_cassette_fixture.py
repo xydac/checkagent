@@ -146,3 +146,104 @@ def test_cassette_fixture_exported_from_checkagent() -> None:
     from checkagent.core.plugin import CassetteFixture as FixtureClass
 
     assert FixtureClass is CassetteFixture
+
+
+class TestCassetteFixtureSimpleAPI:
+    """Tests for the high-level replay_response() and arun() helpers."""
+
+    def _make_replay_fixture(self, tmp_path: Path, prompt: str, response: str) -> CassetteFixture:
+        from checkagent.replay.recorder import CassetteRecorder
+
+        recorder = CassetteRecorder(test_id="test::simple")
+        recorder.record_response(prompt, response)
+        cassette = recorder.finalize()
+        cassette_path = tmp_path / "simple.json"
+        cassette.save(cassette_path)
+
+        loaded = Cassette.load(cassette_path)
+        engine = ReplayEngine(loaded, strategy=MatchStrategy.SEQUENCE)
+        return CassetteFixture(mode="replay", path=cassette_path, engine=engine, cassette=loaded)
+
+    def test_replay_response_returns_string(self, tmp_path: Path) -> None:
+        ctx = self._make_replay_fixture(tmp_path, "ping", "pong")
+        result = ctx.replay_response("ping")
+        assert result == "pong"
+
+    def test_replay_response_extracts_openai_format(self, tmp_path: Path) -> None:
+        from checkagent.replay.recorder import CassetteRecorder
+
+        recorder = CassetteRecorder()
+        recorder.record_llm_call(
+            method="chat.completions.create",
+            request_body={"messages": [{"role": "user", "content": "hi"}]},
+            response_body={"choices": [{"message": {"content": "hello"}}]},
+        )
+        cassette = recorder.finalize()
+        path = tmp_path / "openai.json"
+        cassette.save(path)
+        loaded = Cassette.load(path)
+        engine = ReplayEngine(loaded, strategy=MatchStrategy.SEQUENCE)
+        ctx = CassetteFixture(mode="replay", path=path, engine=engine, cassette=loaded)
+
+        result = ctx.replay_response("hi")
+        assert result == "hello"
+
+    def test_replay_response_raises_in_record_mode(self, tmp_path: Path) -> None:
+        from checkagent.replay.recorder import CassetteRecorder
+
+        recorder = CassetteRecorder()
+        ctx = CassetteFixture(mode="record", path=tmp_path / "x.json", recorder=recorder)
+        with pytest.raises(RuntimeError, match="record mode"):
+            ctx.replay_response("hello")
+
+    async def test_arun_in_record_mode_calls_agent(self, tmp_path: Path) -> None:
+        from checkagent.replay.recorder import CassetteRecorder
+
+        calls: list[str] = []
+
+        async def my_agent(prompt: str) -> str:
+            calls.append(prompt)
+            return f"response:{prompt}"
+
+        recorder = CassetteRecorder(test_id="test::arun_record")
+        ctx = CassetteFixture(mode="record", path=tmp_path / "arun.json", recorder=recorder)
+        result = await ctx.arun(my_agent, "hello")
+        assert result == "response:hello"
+        assert calls == ["hello"]
+        assert recorder.interaction_count == 1
+
+    async def test_arun_in_replay_mode_skips_agent(self, tmp_path: Path) -> None:
+        from checkagent.replay.recorder import CassetteRecorder
+
+        recorder = CassetteRecorder()
+        recorder.record_response("hello", "from cassette")
+        cassette = recorder.finalize()
+        path = tmp_path / "arun_replay.json"
+        cassette.save(path)
+
+        loaded = Cassette.load(path)
+        engine = ReplayEngine(loaded, strategy=MatchStrategy.SEQUENCE)
+        ctx = CassetteFixture(mode="replay", path=path, engine=engine, cassette=loaded)
+
+        calls: list[str] = []
+
+        async def my_agent(prompt: str) -> str:
+            calls.append(prompt)
+            return "SHOULD NOT BE CALLED"
+
+        result = await ctx.arun(my_agent, "hello")
+        assert result == "from cassette"
+        assert calls == []  # agent was NOT called
+
+    async def test_arun_with_sync_agent(self, tmp_path: Path) -> None:
+        from checkagent.replay.recorder import CassetteRecorder
+
+        recorder = CassetteRecorder()
+        ctx = CassetteFixture(mode="record", path=tmp_path / "sync.json", recorder=recorder)
+
+        def sync_agent(prompt: str) -> str:
+            return f"sync:{prompt}"
+
+        result = await ctx.arun(sync_agent, "test")
+        assert result == "sync:test"
+        assert recorder.interaction_count == 1

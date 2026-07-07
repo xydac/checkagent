@@ -362,6 +362,66 @@ class CassetteFixture:
         """Return True when in replay mode."""
         return self.mode == "replay"
 
+    def replay_response(self, prompt: str) -> str:
+        """Return the recorded response for *prompt* in replay mode.
+
+        Matches by sequence position (same order as recorded).  Raises
+        :class:`~checkagent.replay.engine.CassetteMismatchError` if the
+        cassette is exhausted.
+
+        Only valid in replay mode — raises ``RuntimeError`` when recording.
+        """
+        if self.mode == "record":
+            raise RuntimeError(
+                "replay_response() called in record mode. "
+                "Use ap_cassette.recorder.record_response() instead."
+            )
+        from checkagent.replay.cassette import RecordedRequest
+
+        req = RecordedRequest(
+            kind="llm",
+            method="chat.completions.create",
+            body={"messages": [{"role": "user", "content": prompt}]},
+        )
+        interaction = self.engine.match(req)  # type: ignore[union-attr]
+        body = interaction.response.body
+        if isinstance(body, str):
+            return body
+        if isinstance(body, dict):
+            try:
+                return body["choices"][0]["message"]["content"]
+            except (KeyError, IndexError, TypeError):
+                return str(body)
+        return str(body)
+
+    async def arun(self, agent_fn: object, prompt: str) -> str:
+        """Run *agent_fn(prompt)* in record mode or replay from cassette.
+
+        This is the highest-level cassette API — it transparently handles
+        both recording and replaying without any mode-switch logic in tests::
+
+            @pytest.mark.agent_test(layer="replay")
+            async def test_greeting(ap_cassette, my_agent):
+                response = await ap_cassette.arun(my_agent, "hello")
+                assert "hello" in response.lower()
+
+        On the **first run** (no cassette yet): calls the real agent, saves the
+        response.  On **subsequent runs**: returns the recorded response without
+        calling the agent.
+        """
+        import inspect
+
+        if self.mode == "record":
+            if inspect.iscoroutinefunction(agent_fn):
+                result = await agent_fn(prompt)  # type: ignore[operator]
+            else:
+                result = agent_fn(prompt)  # type: ignore[operator]
+            response = str(result)
+            self.recorder.record_response(prompt, response)  # type: ignore[union-attr]
+            return response
+        else:
+            return self.replay_response(prompt)
+
 
 @pytest.fixture
 def ap_cassette(request: pytest.FixtureRequest) -> Any:
@@ -383,22 +443,24 @@ def ap_cassette(request: pytest.FixtureRequest) -> Any:
     2. ``cassettes/<module_path>/<test_name>.json`` relative to the
        directory that contains the test file.
 
-    Example::
+    The simplest usage via :meth:`CassetteFixture.arun` — no mode-switch
+    logic needed in your test::
+
+        @pytest.mark.agent_test(layer="replay")
+        async def test_greeting(ap_cassette, my_agent):
+            response = await ap_cassette.arun(my_agent, "hello")
+            assert "Hello" in response
+
+    For finer control, use :meth:`CassetteFixture.is_recording` to branch::
 
         @pytest.mark.agent_test(layer="replay")
         async def test_greeting(ap_cassette, my_agent):
             if ap_cassette.is_recording():
                 result = await my_agent.run("hello")
-                ap_cassette.recorder.record_llm_call(
-                    method="chat.completions.create",
-                    request_body={"messages": [{"role": "user", "content": "hello"}]},
-                    response_body={"choices": [{"message": {"content": "Hi!"}}]},
-                )
+                ap_cassette.recorder.record_response("hello", result)
             else:
-                interaction = ap_cassette.engine.match(
-                    ap_cassette.cassette.interactions[0].request
-                )
-                assert interaction is not None
+                result = ap_cassette.replay_response("hello")
+            assert "Hello" in result
     """
     # --- Resolve cassette path ---
     marker = request.node.get_closest_marker("cassette")

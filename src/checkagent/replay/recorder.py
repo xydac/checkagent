@@ -91,6 +91,26 @@ class CassetteRecorder:
         self._interactions.append(interaction)
         return interaction
 
+    def record_response(self, prompt: str, response: str) -> Interaction:
+        """Simple single-turn recording: capture a prompt → response pair.
+
+        This is the easiest way to record an agent interaction when you don't
+        need to capture full OpenAI request/response bodies.  The prompt is
+        stored in the request body; the response string is stored in the
+        response body.
+
+        Example::
+
+            if ap_cassette.is_recording():
+                result = await my_agent(prompt)
+                ap_cassette.recorder.record_response(prompt, result)
+        """
+        return self.record_llm_call(
+            method="chat.completions.create",
+            request_body={"messages": [{"role": "user", "content": prompt}]},
+            response_body=response,
+        )
+
     def record_tool_call(
         self,
         tool_name: str,

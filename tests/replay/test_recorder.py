@@ -166,6 +166,42 @@ class TestCassetteRecorder:
         assert loaded.meta.test_id == "test::roundtrip"
 
 
+class TestRecordResponse:
+    def test_record_response_creates_llm_interaction(self):
+        recorder = CassetteRecorder(test_id="test::simple")
+        interaction = recorder.record_response("hello", "hi there")
+        assert interaction.request.kind == "llm"
+        assert interaction.request.method == "chat.completions.create"
+        assert interaction.request.body["messages"][0]["content"] == "hello"
+        assert interaction.response.body == "hi there"
+        assert recorder.interaction_count == 1
+
+    def test_record_response_is_replayable(self):
+        from checkagent.replay.cassette import RecordedRequest
+        from checkagent.replay.engine import MatchStrategy, ReplayEngine
+
+        recorder = CassetteRecorder()
+        recorder.record_response("what time is it?", "It's noon.")
+        cassette = recorder.finalize()
+
+        engine = ReplayEngine(cassette, strategy=MatchStrategy.SEQUENCE)
+        req = RecordedRequest(
+            kind="llm",
+            method="chat.completions.create",
+            body={"messages": [{"role": "user", "content": "what time is it?"}]},
+        )
+        interaction = engine.match(req)
+        assert interaction is not None
+        assert interaction.response.body == "It's noon."
+
+    def test_record_response_multiple_turns(self):
+        recorder = CassetteRecorder()
+        recorder.record_response("hello", "Hi!")
+        recorder.record_response("goodbye", "Bye!")
+        cassette = recorder.finalize()
+        assert len(cassette.interactions) == 2
+
+
 class TestTimedCall:
     def test_basic_timing(self):
         with TimedCall() as tc:
