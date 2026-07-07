@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "schema_version": 1,
+    "checkagent_version": "",
+    "recorded_at": "2026-07-07T17:13:16.918817+00:00",
+    "content_hash": "3b774079a4f60635be8e086b82df9c6daf0c119020d2d9d962cca1b58bc14b45",
+    "test_id": "examples/replay_cassette/tests/test_agent_replay.py::test_order_status_response"
+  },
+  "interactions": [
+    {
+      "id": "30de1a98a09ff91c",
+      "sequence": 0,
+      "request": {
+        "kind": "llm",
+        "method": "chat.completions.create",
+        "model": null,
+        "body": {
+          "messages": [
+            {
+              "role": "user",
+              "content": "What is the status of order 12345?"
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": "ok",
+        "body": "Order #12345 is currently in transit. Estimated delivery: 2-3 business days.",
+        "prompt_tokens": null,
+        "completion_tokens": null,
+        "duration_ms": null
+      },
+      "metadata": {}
+    }
+  ]
+}

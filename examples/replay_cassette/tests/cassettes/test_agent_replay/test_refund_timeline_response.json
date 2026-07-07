@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "schema_version": 1,
+    "checkagent_version": "",
+    "recorded_at": "2026-07-07T17:13:16.916787+00:00",
+    "content_hash": "7a066fb99532dd7007180d05593d993d799c44db08bc37e9ee1866f250ae5825",
+    "test_id": "examples/replay_cassette/tests/test_agent_replay.py::test_refund_timeline_response"
+  },
+  "interactions": [
+    {
+      "id": "334b951bf08db9fa",
+      "sequence": 0,
+      "request": {
+        "kind": "llm",
+        "method": "chat.completions.create",
+        "model": null,
+        "body": {
+          "messages": [
+            {
+              "role": "user",
+              "content": "How long do refunds take?"
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": "ok",
+        "body": "Refunds are processed within 5-7 business days after we receive the return.",
+        "prompt_tokens": null,
+        "completion_tokens": null,
+        "duration_ms": null
+      },
+      "metadata": {}
+    }
+  ]
+}

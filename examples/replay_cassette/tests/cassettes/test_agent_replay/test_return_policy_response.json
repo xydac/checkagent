@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "schema_version": 1,
+    "checkagent_version": "",
+    "recorded_at": "2026-07-07T17:13:16.914499+00:00",
+    "content_hash": "81bf5e7ed22e3604a16b004644f6d8735e21fff542f3b0f3d80c027f5e68b178",
+    "test_id": "examples/replay_cassette/tests/test_agent_replay.py::test_return_policy_response"
+  },
+  "interactions": [
+    {
+      "id": "63493fed011b86f6",
+      "sequence": 0,
+      "request": {
+        "kind": "llm",
+        "method": "chat.completions.create",
+        "model": null,
+        "body": {
+          "messages": [
+            {
+              "role": "user",
+              "content": "What is your return policy?"
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": "ok",
+        "body": "Our return policy allows returns within 30 days of purchase with a receipt. Items must be in original condition.",
+        "prompt_tokens": null,
+        "completion_tokens": null,
+        "duration_ms": null
+      },
+      "metadata": {}
+    }
+  ]
+}

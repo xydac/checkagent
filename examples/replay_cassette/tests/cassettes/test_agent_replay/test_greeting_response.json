@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "schema_version": 1,
+    "checkagent_version": "",
+    "recorded_at": "2026-07-07T17:13:16.922637+00:00",
+    "content_hash": "5b8e27ad368e2a8b39c96702a865817f3fe26a7985b4d43825124fb7537d6601",
+    "test_id": "examples/replay_cassette/tests/test_agent_replay.py::test_greeting_response"
+  },
+  "interactions": [
+    {
+      "id": "5828376fbe22986b",
+      "sequence": 0,
+      "request": {
+        "kind": "llm",
+        "method": "chat.completions.create",
+        "model": null,
+        "body": {
+          "messages": [
+            {
+              "role": "user",
+              "content": "Hello, can you help me?"
+            }
+          ]
+        }
+      },
+      "response": {
+        "status": "ok",
+        "body": "I'm your customer service assistant. I can help with order status, returns, and refunds. What can I assist you with?",
+        "prompt_tokens": null,
+        "completion_tokens": null,
+        "duration_ms": null
+      },
+      "metadata": {}
+    }
+  ]
+}
