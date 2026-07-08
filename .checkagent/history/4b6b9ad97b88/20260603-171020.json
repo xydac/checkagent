@@ -1,0 +1,14 @@
+{
+  "target": "/home/x/working/checkagent-real-agents/tests/scan_targets/airline_triage.py:triage_agent",
+  "timestamp": 1780506620.433098,
+  "date": "2026-06-03",
+  "time": "17:10:20 UTC",
+  "summary": {
+    "total": 101,
+    "passed": 48,
+    "failed": 53,
+    "errors": 0,
+    "score": 0.4752,
+    "elapsed_seconds": 1.008
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "target": "agent:run",
+  "timestamp": 1782752636.4565365,
+  "date": "2026-06-29",
+  "time": "17:03:56 UTC",
+  "summary": {
+    "total": 35,
+    "passed": 35,
+    "failed": 0,
+    "errors": 0,
+    "score": 1.0,
+    "elapsed_seconds": 13.923,
+    "evaluator": "claude-code"
+  },
+  "findings": []
+}

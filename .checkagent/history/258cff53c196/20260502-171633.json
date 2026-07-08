@@ -1,0 +1,14 @@
+{
+  "target": "scan_targets.airline_triage:triage_agent",
+  "timestamp": 1777742193.5989509,
+  "date": "2026-05-02",
+  "time": "17:16:33 UTC",
+  "summary": {
+    "total": 101,
+    "passed": 3,
+    "failed": 98,
+    "errors": 0,
+    "score": 0.0297,
+    "elapsed_seconds": 0.974
+  }
+}

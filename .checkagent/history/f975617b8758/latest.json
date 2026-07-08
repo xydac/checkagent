@@ -1,0 +1,14 @@
+{
+  "target": "http://127.0.0.1:37677",
+  "timestamp": 1777568457.9278326,
+  "date": "2026-04-30",
+  "time": "17:00:57 UTC",
+  "summary": {
+    "total": 35,
+    "passed": 35,
+    "failed": 0,
+    "errors": 0,
+    "score": 1.0,
+    "elapsed_seconds": 1.038
+  }
+}

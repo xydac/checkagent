@@ -258,18 +258,18 @@ defaults:
 
 
 class TestCostTrackerFixture:
-    """ap_cost_tracker fixture tests."""
+    """ca_cost_tracker fixture tests."""
 
     def test_fixture_yields_cost_tracker(self, pytester: pytest.Pytester) -> None:
         pytester.makepyfile("""
             from checkagent.core.cost import CostTracker
 
-            def test_cost_tracker_type(ap_cost_tracker):
-                assert isinstance(ap_cost_tracker, CostTracker)
+            def test_cost_tracker_type(ca_cost_tracker):
+                assert isinstance(ca_cost_tracker, CostTracker)
 
-            def test_cost_tracker_starts_empty(ap_cost_tracker):
-                assert ap_cost_tracker.total_cost == 0.0
-                assert ap_cost_tracker.run_count == 0
+            def test_cost_tracker_starts_empty(ca_cost_tracker):
+                assert ca_cost_tracker.total_cost == 0.0
+                assert ca_cost_tracker.run_count == 0
         """)
         result = pytester.runpytest("-v")
         result.assert_outcomes(passed=2)

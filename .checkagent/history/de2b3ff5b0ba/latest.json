@@ -1,0 +1,16 @@
+{
+  "target": "http://127.0.0.1:38367",
+  "timestamp": 1781284590.2192652,
+  "date": "2026-06-12",
+  "time": "17:16:30 UTC",
+  "summary": {
+    "total": 35,
+    "passed": 35,
+    "failed": 0,
+    "errors": 0,
+    "score": 1.0,
+    "elapsed_seconds": 1.21,
+    "evaluator": "regex"
+  },
+  "findings": []
+}

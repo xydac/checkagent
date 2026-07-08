@@ -1,0 +1,14 @@
+{
+  "target": "/home/x/working/checkagent-real-agents/tests/scan_targets/deep_research_planner.py:planner_agent",
+  "timestamp": 1780506647.9862833,
+  "date": "2026-06-03",
+  "time": "17:10:47 UTC",
+  "summary": {
+    "total": 101,
+    "passed": 63,
+    "failed": 38,
+    "errors": 0,
+    "score": 0.6238,
+    "elapsed_seconds": 1.016
+  }
+}

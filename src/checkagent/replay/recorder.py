@@ -101,9 +101,9 @@ class CassetteRecorder:
 
         Example::
 
-            if ap_cassette.is_recording():
+            if ca_cassette.is_recording():
                 result = await my_agent(prompt)
-                ap_cassette.recorder.record_response(prompt, result)
+                ca_cassette.recorder.record_response(prompt, result)
         """
         return self.record_llm_call(
             method="chat.completions.create",

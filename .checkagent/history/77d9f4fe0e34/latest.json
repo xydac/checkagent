@@ -1,0 +1,14 @@
+{
+  "target": "examples.case_study.agent:support_agent",
+  "timestamp": 1779037439.2734828,
+  "date": "2026-05-17",
+  "time": "17:03:59 UTC",
+  "summary": {
+    "total": 101,
+    "passed": 0,
+    "failed": 0,
+    "errors": 101,
+    "score": 0.0,
+    "elapsed_seconds": 1.005
+  }
+}

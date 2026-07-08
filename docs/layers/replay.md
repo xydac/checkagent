@@ -29,22 +29,22 @@ cassette.save("tests/cassettes/booking.json")
 
 ## Replay in Tests
 
-### Using the `ap_cassette` fixture (recommended)
+### Using the `ca_cassette` fixture (recommended)
 
-The `ap_cassette` fixture handles recording and replaying automatically:
+The `ca_cassette` fixture handles recording and replaying automatically:
 
-- **First run (record mode):** no cassette file exists → `ap_cassette.is_recording()` is `True`. Run your agent and record interactions via `ap_cassette.recorder`. After the test, the cassette is saved automatically.
-- **Subsequent runs (replay mode):** cassette file found → `ap_cassette.is_replaying()` is `True`. Use `ap_cassette.engine` to match requests against recorded responses. No real API calls are made.
+- **First run (record mode):** no cassette file exists → `ca_cassette.is_recording()` is `True`. Run your agent and record interactions via `ca_cassette.recorder`. After the test, the cassette is saved automatically.
+- **Subsequent runs (replay mode):** cassette file found → `ca_cassette.is_replaying()` is `True`. Use `ca_cassette.engine` to match requests against recorded responses. No real API calls are made.
 
 ```python
 from checkagent.replay import CassetteRecorder, RecordedRequest
 
 @pytest.mark.agent_test(layer="replay")
-async def test_booking_regression(ap_cassette, my_agent):
-    if ap_cassette.is_recording():
+async def test_booking_regression(ca_cassette, my_agent):
+    if ca_cassette.is_recording():
         # Record mode: run your agent and capture interactions
         result = await my_agent.run("Book a flight to Tokyo")
-        ap_cassette.recorder.record_llm_call(
+        ca_cassette.recorder.record_llm_call(
             method="chat.completions.create",
             request_body={"messages": [{"role": "user", "content": "Book a flight to Tokyo"}]},
             response_body={"choices": [{"message": {"content": "Booking confirmed!"}}]},
@@ -53,8 +53,8 @@ async def test_booking_regression(ap_cassette, my_agent):
         assert "Booking" in result
     else:
         # Replay mode: verify agent uses recorded responses
-        assert ap_cassette.cassette is not None
-        assert len(ap_cassette.cassette.interactions) > 0
+        assert ca_cassette.cassette is not None
+        assert len(ca_cassette.cassette.interactions) > 0
         # Run against replayed data — no live API calls
         result = await my_agent.run("Book a flight to Tokyo")
         assert "Booking" in result
@@ -65,7 +65,7 @@ The cassette is saved to `cassettes/<test_module>/<test_name>.json` by default. 
 ```python
 @pytest.mark.cassette(path="tests/cassettes/booking_v2.json")
 @pytest.mark.agent_test(layer="replay")
-async def test_booking_v2(ap_cassette):
+async def test_booking_v2(ca_cassette):
     ...
 ```
 

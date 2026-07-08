@@ -1,0 +1,14 @@
+{
+  "target": "/home/x/working/checkagent-real-agents/tests/scan_targets/haiku_rag_qa.py:qa_agent",
+  "timestamp": 1780506652.0826125,
+  "date": "2026-06-03",
+  "time": "17:10:52 UTC",
+  "summary": {
+    "total": 101,
+    "passed": 74,
+    "failed": 27,
+    "errors": 0,
+    "score": 0.7327,
+    "elapsed_seconds": 1.004
+  }
+}

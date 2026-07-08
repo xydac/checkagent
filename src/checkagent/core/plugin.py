@@ -326,7 +326,7 @@ def ca_tracer() -> Any:
 
 
 class CassetteFixture:
-    """Context object returned by the ``ap_cassette`` fixture.
+    """Context object returned by the ``ca_cassette`` fixture.
 
     Attributes:
         mode: ``"record"`` when no cassette file exists yet; ``"replay"`` when
@@ -374,7 +374,7 @@ class CassetteFixture:
         if self.mode == "record":
             raise RuntimeError(
                 "replay_response() called in record mode. "
-                "Use ap_cassette.recorder.record_response() instead."
+                "Use ca_cassette.recorder.record_response() instead."
             )
         from checkagent.replay.cassette import RecordedRequest
 
@@ -401,8 +401,8 @@ class CassetteFixture:
         both recording and replaying without any mode-switch logic in tests::
 
             @pytest.mark.agent_test(layer="replay")
-            async def test_greeting(ap_cassette, my_agent):
-                response = await ap_cassette.arun(my_agent, "hello")
+            async def test_greeting(ca_cassette, my_agent):
+                response = await ca_cassette.arun(my_agent, "hello")
                 assert "hello" in response.lower()
 
         On the **first run** (no cassette yet): calls the real agent, saves the
@@ -424,7 +424,7 @@ class CassetteFixture:
 
 
 @pytest.fixture
-def ap_cassette(request: pytest.FixtureRequest) -> Any:
+def ca_cassette(request: pytest.FixtureRequest) -> Any:
     """Record-and-replay cassette fixture.
 
     The fixture automatically selects the operating mode:
@@ -447,19 +447,19 @@ def ap_cassette(request: pytest.FixtureRequest) -> Any:
     logic needed in your test::
 
         @pytest.mark.agent_test(layer="replay")
-        async def test_greeting(ap_cassette, my_agent):
-            response = await ap_cassette.arun(my_agent, "hello")
+        async def test_greeting(ca_cassette, my_agent):
+            response = await ca_cassette.arun(my_agent, "hello")
             assert "Hello" in response
 
     For finer control, use :meth:`CassetteFixture.is_recording` to branch::
 
         @pytest.mark.agent_test(layer="replay")
-        async def test_greeting(ap_cassette, my_agent):
-            if ap_cassette.is_recording():
+        async def test_greeting(ca_cassette, my_agent):
+            if ca_cassette.is_recording():
                 result = await my_agent.run("hello")
-                ap_cassette.recorder.record_response("hello", result)
+                ca_cassette.recorder.record_response("hello", result)
             else:
-                result = ap_cassette.replay_response("hello")
+                result = ca_cassette.replay_response("hello")
             assert "Hello" in result
     """
     # --- Resolve cassette path ---
@@ -494,7 +494,7 @@ def ap_cassette(request: pytest.FixtureRequest) -> Any:
 
 
 @pytest.fixture(scope="session")
-def ap_cost_tracker(pytestconfig: pytest.Config) -> Any:
+def ca_cost_tracker(pytestconfig: pytest.Config) -> Any:
     """Session-scoped CostTracker with automatic budget enforcement.
 
     Provides a :class:`~checkagent.core.cost.CostTracker` pre-configured with
@@ -504,10 +504,10 @@ def ap_cost_tracker(pytestconfig: pytest.Config) -> Any:
 
     Example::
 
-        async def test_my_agent_cost(ap_cost_tracker, my_agent):
+        async def test_my_agent_cost(ca_cost_tracker, my_agent):
             result = await my_agent.run("hello")
-            ap_cost_tracker.record(result)
-            assert ap_cost_tracker.total_cost < 0.01
+            ca_cost_tracker.record(result)
+            assert ca_cost_tracker.total_cost < 0.01
     """
     cfg: CheckAgentConfig = pytestconfig.stash.get(_config_key, CheckAgentConfig())
     budget = getattr(cfg, "budget", None)

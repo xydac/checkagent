@@ -1,0 +1,14 @@
+{
+  "target": "scan_targets.deep_research_planner:planner_agent",
+  "timestamp": 1777742203.418899,
+  "date": "2026-05-02",
+  "time": "17:16:43 UTC",
+  "summary": {
+    "total": 101,
+    "passed": 38,
+    "failed": 63,
+    "errors": 0,
+    "score": 0.3762,
+    "elapsed_seconds": 0.965
+  }
+}

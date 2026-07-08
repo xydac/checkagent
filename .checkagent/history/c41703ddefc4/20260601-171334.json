@@ -1,0 +1,14 @@
+{
+  "target": "assets/demo_agent.py:my_agent",
+  "timestamp": 1780334014.442039,
+  "date": "2026-06-01",
+  "time": "17:13:34 UTC",
+  "summary": {
+    "total": 101,
+    "passed": 46,
+    "failed": 55,
+    "errors": 0,
+    "score": 0.4554,
+    "elapsed_seconds": 0.997
+  }
+}

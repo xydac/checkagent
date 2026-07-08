@@ -1,0 +1,14 @@
+{
+  "target": "http://127.0.0.1:35199",
+  "timestamp": 1779469270.6593635,
+  "date": "2026-05-22",
+  "time": "17:01:10 UTC",
+  "summary": {
+    "total": 35,
+    "passed": 0,
+    "failed": 35,
+    "errors": 0,
+    "score": 0.0,
+    "elapsed_seconds": 1.145
+  }
+}

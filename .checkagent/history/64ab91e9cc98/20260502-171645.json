@@ -1,0 +1,14 @@
+{
+  "target": "scan_targets.haiku_rag_qa:qa_agent",
+  "timestamp": 1777742205.439883,
+  "date": "2026-05-02",
+  "time": "17:16:45 UTC",
+  "summary": {
+    "total": 101,
+    "passed": 51,
+    "failed": 50,
+    "errors": 0,
+    "score": 0.505,
+    "elapsed_seconds": 0.96
+  }
+}
