@@ -6,6 +6,7 @@ from checkagent.adapters.generic import GenericAdapter, wrap
 from checkagent.ci.quality_gate import QualityGateEntry
 from checkagent.ci.reporter import TestRunSummary
 from checkagent.cli.ablate_prompt import ablate_prompt  # noqa: F401
+from checkagent.cli.analyze_prompt import analyze_prompt  # noqa: F401
 from checkagent.cli.diff import compute_diff  # noqa: F401
 from checkagent.cli.scan import evaluate_output, evaluate_output_with_baseline  # noqa: F401
 from checkagent.cli.stress_prompt import stress_prompt  # noqa: F401
@@ -265,6 +266,7 @@ __all__ = [
     "ToolCallBoundaryValidator",
     # Prompt analysis functions
     "ablate_prompt",
+    "analyze_prompt",
     "stress_prompt",
     # Streaming
     "StreamCollector",

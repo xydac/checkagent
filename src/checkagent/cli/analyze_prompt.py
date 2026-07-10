@@ -350,6 +350,32 @@ def _generate_hardened_prompt(
     return f"{original.rstrip()}{separator}{block}"
 
 
+def analyze_prompt(prompt: str) -> PromptAnalysisResult:
+    """Analyze a system prompt for security best practices.
+
+    Checks the prompt for eight security controls: injection guard, scope
+    boundary, confidentiality, refusal behavior, PII handling, data scope,
+    role clarity, and escalation path.  Zero-setup — no API key required.
+
+    Args:
+        prompt: The system prompt text to analyze.
+
+    Returns:
+        PromptAnalysisResult with score (0.0-1.0), check_results, and
+        recommendations for any missing controls.
+
+    Example::
+
+        from checkagent import analyze_prompt
+
+        result = analyze_prompt("You are a helpful HR assistant.")
+        print(f"Score: {result.score:.0%}")
+        for rec in result.recommendations:
+            print(f"  - {rec}")
+    """
+    return PromptAnalyzer().analyze(prompt)
+
+
 @click.command("analyze-prompt")
 @click.argument("prompt_source", metavar="PROMPT_OR_FILE", default="-")
 @click.option("--json", "output_json", is_flag=True, default=False, help="Output results as JSON.")
