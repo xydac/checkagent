@@ -103,7 +103,16 @@ class MultiAgentTrace(BaseModel):
 
             children = trace.get_children_by_agent("orchestrator")
         """
-        parent_run_ids = {r.run_id for r in self.runs if r.agent_id == agent_id and r.run_id}
+        parent_runs = [r for r in self.runs if r.agent_id == agent_id]
+        if parent_runs and any(r.run_id is None for r in parent_runs):
+            warnings.warn(
+                f"Agent '{agent_id}' has runs with run_id=None. "
+                "Children cannot be looked up without explicit run IDs. "
+                "Set run_id=str(uuid.uuid4()) on each AgentRun.",
+                UserWarning,
+                stacklevel=2,
+            )
+        parent_run_ids = {r.run_id for r in parent_runs if r.run_id}
         return [r for r in self.runs if r.parent_run_id in parent_run_ids]
 
     def get_handoffs_from(self, agent_id: str) -> list[Handoff]:

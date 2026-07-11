@@ -563,6 +563,25 @@ class TestGetChildrenByAgent:
         children = trace.get_children_by_agent("orch")
         assert len(children) == 2
 
+    def test_warns_when_run_id_is_none(self):
+        """F-149: warn instead of silently returning [] when run_id=None."""
+        trace = MultiAgentTrace()
+        trace.add_run(_make_run(agent_id="orchestrator", run_id=None))
+        with pytest.warns(UserWarning, match="run_id=None"):
+            children = trace.get_children_by_agent("orchestrator")
+        assert children == []
+
+    def test_no_warning_when_run_ids_set(self):
+        """No warning when parent runs all have explicit run IDs."""
+        trace = MultiAgentTrace()
+        trace.add_run(_make_run(run_id="r1", agent_id="orchestrator"))
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            children = trace.get_children_by_agent("orchestrator")
+        assert children == []
+
 
 class TestMultiagentNamespace:
     def test_handoff_type_importable_from_multiagent(self):
