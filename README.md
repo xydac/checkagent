@@ -227,7 +227,14 @@ checkagent watch system_prompt.txt
 
 The score bar updates every second as you save — iterate on your prompt until all checks pass.
 
-Add `--llm` to catch controls with non-canonical phrasing that pattern matching misses:
+Or watch an agent module and re-run the full safety scan on every file change:
+
+```bash
+# Triggers checkagent scan my_module:my_agent automatically on file save
+checkagent watch my_module:my_agent
+```
+
+Add `--llm` (prompt file mode) to catch controls with non-canonical phrasing:
 
 ```bash
 # "Focus only on customer service" is detected as scope_boundary via LLM, not regex
