@@ -1,18 +1,26 @@
 """CLI command: checkagent watch
 
-Live-updating safety analysis that re-runs analyze-prompt whenever a
-system prompt file is saved.  Ideal for iterating on a system prompt and
-seeing the score change in real time.
+Two modes depending on the argument:
+
+  File mode  — watch a system prompt text file, re-run analyze-prompt on save.
+  Agent mode — watch a Python module containing an agent (module:fn), re-run
+               `checkagent scan` on every file change.
 
 Usage:
     checkagent watch system_prompt.txt
     checkagent watch system_prompt.txt --llm gpt-4o-mini
     checkagent watch system_prompt.txt --interval 0.5
+    checkagent watch my_module:my_agent
+    checkagent watch my_module:my_agent --interval 1.0
 """
 
 from __future__ import annotations
 
 import asyncio
+import importlib
+import json
+import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -25,6 +33,10 @@ from checkagent.safety.prompt_analyzer import PromptAnalyzer
 
 _console = Console()
 
+
+# ---------------------------------------------------------------------------
+# Prompt-file watch helpers
+# ---------------------------------------------------------------------------
 
 def _score_bar(score: float, width: int = 20) -> str:
     filled = round(score * width)
@@ -40,7 +52,7 @@ def _render_panel(
     last_modified: float | None = None,
     elapsed: float | None = None,
 ) -> Panel:
-    """Build a Rich Panel with the current analysis result."""
+    """Build a Rich Panel with the current prompt analysis result."""
     llm_verified = llm_verified or {}
     llm_pass_ids = {cid for cid, (passed, _) in llm_verified.items() if passed}
 
@@ -123,39 +135,12 @@ def _render_panel(
     return Panel(body, title=title, border_style=score_style)
 
 
-@click.command("watch")
-@click.argument("prompt_file", type=click.Path(exists=True, dir_okay=False))
-@click.option(
-    "--llm",
-    "llm_model",
-    default=None,
-    metavar="MODEL",
-    help="Use an LLM for semantic verification (e.g. gpt-4o-mini).",
-)
-@click.option(
-    "--interval",
-    default=1.0,
-    show_default=True,
-    metavar="SECONDS",
-    help="How often to poll for file changes.",
-)
-def watch_cmd(prompt_file: str, llm_model: str | None, interval: float) -> None:
-    """Watch a system prompt file and re-analyze on every save.
-
-    Displays a live score that updates instantly whenever you save the file.
-    Perfect for iterating on a system prompt until all security checks pass.
-
-    \b
-    Examples:
-      checkagent watch system_prompt.txt
-      checkagent watch prompt.txt --llm gpt-4o-mini
-      checkagent watch prompt.txt --interval 0.5
-    """
+def _watch_prompt_file(path: Path, llm_model: str | None, interval: float) -> None:
+    """Original watch mode: analyze a system prompt file on every save."""
     if llm_model:
         from checkagent.core.llm_call import detect_provider
         detect_provider(llm_model, param_hint="--llm")
 
-    path = Path(prompt_file)
     analyzer = PromptAnalyzer()
 
     last_mtime: float = 0.0
@@ -189,7 +174,6 @@ def watch_cmd(prompt_file: str, llm_model: str | None, interval: float) -> None:
         "(save the file to see your score update)\n"
     )
 
-    # Initial render with placeholder
     placeholder = Panel(
         f"[dim]Reading {path}…[/dim]",
         title="[bold]checkagent watch[/bold]",
@@ -231,7 +215,6 @@ def watch_cmd(prompt_file: str, llm_model: str | None, interval: float) -> None:
                     time.sleep(interval)
                     continue
 
-                # Transient "analyzing…" state
                 live.update(Panel(
                     "[dim]Analyzing…[/dim]",
                     title="[bold]checkagent watch[/bold]",
@@ -261,3 +244,258 @@ def watch_cmd(prompt_file: str, llm_model: str | None, interval: float) -> None:
                 live.update(panel)
 
             time.sleep(interval)
+
+
+# ---------------------------------------------------------------------------
+# Agent scan watch helpers
+# ---------------------------------------------------------------------------
+
+def _resolve_module_file(target: str) -> Path | None:
+    """Given 'module:fn', return the source file path of the module, or None."""
+    if ":" not in target:
+        return None
+    module_part = target.split(":")[0].replace(".", "/")
+    # Try to import and get __file__
+    try:
+        spec = importlib.util.find_spec(target.split(":")[0])  # type: ignore[attr-defined]
+        if spec and spec.origin:
+            p = Path(spec.origin)
+            if p.suffix == ".py":
+                return p
+    except (ModuleNotFoundError, ValueError):
+        pass
+    # Fallback: look for module_part.py relative to cwd
+    for candidate in [
+        Path.cwd() / f"{module_part}.py",
+        Path.cwd() / "src" / f"{module_part}.py",
+    ]:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _render_scan_panel(
+    target: str,
+    source_file: Path | None,
+    scan_data: dict | None,
+    elapsed: float | None,
+    error: str | None,
+) -> Panel:
+    """Build a Rich Panel showing agent scan results."""
+    lines: list[str] = []
+    lines.append(f"[dim]Target:[/dim] {target}")
+    if source_file:
+        lines.append(f"[dim]File:[/dim]   {source_file}")
+    lines.append("")
+
+    if error:
+        lines.append(f"[red]Error: {error}[/red]")
+        body = "\n".join(lines)
+        ts = time.strftime("%H:%M:%S")
+        lines.append("")
+        lines.append(f"[dim]Last checked at {ts}. Ctrl+C to stop.[/dim]")
+        return Panel("\n".join(lines), title="[bold]checkagent watch[/bold]", border_style="red")
+
+    if scan_data is None:
+        lines.append("[dim]Waiting for first scan…[/dim]")
+        return Panel("\n".join(lines), title="[bold]checkagent watch[/bold]", border_style="dim")
+
+    summary = scan_data.get("summary", {})
+    score = summary.get("score", 0.0)
+    passed = summary.get("passed", 0)
+    total = summary.get("total", 0)
+
+    pct = int(score * 100)
+    bar = _score_bar(score)
+    score_style = "green" if pct >= 75 else "yellow" if pct >= 50 else "red"
+
+    lines.append(
+        f"Score: [{score_style}]{passed}/{total} ({pct}%)[/{score_style}]  "
+        f"[{score_style}]{bar}[/{score_style}]"
+    )
+    lines.append("")
+
+    # Finding summary by severity
+    findings = scan_data.get("findings", [])
+    if findings:
+        critical = [f for f in findings if f.get("severity") == "critical"]
+        high = [f for f in findings if f.get("severity") == "high"]
+        medium = [f for f in findings if f.get("severity") == "medium"]
+
+        if critical:
+            lines.append(f"  [red]● {len(critical)} critical[/red]")
+        if high:
+            lines.append(f"  [red]○ {len(high)} high[/red]")
+        if medium:
+            lines.append(f"  [yellow]○ {len(medium)} medium[/yellow]")
+
+        lines.append("")
+        lines.append("[bold yellow]Top findings:[/bold yellow]")
+        for f in findings[:4]:
+            probe = f.get("probe_id", f.get("probe", "?"))
+            cat = f.get("category", "")
+            sev = f.get("severity", "")
+            sev_colors = {"critical": "red", "high": "red", "medium": "yellow", "low": "cyan"}
+            sc = sev_colors.get(sev, "white")
+            lines.append(f"  [dim]·[/dim] [{sc}]{probe}[/{sc}] [dim]({cat})[/dim]")
+        if len(findings) > 4:
+            lines.append(f"  [dim]… and {len(findings) - 4} more[/dim]")
+    else:
+        lines.append("  [green]No findings — all probes passed.[/green]")
+
+    lines.append("")
+    ts = time.strftime("%H:%M:%S")
+    elapsed_str = f" in {elapsed:.1f}s" if elapsed else ""
+    lines.append(
+        f"[dim]Last scanned{elapsed_str} at {ts}. "
+        "Edit the agent file to trigger a rescan. Ctrl+C to stop.[/dim]"
+    )
+
+    body = "\n".join(lines)
+    return Panel(body, title="[bold]checkagent watch[/bold]", border_style=score_style)
+
+
+def _run_scan(target: str) -> tuple[dict | None, str | None]:
+    """Run `checkagent scan target --json` in a subprocess, return (data, error)."""
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "checkagent", "scan", target, "--json", "--exit-zero"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        stdout = result.stdout.strip()
+        if not stdout:
+            stderr = result.stderr.strip()
+            if stderr:
+                return None, f"scan produced no output. stderr: {stderr[:200]}"
+            return None, "scan produced no output"
+        data = json.loads(stdout)
+        return data, None
+    except subprocess.TimeoutExpired:
+        return None, "scan timed out (120s)"
+    except json.JSONDecodeError as exc:
+        return None, f"JSON parse error: {exc}"
+    except Exception as exc:
+        return None, str(exc)
+
+
+def _watch_agent(target: str, interval: float) -> None:
+    """Agent mode: re-run checkagent scan whenever the agent's source file changes."""
+    source_file = _resolve_module_file(target)
+
+    if source_file:
+        _console.print(
+            f"\n[bold]Watching[/bold] [cyan]{source_file}[/cyan] "
+            f"for changes to [cyan]{target}[/cyan]…\n"
+        )
+    else:
+        _console.print(
+            f"\n[bold]Watching[/bold] agent [cyan]{target}[/cyan] "
+            f"(polling every {interval}s)…\n"
+        )
+
+    placeholder = Panel(
+        "[dim]Running initial scan…[/dim]",
+        title="[bold]checkagent watch[/bold]",
+        border_style="dim",
+    )
+
+    last_mtime: float = 0.0
+    last_data: dict | None = None
+
+    with Live(placeholder, console=_console, refresh_per_second=4, screen=False) as live:
+        # Force initial scan
+        force_scan = True
+
+        while True:
+            changed = force_scan
+            force_scan = False
+
+            if source_file:
+                try:
+                    mtime = source_file.stat().st_mtime
+                    if mtime != last_mtime:
+                        last_mtime = mtime
+                        changed = True
+                except OSError:
+                    pass
+
+            if changed:
+                live.update(Panel(
+                    "[dim]Scanning…[/dim]",
+                    title="[bold]checkagent watch[/bold]",
+                    border_style="dim",
+                ))
+                t0 = time.time()
+                data, error = _run_scan(target)
+                elapsed = time.time() - t0
+                last_data = data
+                panel = _render_scan_panel(target, source_file, data, elapsed, error)
+                live.update(panel)
+            elif last_data is not None:
+                # Re-render to keep footer timestamp fresh (optional — skip for performance)
+                pass
+
+            time.sleep(interval)
+
+
+# ---------------------------------------------------------------------------
+# CLI entry point
+# ---------------------------------------------------------------------------
+
+def _is_module_target(arg: str) -> bool:
+    """Return True if arg looks like module:fn (not a file path)."""
+    if not arg:
+        return False
+    # Has colon but not a Windows drive letter (C:\...)
+    if ":" not in arg:
+        return False
+    # Windows drive letter: single letter followed by :\ or :/
+    return not (len(arg) >= 3 and arg[1] == ":" and arg[2] in "/\\")
+
+
+@click.command("watch")
+@click.argument("target")
+@click.option(
+    "--llm",
+    "llm_model",
+    default=None,
+    metavar="MODEL",
+    help="(Prompt file mode only) Use an LLM for semantic verification.",
+)
+@click.option(
+    "--interval",
+    default=1.0,
+    show_default=True,
+    metavar="SECONDS",
+    help="How often to poll for file changes.",
+)
+def watch_cmd(target: str, llm_model: str | None, interval: float) -> None:
+    """Watch a file or agent and re-analyze on every change.
+
+    \b
+    Prompt file mode — watch a system prompt text file:
+      checkagent watch system_prompt.txt
+      checkagent watch prompt.txt --llm gpt-4o-mini
+
+    Agent scan mode — watch a Python module and re-run scan on change:
+      checkagent watch my_module:my_agent
+      checkagent watch my_module:my_agent --interval 0.5
+
+    In agent mode, CheckAgent resolves the source file automatically and
+    triggers a full safety scan whenever you save the file.
+    """
+    if _is_module_target(target):
+        if llm_model:
+            _console.print(
+                "[yellow]Note: --llm is not used in agent scan mode.[/yellow]"
+            )
+        _watch_agent(target, interval)
+    else:
+        path = Path(target)
+        if not path.exists():
+            raise click.ClickException(f"File not found: {target}")
+        if not path.is_file():
+            raise click.ClickException(f"Not a file: {target}")
+        _watch_prompt_file(path, llm_model, interval)

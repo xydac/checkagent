@@ -7,7 +7,13 @@ import time
 
 from click.testing import CliRunner
 
-from checkagent.cli.watch import _render_panel, _score_bar, watch_cmd
+from checkagent.cli.watch import (
+    _is_module_target,
+    _render_panel,
+    _render_scan_panel,
+    _score_bar,
+    watch_cmd,
+)
 from checkagent.safety.prompt_analyzer import PromptAnalyzer
 
 
@@ -28,6 +34,29 @@ class TestScoreBar:
         assert len(_score_bar(0.75, width=20)) == 20
 
 
+class TestIsModuleTarget:
+    def test_module_colon_fn(self):
+        assert _is_module_target("my_module:my_fn") is True
+
+    def test_module_dot_colon_fn(self):
+        assert _is_module_target("pkg.module:my_agent") is True
+
+    def test_plain_file(self):
+        assert _is_module_target("system_prompt.txt") is False
+
+    def test_path_no_colon(self):
+        assert _is_module_target("/tmp/prompt.txt") is False
+
+    def test_windows_drive_letter(self):
+        assert _is_module_target("C:\\path\\agent.py") is False
+
+    def test_windows_drive_slash(self):
+        assert _is_module_target("C:/path/agent.py") is False
+
+    def test_empty_string(self):
+        assert _is_module_target("") is False
+
+
 class TestRenderPanel:
     def test_render_basic(self, tmp_path):
         path = tmp_path / "prompt.txt"
@@ -43,7 +72,6 @@ class TestRenderPanel:
         prompt_text = "You are a helpful assistant."
         analyzer = PromptAnalyzer()
         result = analyzer.analyze(prompt_text)
-        # Simulate one LLM-verified pass
         llm_verified = {"injection_guard": (True, "Implied by role focus")}
 
         panel = _render_panel(path, prompt_text, result, llm_verified=llm_verified)
@@ -64,7 +92,45 @@ class TestRenderPanel:
         analyzer = PromptAnalyzer()
         result = analyzer.analyze(prompt_text)
         panel = _render_panel(path, prompt_text, result, elapsed=0.12)
-        # Panel border color depends on score — just verify it renders
+        assert panel is not None
+
+
+class TestRenderScanPanel:
+    def test_render_no_data(self):
+        panel = _render_scan_panel("my_module:my_agent", None, None, None, None)
+        assert panel is not None
+
+    def test_render_error(self):
+        panel = _render_scan_panel("my_module:my_agent", None, None, None, "timeout")
+        assert panel is not None
+
+    def test_render_with_findings(self):
+        scan_data = {
+            "summary": {"score": 0.6, "passed": 6, "total": 10, "failed": 4},
+            "findings": [
+                {"probe_id": "ignore_prev", "category": "injection", "severity": "critical"},
+                {"probe_id": "reveal_prompt", "category": "injection", "severity": "high"},
+            ],
+        }
+        panel = _render_scan_panel("my_module:my_agent", None, scan_data, 2.3, None)
+        assert panel is not None
+
+    def test_render_clean_agent(self):
+        scan_data = {
+            "summary": {"score": 1.0, "passed": 10, "total": 10, "failed": 0},
+            "findings": [],
+        }
+        panel = _render_scan_panel("my_module:my_agent", None, scan_data, 1.0, None)
+        assert panel is not None
+
+    def test_render_with_source_file(self, tmp_path):
+        src = tmp_path / "my_agent.py"
+        src.write_text("def my_agent(x): return x", encoding="utf-8")
+        scan_data = {
+            "summary": {"score": 0.8, "passed": 8, "total": 10, "failed": 2},
+            "findings": [],
+        }
+        panel = _render_scan_panel("my_module:my_agent", src, scan_data, 0.5, None)
         assert panel is not None
 
 
@@ -73,7 +139,6 @@ class TestWatchCommand:
         runner = CliRunner()
         result = runner.invoke(watch_cmd, ["--help"])
         assert result.exit_code == 0
-        assert "Watch a system prompt file" in result.output
         assert "--llm" in result.output
         assert "--interval" in result.output
 
@@ -81,16 +146,13 @@ class TestWatchCommand:
         runner = CliRunner()
         result = runner.invoke(watch_cmd, ["/nonexistent/prompt.txt"])
         assert result.exit_code != 0
-        assert "does not exist" in result.output.lower() or "invalid" in result.output.lower()
 
-    def test_runs_and_exits_on_ctrl_c(self, tmp_path):
-        """Watch command starts, analyzes initial content, then exits on KeyboardInterrupt."""
+    def test_prompt_file_mode_starts(self, tmp_path):
+        """Watch command starts without crashing for a prompt file."""
         prompt_file = tmp_path / "system_prompt.txt"
         prompt_file.write_text("You are a helpful assistant.", encoding="utf-8")
 
         runner = CliRunner()
-
-        # Run watch in a thread, send KeyboardInterrupt after a short delay
         result_holder: list = []
 
         def _run():
@@ -100,40 +162,8 @@ class TestWatchCommand:
 
         t = threading.Thread(target=_run, daemon=True)
         t.start()
-
-        # Let it start and do at least one pass
         time.sleep(0.8)
-
-        # The thread is blocked in the watch loop; we can't send a real SIGINT here,
-        # but we can verify the thread is alive (command started without crashing).
         assert t.is_alive(), "watch command crashed on startup"
-        # The thread will exit when the daemon process exits — no assertion on exit code.
-
-    def test_initial_analysis_output(self, tmp_path, capsys):
-        """Verify that watch produces output for a file with content."""
-        prompt_file = tmp_path / "system_prompt.txt"
-        prompt_file.write_text("You are a helpful assistant.", encoding="utf-8")
-
-        runner = CliRunner()
-
-        # Use a very short interval and stop after first pass via side effect
-        # We simulate by checking the output in a brief run
-        import threading
-
-        result_holder: list = []
-
-        def _run():
-            result_holder.append(
-                runner.invoke(watch_cmd, [str(prompt_file), "--interval", "0.1"])
-            )
-
-        t = threading.Thread(target=_run, daemon=True)
-        t.start()
-        time.sleep(0.8)
-
-        # Command started and printed the "Watching" banner
-        assert t.is_alive()
-        # No assertion on result since we can't cleanly stop it in the test
 
     def test_invalid_llm_model_fails_early(self, tmp_path):
         """--llm with an unknown provider raises an error before starting the loop."""
@@ -144,3 +174,37 @@ class TestWatchCommand:
         result = runner.invoke(watch_cmd, [str(prompt_file), "--llm", "unknown-provider/model"])
         assert result.exit_code != 0
         assert "unknown" in result.output.lower() or "unsupported" in result.output.lower()
+
+    def test_module_target_detected(self, tmp_path, monkeypatch):
+        """Agent mode is triggered when target looks like module:fn."""
+        # Patch _watch_agent to avoid actually running a scan
+        called: list[str] = []
+
+        def fake_watch(target: str, interval: float) -> None:
+            called.append(target)
+            raise KeyboardInterrupt  # stop immediately
+
+        import checkagent.cli.watch as watch_mod
+        monkeypatch.setattr(watch_mod, "_watch_agent", fake_watch)
+
+        runner = CliRunner()
+        runner.invoke(watch_cmd, ["my_module:my_agent", "--interval", "0.1"])
+        assert called == ["my_module:my_agent"]
+
+    def test_prompt_file_mode_for_file_path(self, tmp_path, monkeypatch):
+        """File mode is triggered when target is a file path."""
+        prompt_file = tmp_path / "prompt.txt"
+        prompt_file.write_text("You are a helpful assistant.", encoding="utf-8")
+
+        called: list[str] = []
+
+        def fake_watch_prompt(path, llm_model, interval):
+            called.append(str(path))
+            raise KeyboardInterrupt
+
+        import checkagent.cli.watch as watch_mod
+        monkeypatch.setattr(watch_mod, "_watch_prompt_file", fake_watch_prompt)
+
+        runner = CliRunner()
+        runner.invoke(watch_cmd, [str(prompt_file), "--interval", "0.1"])
+        assert called
