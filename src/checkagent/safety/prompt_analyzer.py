@@ -373,7 +373,10 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
             re.compile(r"(?:protect|safeguard)\s+(?:user\s+)?(?:privacy|personal\s+data)", _F),
             re.compile(r"(?:no|without)\s+(?:personal|sensitive)\s+(?:data|information)", _F),
             # "GDPR" / "HIPAA" / "CCPA" / "data privacy regulation" — compliance references
-            re.compile(r"\b(?:GDPR|HIPAA|CCPA|FERPA|data\s+privacy\s+(?:law|regulation|compliance))\b", _F),
+            re.compile(
+                r"\b(?:GDPR|HIPAA|CCPA|FERPA|data\s+privacy\s+(?:law|regulation|compliance))\b",
+                _F,
+            ),
             # "handle your data" / "process your personal data" / "data is handled"
             re.compile(
                 r"(?:handle|process|treat|protect)\s+(?:your\s+)?(?:data|personal\s+information)"
