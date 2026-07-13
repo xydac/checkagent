@@ -334,6 +334,18 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
                 r"(?:not\s+able\s+to\s+help|unable\s+to\s+assist)\s+with",
                 _F,
             ),
+            # "I cannot find information about that" / "cannot locate that in my knowledge base"
+            re.compile(
+                r"(?:I\s+)?(?:cannot|can't|could\s+not|couldn't)\s+(?:find|locate|answer|provide)\s+"
+                r"(?:information|an\s+answer|a\s+response)\s+(?:about|on|for|to|in)",
+                _F,
+            ),
+            # "not available in my knowledge base / context / documents"
+            re.compile(
+                r"not\s+(?:available|found|present|covered)\s+in\s+(?:my\s+)?"
+                r"(?:knowledge\s+base|context|documents?|training|data)",
+                _F,
+            ),
         ],
         recommendation=(
             "Add refusal behavior: "
@@ -360,6 +372,16 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
             re.compile(r"PII|personally\s+identifiable\s+information", _F),
             re.compile(r"(?:protect|safeguard)\s+(?:user\s+)?(?:privacy|personal\s+data)", _F),
             re.compile(r"(?:no|without)\s+(?:personal|sensitive)\s+(?:data|information)", _F),
+            # "GDPR" / "HIPAA" / "CCPA" / "data privacy regulation" — compliance references
+            re.compile(r"\b(?:GDPR|HIPAA|CCPA|FERPA|data\s+privacy\s+(?:law|regulation|compliance))\b", _F),
+            # "handle your data" / "process your personal data" / "data is handled"
+            re.compile(
+                r"(?:handle|process|treat|protect)\s+(?:your\s+)?(?:data|personal\s+information)"
+                r"(?:\s+(?:according|in\s+accordance|with\s+care))?",
+                _F,
+            ),
+            # "privacy policy" / "data protection" references
+            re.compile(r"(?:privacy\s+policy|data\s+protection|data\s+security)\b", _F),
         ],
         recommendation=(
             "Add PII handling: "
@@ -398,11 +420,12 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
                 r"(?:do\s+not|never|don't)\s+use\s+(?:your\s+)?(?:external|prior|outside|own)\s+knowledge",
                 _F,
             ),
-            # "base answers strictly on retrieved/provided content"
+            # "base answers strictly on retrieved/provided content/knowledge"
             re.compile(
                 r"(?:base|ground|anchor|draw)\s+.{0,20}(?:strictly|only|solely|exclusively)\s+"
-                r"(?:on|from)\s+(?:retrieved|provided|available|the\s+(?:given|supplied))\s+"
-                r"(?:content|data|information|results?|context)",
+                r"(?:on|from)\s+(?:retrieved|provided|available|the\s+(?:given|supplied))"
+                r"(?:\s+\w+)?\s+"
+                r"(?:content|data|information|results?|context|knowledge|documents?|sources?)",
                 _F,
             ),
             # "only from retrieved content" / "answers based only on retrieved results"
@@ -483,6 +506,17 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
             # "say: 'Please contact [email/team]'" as an escalation instruction
             re.compile(
                 r"(?:say|tell|direct|respond\s+with)\s*.{0,30}(?:contact|reach)\s+.{0,30}@",
+                _F,
+            ),
+            # "reach out to [email/team]" / "contact [email] for help"
+            re.compile(
+                r"(?:reach\s+out\s+to|contact|email|message)\s+\S+@\S+",
+                _F,
+            ),
+            # "direct users to [team/channel]" / "send them to support@..."
+            re.compile(
+                r"(?:direct|send|redirect)\s+(?:users?|them|customers?)\s+to\s+"
+                r"(?:\S+@\S+|(?:the\s+)?(?:support|help|service)\s+(?:team|desk|channel))",
                 _F,
             ),
         ],

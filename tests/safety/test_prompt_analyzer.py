@@ -610,3 +610,107 @@ class TestExpandedSynonymPatterns:
             "refusal_behavior",
             "Not able to help with that type of request.",
         )
+
+
+# ---------------------------------------------------------------------------
+# New pattern coverage (false negative regression tests)
+# ---------------------------------------------------------------------------
+
+
+class TestRefusalBehaviorNewPatterns:
+    """Regression tests for natural-language refusal patterns added in F-149 cycle."""
+
+    def _check(self, prompt: str) -> bool:
+        result = PromptAnalyzer().analyze(prompt)
+        cr = next(r for r in result.check_results if r.check.id == "refusal_behavior")
+        return cr.passed
+
+    def test_cannot_find_in_knowledge_base(self):
+        assert self._check("I cannot find information about that in my knowledge base.")
+
+    def test_cannot_answer_questions_about(self):
+        assert self._check("I cannot provide an answer to requests outside my scope.")
+
+    def test_not_available_in_knowledge_base(self):
+        assert self._check("That topic is not available in my knowledge base.")
+
+    def test_not_found_in_context(self):
+        assert self._check("Information not found in my context documents.")
+
+    def test_no_false_positive_generic(self):
+        assert not self._check("Help users find answers to their questions.")
+
+
+class TestPIIHandlingNewPatterns:
+    """Regression tests for compliance/GDPR PII patterns."""
+
+    def _check(self, prompt: str) -> bool:
+        result = PromptAnalyzer().analyze(prompt)
+        cr = next(r for r in result.check_results if r.check.id == "pii_handling")
+        return cr.passed
+
+    def test_gdpr_mention(self):
+        assert self._check("We handle your data according to GDPR.")
+
+    def test_hipaa_mention(self):
+        assert self._check("All data is processed in compliance with HIPAA.")
+
+    def test_ccpa_mention(self):
+        assert self._check("User data is handled per CCPA requirements.")
+
+    def test_privacy_policy(self):
+        assert self._check("See our privacy policy for data handling details.")
+
+    def test_data_protection(self):
+        assert self._check("Data protection is our highest priority.")
+
+    def test_handle_your_data(self):
+        assert self._check("We handle your data with care and discretion.")
+
+    def test_no_false_positive_generic(self):
+        assert not self._check("Help users find what they are looking for.")
+
+
+class TestDataScopeNewPatterns:
+    """Regression tests for data scope patterns with intervening adjectives."""
+
+    def _check(self, prompt: str) -> bool:
+        result = PromptAnalyzer().analyze(prompt)
+        cr = next(r for r in result.check_results if r.check.id == "data_scope")
+        return cr.passed
+
+    def test_retrieved_company_knowledge(self):
+        assert self._check("Base your answers strictly on retrieved company knowledge.")
+
+    def test_retrieved_internal_documents(self):
+        assert self._check("Ground responses only on provided internal documents.")
+
+    def test_available_company_sources(self):
+        assert self._check("Draw answers exclusively from available company sources.")
+
+    def test_no_false_positive_generic(self):
+        assert not self._check("Answer user questions accurately and helpfully.")
+
+
+class TestEscalationPathNewPatterns:
+    """Regression tests for email-based escalation patterns."""
+
+    def _check(self, prompt: str) -> bool:
+        result = PromptAnalyzer().analyze(prompt)
+        cr = next(r for r in result.check_results if r.check.id == "escalation_path")
+        return cr.passed
+
+    def test_reach_out_to_email(self):
+        assert self._check("Reach out to hr@company.com for further help.")
+
+    def test_contact_email(self):
+        assert self._check("Contact support@example.com if you need further assistance.")
+
+    def test_email_team(self):
+        assert self._check("Email helpdesk@corp.com for billing questions.")
+
+    def test_direct_users_to_support(self):
+        assert self._check("Direct users to the support team for complex issues.")
+
+    def test_no_false_positive_generic(self):
+        assert not self._check("Help users find what they need.")
