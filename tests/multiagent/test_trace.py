@@ -368,12 +368,19 @@ class TestBuilderChaining:
 class TestAgentRunMultiAgentFields:
     """Test the new multi-agent fields on AgentRun."""
 
-    def test_default_none(self):
+    def test_default_run_id_auto_uuid(self):
         run = AgentRun(input=AgentInput(query="test"))
-        assert run.run_id is None
+        # run_id auto-generates a UUID by default (F-149 fix)
+        assert run.run_id is not None
+        assert len(run.run_id) == 36  # UUID format: 8-4-4-4-12
         assert run.agent_id is None
         assert run.agent_name is None
         assert run.parent_run_id is None
+
+    def test_run_ids_are_unique(self):
+        r1 = AgentRun(input=AgentInput(query="test"))
+        r2 = AgentRun(input=AgentInput(query="test"))
+        assert r1.run_id != r2.run_id
 
     def test_set_fields(self):
         run = AgentRun(
@@ -410,7 +417,8 @@ class TestAgentRunMultiAgentFields:
             "final_output": "world",
         }
         run = AgentRun.model_validate(data)
-        assert run.run_id is None
+        # run_id auto-generates a UUID when omitted from dict (F-149 fix)
+        assert run.run_id is not None
         assert run.agent_id is None
         assert run.succeeded
 

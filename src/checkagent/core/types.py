@@ -7,6 +7,7 @@ Every adapter converts framework-specific data into these types.
 from __future__ import annotations
 
 import time
+import uuid
 from enum import Enum
 from typing import Any
 
@@ -85,7 +86,7 @@ class AgentRun(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     # Multi-agent fields (optional — single-agent runs leave these as None)
-    run_id: str | None = None
+    run_id: str | None = Field(default_factory=lambda: str(uuid.uuid4()))
     agent_id: str | None = None
     agent_name: str | None = None
     parent_run_id: str | None = None
