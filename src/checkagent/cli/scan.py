@@ -1022,10 +1022,12 @@ def _generate_test_file(
     output_field: str | None = None,
     extra_body: dict | None = None,
     headers: dict[str, str] | None = None,
+    passed_probes: list[Probe] | None = None,
 ) -> None:
-    """Generate a pytest file from scan findings.
+    """Generate a complete safety test suite from scan results.
 
-    Each safety category with findings becomes a parametrized test function.
+    Passed probes become regression tests (must keep passing).
+    Failed probes become ``xfail`` tests (known issues, tracked for fixing).
     The generated file is immediately runnable with ``pytest``.
 
     For HTTP targets (``--url``), the fixture calls the endpoint via
@@ -1146,73 +1148,189 @@ def _generate_test_file(
             "",
         ]
 
-    for cat_name, cat_findings in sorted(by_category.items()):
-        # Deduplicate by probe input
-        seen_inputs: set[str] = set()
-        unique_probes: list[Probe] = []
-        for probe, _finding in cat_findings:
-            if probe.input not in seen_inputs:
-                seen_inputs.add(probe.input)
-                unique_probes.append(probe)
+    # --- Regression tests for passed probes ---
+    if passed_probes:
+        by_cat: dict[str, list[Probe]] = defaultdict(list)
+        for p in passed_probes:
+            by_cat[p.category.value].append(p)
 
-        # Build parametrize list
-        safe_cat = cat_name.replace(" ", "_").replace("-", "_")
-        func_name = f"test_{safe_cat}_safety"
+        for cat_name, cat_probes in sorted(by_cat.items()):
+            seen_inputs: set[str] = set()
+            unique: list[Probe] = []
+            for p in cat_probes:
+                if p.input not in seen_inputs:
+                    seen_inputs.add(p.input)
+                    unique.append(p)
 
-        lines.append("")
-        lines.append("@pytest.mark.parametrize(")
-        lines.append('    "probe_input",')
-        lines.append("    [")
+            safe_cat = cat_name.replace(" ", "_").replace("-", "_")
+            func_name = f"test_{safe_cat}_regression"
 
-        for probe in unique_probes:
-            escaped = probe.input.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
-            label = (probe.name or escaped[:40]).replace('"', '\\"')
-            lines.append(f'        pytest.param("{escaped}", id="{label}"),')
-
-        lines.append("    ],")
-        lines.append(")")
-        lines.append(f"def {func_name}(agent_fn, probe_input, baseline_response):")
-        lines.append(f'    """Regression: agent must not trigger {cat_name} findings."""')
-        if is_http:
-            # HTTP fixture returns a plain string — no async needed
-            lines.append("    text = agent_fn(probe_input)")
-        else:
-            lines.append("    import asyncio")
             lines.append("")
-            lines.append("    coro = agent_fn(probe_input)")
-            lines.append("    if asyncio.iscoroutine(coro):")
-            lines.append("        output = asyncio.run(coro)")
-            lines.append("    else:")
-            lines.append("        output = coro")
+            lines.append("@pytest.mark.parametrize(")
+            lines.append('    "probe_input",')
+            lines.append("    [")
+
+            for p in unique:
+                escaped = (
+                    p.input.replace("\\", "\\\\")
+                    .replace('"', '\\"')
+                    .replace("\n", "\\n")
+                )
+                label = (p.name or escaped[:40]).replace('"', '\\"')
+                lines.append(
+                    f'        pytest.param("{escaped}", id="{label}"),'
+                )
+
+            lines.append("    ],")
+            lines.append(")")
+            lines.append(
+                f"def {func_name}(agent_fn, probe_input, baseline_response):"
+            )
+            lines.append(
+                f'    """Regression: agent passed these {cat_name}'
+                f' probes — must keep passing."""'
+            )
+            if is_http:
+                lines.append("    text = agent_fn(probe_input)")
+            else:
+                lines.append("    import asyncio")
+                lines.append("")
+                lines.append("    coro = agent_fn(probe_input)")
+                lines.append("    if asyncio.iscoroutine(coro):")
+                lines.append("        output = asyncio.run(coro)")
+                lines.append("    else:")
+                lines.append("        output = coro")
+                lines.append("")
+                lines.append("    if isinstance(output, str):")
+                lines.append("        text = output")
+                lines.append("    elif isinstance(output, dict):")
+                lines.append(
+                    '        text = str(output.get("output", output))'
+                )
+                lines.append('    elif hasattr(output, "final_output"):')
+                lines.append(
+                    "        text = str(output.final_output)"
+                    " if output.final_output else ''"
+                )
+                lines.append("    else:")
+                lines.append("        text = str(output)")
             lines.append("")
-            lines.append("    if isinstance(output, str):")
-            lines.append("        text = output")
-            lines.append("    elif isinstance(output, dict):")
-            lines.append('        text = str(output.get("output", output))')
-            lines.append('    elif hasattr(output, "final_output"):')
-            lines.append("        text = str(output.final_output) if output.final_output else ''")
-            lines.append("    else:")
-            lines.append("        text = str(output)")
+            lines.append(
+                "    findings = evaluate_output_with_baseline("
+                "text, baseline_response,"
+                f' category="{cat_name}")'
+            )
+            cat_var = f"{safe_cat}_findings"
+            lines.append(
+                f'    {cat_var} = [f for f in findings'
+                f' if f.category.value == "{cat_name}"]'
+            )
+            lines.append(f"    assert not {cat_var}, (")
+            lines.append(
+                f'        f"Regression: agent now FAILS {{len({cat_var})}}'
+                f' {cat_name} probe(s) that previously passed: "'
+            )
+            lines.append(
+                f'        f"{{[f.description for f in {cat_var}]}}"'
+            )
+            lines.append("    )")
+            lines.append("")
+
+    # --- xfail tests for known failures (findings) ---
+    if findings:
         lines.append("")
-        lines.append(
-            f'    findings = evaluate_output_with_baseline(text, baseline_response,'
-            f' category="{cat_name}")'
-        )
-        var = f"{safe_cat}_findings"
-        lines.append(
-            f'    {var} = [f for f in findings'
-            f' if f.category.value == "{cat_name}"]'
-        )
-        lines.append(f"    assert not {var}, (")
-        lines.append(
-            f'        f"Agent triggered {{len({var})}}'
-            f' {cat_name} finding(s): "'
-        )
-        lines.append(
-            f'        f"{{[f.description for f in {var}]}}"'
-        )
-        lines.append("    )")
+        lines.append("# Known failures — tracked for remediation.")
+        lines.append("# Remove @pytest.mark.xfail once the agent is fixed.")
         lines.append("")
+
+        xfail_by_cat: dict[str, list[tuple[Probe, SafetyFinding]]] = defaultdict(list)
+        for probe, _output, finding in findings:
+            xfail_by_cat[finding.category.value].append((probe, finding))
+
+        for cat_name, cat_items in sorted(xfail_by_cat.items()):
+            seen_inputs2: set[str] = set()
+            unique2: list[Probe] = []
+            for p2, _f2 in cat_items:
+                if p2.input not in seen_inputs2:
+                    seen_inputs2.add(p2.input)
+                    unique2.append(p2)
+
+            safe_cat = cat_name.replace(" ", "_").replace("-", "_")
+            func_name = f"test_{safe_cat}_known_failures"
+
+            lines.append("")
+            lines.append(
+                '@pytest.mark.xfail(reason="Known safety gap — fix and remove xfail")'
+            )
+            lines.append("@pytest.mark.parametrize(")
+            lines.append('    "probe_input",')
+            lines.append("    [")
+
+            for p2 in unique2:
+                escaped = (
+                    p2.input.replace("\\", "\\\\")
+                    .replace('"', '\\"')
+                    .replace("\n", "\\n")
+                )
+                label = (p2.name or escaped[:40]).replace('"', '\\"')
+                lines.append(
+                    f'        pytest.param("{escaped}", id="{label}"),'
+                )
+
+            lines.append("    ],")
+            lines.append(")")
+            lines.append(
+                f"def {func_name}(agent_fn, probe_input, baseline_response):"
+            )
+            lines.append(
+                f'    """Known: agent fails these {cat_name}'
+                f' probes. Fix the agent, then remove xfail."""'
+            )
+            if is_http:
+                lines.append("    text = agent_fn(probe_input)")
+            else:
+                lines.append("    import asyncio")
+                lines.append("")
+                lines.append("    coro = agent_fn(probe_input)")
+                lines.append("    if asyncio.iscoroutine(coro):")
+                lines.append("        output = asyncio.run(coro)")
+                lines.append("    else:")
+                lines.append("        output = coro")
+                lines.append("")
+                lines.append("    if isinstance(output, str):")
+                lines.append("        text = output")
+                lines.append("    elif isinstance(output, dict):")
+                lines.append(
+                    '        text = str(output.get("output", output))'
+                )
+                lines.append('    elif hasattr(output, "final_output"):')
+                lines.append(
+                    "        text = str(output.final_output)"
+                    " if output.final_output else ''"
+                )
+                lines.append("    else:")
+                lines.append("        text = str(output)")
+            lines.append("")
+            lines.append(
+                "    findings = evaluate_output_with_baseline("
+                "text, baseline_response,"
+                f' category="{cat_name}")'
+            )
+            cat_var = f"{safe_cat}_findings"
+            lines.append(
+                f'    {cat_var} = [f for f in findings'
+                f' if f.category.value == "{cat_name}"]'
+            )
+            lines.append(f"    assert not {cat_var}, (")
+            lines.append(
+                f'        f"Agent triggered {{len({cat_var})}}'
+                f' {cat_name} finding(s): "'
+            )
+            lines.append(
+                f'        f"{{[f.description for f in {cat_var}]}}"'
+            )
+            lines.append("    )")
+            lines.append("")
 
     output_path.write_text("\n".join(lines))
 
@@ -1709,6 +1827,7 @@ def scan_cmd(
     stable_fail = 0
     all_findings: list[tuple[Probe, str | None, SafetyFinding]] = []
     all_traces: list[list[dict]] = []  # parallel to all_findings
+    passed_probes: list[Probe] = []
     findings_by_category: dict[
         str, list[tuple[Probe, str | None, SafetyFinding]]
     ] = defaultdict(list)
@@ -1796,6 +1915,7 @@ def scan_cmd(
         else:
             passed += 1
             stable_pass += 1
+            passed_probes.append(probe)
 
     # Detect server-unreachable scenario for HTTP targets: all probes errored,
     # no findings, score would be 0.0.  Surface a clear diagnostic rather than
@@ -1991,8 +2111,8 @@ def scan_cmd(
                 f"\n[green]Badge written → [bold]{badge_path}[/bold][/green]"
             )
 
-    # Generate test file from findings
-    if generate_tests and all_findings:
+    # Generate test file from findings + passed probes
+    if generate_tests and (all_findings or passed_probes):
         out_path = Path(generate_tests)
         _generate_test_file(
             display_target,
@@ -2002,13 +2122,20 @@ def scan_cmd(
             output_field=output_field,
             extra_body=parsed_extra_body,
             headers=parsed_headers or None,
+            passed_probes=passed_probes,
+        )
+        n_fail = len(all_findings)
+        n_pass = len(passed_probes)
+        out_console.print(
+            f"\n[green]Generated test suite → [bold]{out_path}[/bold][/green]"
         )
         out_console.print(
-            f"\n[green]Generated {len(all_findings)} test(s) → [bold]{out_path}[/bold][/green]"
+            f"  {n_pass} regression test(s) (passed probes)"
+            + (f" + {n_fail} xfail test(s) (findings)" if n_fail else "")
         )
         out_console.print(f"  Run with: [cyan]pytest {out_path} -v[/cyan]\n")
-    elif generate_tests and not all_findings:
-        out_console.print("\n[dim]No findings to generate tests from.[/dim]\n")
+    elif generate_tests:
+        out_console.print("\n[dim]No probes ran — nothing to generate.[/dim]\n")
 
     # Generate HTML compliance report
     if report_file:

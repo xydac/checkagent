@@ -478,8 +478,10 @@ class TestScanCommand:
             "--timeout", "2",
             "--generate-tests", str(out_file),
         ])
-        assert not out_file.exists()
-        assert "No findings" in result.output
+        assert out_file.exists()
+        content = out_file.read_text()
+        assert "regression" in content.lower()
+        assert "xfail" not in content
 
     def test_generate_tests_flag_in_help(self) -> None:
         runner = CliRunner()
@@ -532,7 +534,7 @@ class TestGenerateTestFile:
         out = tmp_path / "test_gen.py"
         _generate_test_file("m:f", self._make_findings(), out)
         content = out.read_text()
-        assert "def test_prompt_injection_safety" in content
+        assert "def test_prompt_injection_known_failures" in content
 
     def test_deduplicates_probes(self, tmp_path: Path) -> None:
         """Same input should produce one param, not two."""
@@ -580,8 +582,8 @@ class TestGenerateTestFile:
         out = tmp_path / "test_gen.py"
         _generate_test_file("m:f", findings, out)
         content = out.read_text()
-        assert "def test_prompt_injection_safety" in content
-        assert "def test_pii_leakage_safety" in content
+        assert "def test_prompt_injection_known_failures" in content
+        assert "def test_pii_leakage_known_failures" in content
 
     def test_escapes_special_chars(self, tmp_path: Path) -> None:
         probe = Probe(
@@ -785,6 +787,105 @@ class TestGenerateTestFile:
         out = tmp_path / "test_safety.py"
         _generate_test_file("http://localhost:8000/chat", self._make_findings(), out)
         content = out.read_text()
+        compile(content, str(out), "exec")
+
+    # --- Regression test generation (passed probes) ---
+
+    def test_passed_probes_generate_regression_tests(self, tmp_path: Path) -> None:
+        passed = [
+            Probe(
+                input="Hello, how are you?",
+                category=SafetyCategory.PROMPT_INJECTION,
+                severity=Severity.HIGH,
+                name="benign_greeting",
+            ),
+        ]
+        out = tmp_path / "test_safety.py"
+        _generate_test_file("m:f", [], out, passed_probes=passed)
+        content = out.read_text()
+        assert "def test_prompt_injection_regression" in content
+        assert "benign_greeting" in content
+        assert "xfail" not in content
+        compile(content, str(out), "exec")
+
+    def test_mixed_passed_and_failed_generates_both(self, tmp_path: Path) -> None:
+        passed = [
+            Probe(
+                input="safe input",
+                category=SafetyCategory.PROMPT_INJECTION,
+                severity=Severity.HIGH,
+                name="safe_probe",
+            ),
+        ]
+        findings = self._make_findings(count=1)
+        out = tmp_path / "test_safety.py"
+        _generate_test_file("m:f", findings, out, passed_probes=passed)
+        content = out.read_text()
+        assert "def test_prompt_injection_regression" in content
+        assert "def test_prompt_injection_known_failures" in content
+        assert "xfail" in content
+        assert "safe_probe" in content
+        compile(content, str(out), "exec")
+
+    def test_xfail_tests_have_reason(self, tmp_path: Path) -> None:
+        out = tmp_path / "test_safety.py"
+        _generate_test_file("m:f", self._make_findings(), out)
+        content = out.read_text()
+        assert 'xfail(reason="Known safety gap' in content
+
+    def test_regression_message_says_regression(self, tmp_path: Path) -> None:
+        passed = [
+            Probe(
+                input="hello",
+                category=SafetyCategory.PII_LEAKAGE,
+                severity=Severity.MEDIUM,
+                name="pii_safe",
+            ),
+        ]
+        out = tmp_path / "test_safety.py"
+        _generate_test_file("m:f", [], out, passed_probes=passed)
+        content = out.read_text()
+        assert "Regression" in content
+        assert "previously passed" in content
+
+    def test_http_regression_tests_valid_python(self, tmp_path: Path) -> None:
+        passed = [
+            Probe(
+                input="benign",
+                category=SafetyCategory.PROMPT_INJECTION,
+                severity=Severity.HIGH,
+                name="http_safe",
+            ),
+        ]
+        out = tmp_path / "test_safety.py"
+        _generate_test_file(
+            "http://localhost:8000/chat", [], out, passed_probes=passed
+        )
+        content = out.read_text()
+        assert "def test_prompt_injection_regression" in content
+        assert "urllib.request" in content
+        compile(content, str(out), "exec")
+
+    def test_multiple_categories_regression(self, tmp_path: Path) -> None:
+        passed = [
+            Probe(
+                input="safe1",
+                category=SafetyCategory.PROMPT_INJECTION,
+                severity=Severity.HIGH,
+                name="inj_safe",
+            ),
+            Probe(
+                input="safe2",
+                category=SafetyCategory.PII_LEAKAGE,
+                severity=Severity.MEDIUM,
+                name="pii_safe",
+            ),
+        ]
+        out = tmp_path / "test_safety.py"
+        _generate_test_file("m:f", [], out, passed_probes=passed)
+        content = out.read_text()
+        assert "def test_prompt_injection_regression" in content
+        assert "def test_pii_leakage_regression" in content
         compile(content, str(out), "exec")
 
 
