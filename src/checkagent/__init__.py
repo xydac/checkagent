@@ -113,6 +113,8 @@ from checkagent.safety.prompt_analyzer import (
     PromptAnalysisResult,
     PromptAnalyzer,
     PromptCheck,
+    TargetedProbeSet,
+    generate_targeted_probes,
 )
 from checkagent.safety.refusal import RefusalComplianceChecker
 from checkagent.safety.system_prompt import SystemPromptLeakDetector
@@ -255,6 +257,8 @@ __all__ = [
     "PromptAnalyzer",
     "PromptCheck",
     "PromptInjectionDetector",
+    "TargetedProbeSet",
+    "generate_targeted_probes",
     "RefusalComplianceChecker",
     "SafetyCategory",
     "SafetyEvaluator",
