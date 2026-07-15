@@ -9,7 +9,13 @@ gaps before running the full scan.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from checkagent.safety.probes.base import Probe, ProbeSet
+    from checkagent.safety.taxonomy import SafetyCategory, Severity
 
 # ---------------------------------------------------------------------------
 # Data model
@@ -601,12 +607,46 @@ _CHECK_TO_PROBE_CATEGORY: dict[str, str] = {
 
 @dataclass
 class TargetedProbeSet:
-    """Probes generated from analyze-prompt gaps."""
+    """Probes generated from analyze-prompt gaps.
+
+    Implements the :class:`~checkagent.safety.probes.base.ProbeSet` protocol
+    so it can be used directly in ``pytest.mark.parametrize``, ``filter()``,
+    and ``+`` composition without manual unwrapping.
+    """
 
     probes: list[object]
     source_checks: list[str]
     total_count: int
     categories_targeted: list[str] = field(default_factory=list)
+
+    def __iter__(self) -> Iterator[Probe]:
+        return iter(self.probes)  # type: ignore[return-value]
+
+    def __len__(self) -> int:
+        return self.total_count
+
+    def filter(
+        self,
+        *,
+        tags: set[str] | None = None,
+        category: SafetyCategory | str | None = None,
+        severity: Severity | str | None = None,
+    ) -> ProbeSet:
+        """Return a filtered :class:`~checkagent.safety.probes.base.ProbeSet`."""
+        from checkagent.safety.probes.base import ProbeSet
+
+        return ProbeSet(list(self.probes)).filter(  # type: ignore[arg-type]
+            tags=tags, category=category, severity=severity
+        )
+
+    def __add__(self, other: object) -> ProbeSet:
+        """Concatenate with another ProbeSet or TargetedProbeSet."""
+        from checkagent.safety.probes.base import ProbeSet
+
+        mine = ProbeSet(list(self.probes))  # type: ignore[arg-type]
+        if isinstance(other, TargetedProbeSet):
+            return mine + ProbeSet(list(other.probes))  # type: ignore[arg-type]
+        return mine + other  # type: ignore[operator]
 
 
 def generate_targeted_probes(

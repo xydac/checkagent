@@ -814,3 +814,46 @@ class TestGenerateTargetedProbes:
         )
         assert callable(generate_targeted_probes)
         assert TargetedProbeSet is not None
+
+    def test_targeted_probe_set_is_iterable(self):
+        """F-150: TargetedProbeSet must support iteration directly."""
+        analyzer = PromptAnalyzer()
+        result = analyzer.analyze("You are a helpful assistant.")
+        targeted = generate_targeted_probes(result)
+        probes = list(targeted)
+        assert len(probes) == targeted.total_count
+
+    def test_targeted_probe_set_has_len(self):
+        analyzer = PromptAnalyzer()
+        result = analyzer.analyze("You are a helpful assistant.")
+        targeted = generate_targeted_probes(result)
+        assert len(targeted) == targeted.total_count
+
+    def test_targeted_probe_set_filter_returns_probe_set(self):
+        from checkagent.safety.probes.base import ProbeSet
+
+        analyzer = PromptAnalyzer()
+        result = analyzer.analyze("You are a helpful assistant.")
+        targeted = generate_targeted_probes(result)
+        filtered = targeted.filter(tags={"targeted"})
+        assert isinstance(filtered, ProbeSet)
+
+    def test_targeted_probe_set_add_with_probe_set(self):
+        from checkagent.safety.probes.base import ProbeSet
+
+        analyzer = PromptAnalyzer()
+        result = analyzer.analyze("You are a helpful assistant.")
+        targeted = generate_targeted_probes(result)
+        combined = targeted + ProbeSet()
+        assert isinstance(combined, ProbeSet)
+        assert len(combined) == len(targeted)
+
+    def test_targeted_probe_set_add_two_targeted(self):
+        from checkagent.safety.probes.base import ProbeSet
+
+        analyzer = PromptAnalyzer()
+        result = analyzer.analyze("You are a helpful assistant.")
+        t1 = generate_targeted_probes(result)
+        t2 = generate_targeted_probes(result)
+        combined = t1 + t2
+        assert isinstance(combined, ProbeSet)
