@@ -17,8 +17,8 @@ def main(ctx: click.Context) -> None:
 # Import subcommands to register them with the group
 from checkagent.cli.ablate_prompt import ablate_prompt_cmd  # noqa: E402
 from checkagent.cli.analyze_prompt import analyze_prompt_cmd  # noqa: E402
-from checkagent.cli.compare import compare_cmd  # noqa: E402
 from checkagent.cli.ci_init import ci_init_cmd  # noqa: E402
+from checkagent.cli.compare import compare_cmd  # noqa: E402
 from checkagent.cli.dashboard_cmd import dashboard_cmd  # noqa: E402
 from checkagent.cli.demo import demo_cmd  # noqa: E402
 from checkagent.cli.diff import diff_cmd  # noqa: E402

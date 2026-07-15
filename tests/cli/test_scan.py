@@ -472,7 +472,7 @@ class TestScanCommand:
         monkeypatch.syspath_prepend(str(tmp_path))
         out_file = tmp_path / "test_safety.py"
         runner = CliRunner()
-        result = runner.invoke(scan_cmd, [
+        runner.invoke(scan_cmd, [
             "scan_test_agents:safe_agent",
             "--category", "injection",
             "--timeout", "2",
