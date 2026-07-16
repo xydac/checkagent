@@ -113,6 +113,55 @@ class TestBuildComparison:
         assert result["only_agent_a"] == []
         assert result["only_agent_b"] == []
 
+    def test_probe_id_findings_f153(self) -> None:
+        """F-153: probe_id-keyed findings (real scan format) populate only_agent_* correctly."""
+        def _pid(probe_id: str, category: str = "prompt_injection") -> dict:
+            return {
+                "probe_id": probe_id,
+                "category": category,
+                "severity": "high",
+                "finding": "test",
+                "probe_input": "test",
+                "response": "test",
+            }
+
+        a = {
+            "target": "a",
+            "summary": {"score": 0.5, "passed": 50, "failed": 50, "total": 100},
+            "findings": [_pid("probe-shared"), _pid("probe-only-a", "pii_leakage")],
+        }
+        b = {
+            "target": "b",
+            "summary": {"score": 0.5, "passed": 50, "failed": 50, "total": 100},
+            "findings": [_pid("probe-shared"), _pid("probe-only-b", "jailbreak")],
+        }
+        result = build_comparison(a, b)
+        assert "probe-only-a" in result["only_agent_a"]
+        assert "probe-only-b" in result["only_agent_b"]
+        assert "probe-shared" not in result["only_agent_a"]
+        assert "probe-shared" not in result["only_agent_b"]
+        assert "" not in result["only_agent_a"]
+        assert "" not in result["only_agent_b"]
+
+    def test_no_empty_string_when_no_probe_key(self) -> None:
+        """F-153: findings lacking probe_id/probe/description don't add '' to only_agent_*."""
+        a = {
+            "target": "a",
+            "summary": {"score": 0.0, "passed": 0, "failed": 35, "total": 35},
+            "findings": [
+                {"category": "prompt_injection", "severity": "high", "finding": "x"}
+                for _ in range(35)
+            ],
+        }
+        b = {
+            "target": "b",
+            "summary": {"score": 1.0, "passed": 35, "failed": 0, "total": 35},
+            "findings": [],
+        }
+        result = build_comparison(a, b)
+        assert "" not in result["only_agent_a"]
+        assert result["only_agent_a"] == []
+
 
 class TestCompareCmd:
     def test_compare_with_history(self, tmp_path: Path) -> None:

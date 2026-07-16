@@ -69,15 +69,12 @@ def build_comparison(record_a: dict, record_b: dict) -> dict:
             "delta": b_count - a_count,
         })
 
-    # Unique findings: probes that failed on one but not the other
-    a_probes = {
-        f.get("probe", f.get("description", ""))
-        for f in record_a.get("findings", [])
-    }
-    b_probes = {
-        f.get("probe", f.get("description", ""))
-        for f in record_b.get("findings", [])
-    }
+    # Unique failing probe IDs: probes that failed on one but not the other
+    def _probe_key(f: dict) -> str:
+        return f.get("probe_id") or f.get("probe") or f.get("description") or ""
+
+    a_probes = {_probe_key(f) for f in record_a.get("findings", []) if _probe_key(f)}
+    b_probes = {_probe_key(f) for f in record_b.get("findings", []) if _probe_key(f)}
     only_a = sorted(a_probes - b_probes)
     only_b = sorted(b_probes - a_probes)
 
