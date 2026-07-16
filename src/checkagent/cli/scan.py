@@ -1448,6 +1448,17 @@ def _generate_test_file(
     ),
 )
 @click.option(
+    "--targeted",
+    "targeted",
+    is_flag=True,
+    default=False,
+    help=(
+        "Use targeted probes derived from --prompt-file analysis instead of the full "
+        "probe catalog. Only probes matching gaps found in the prompt are run, "
+        "dramatically reducing scan time. Requires --prompt-file."
+    ),
+)
+@click.option(
     "--repeat", "-r",
     type=int,
     default=1,
@@ -1561,6 +1572,7 @@ def scan_cmd(
     agent_description: str | None,
     badge: str | None,
     prompt_file: str | None,
+    targeted: bool,
     repeat: int,
     sarif_file: str | None,
     report_file: str | None,
@@ -1590,6 +1602,7 @@ def scan_cmd(
         checkagent scan my_agent:run --json
         checkagent scan my_agent:run --sarif scan.sarif
         checkagent scan my_agent:run --interactive
+        checkagent scan my_agent:run --prompt-file prompt.txt --targeted
     """
     # Validate: exactly one scan mode must be provided
     modes = sum(bool(x) for x in (target, url, system_prompt))
@@ -1615,6 +1628,11 @@ def scan_cmd(
         raise click.BadParameter(
             "Repeat count must be at least 1.",
             param_hint="--repeat",
+        )
+    if targeted and not prompt_file:
+        raise click.UsageError(
+            "--targeted requires --prompt-file. "
+            "Example: checkagent scan my_agent:fn --prompt-file prompt.txt --targeted"
         )
 
     # Validate model names early (detect provider before running probes)
@@ -1724,7 +1742,24 @@ def scan_cmd(
         agent_fn = _resolve_callable(target)
 
     # Collect probes
-    if category:
+    if targeted and prompt_analysis is not None:
+        from checkagent.safety.prompt_analyzer import generate_targeted_probes
+
+        targeted_set = generate_targeted_probes(prompt_analysis)
+        probes = list(targeted_set)
+        cats_targeted = targeted_set.categories_targeted
+        cats_label = ", ".join(sorted(cats_targeted)) if cats_targeted else "all"
+        out_console.print(
+            f"[blue]Running {len(probes)} targeted probes "
+            f"(from {len(cats_targeted)} gap categories): {cats_label}[/blue]"
+        )
+        if not probes:
+            out_console.print(
+                "[green]No gaps found in prompt analysis — "
+                "no targeted probes needed.[/green]"
+            )
+            sys.exit(0)
+    elif category:
         probes = []
         unknown = []
         for cat in category:
