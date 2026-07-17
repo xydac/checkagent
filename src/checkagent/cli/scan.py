@@ -1453,9 +1453,10 @@ def _generate_test_file(
     is_flag=True,
     default=False,
     help=(
-        "Use targeted probes derived from --prompt-file analysis instead of the full "
-        "probe catalog. Only probes matching gaps found in the prompt are run, "
-        "dramatically reducing scan time. Requires --prompt-file."
+        "Run probes that target your prompt's weakest areas, derived from --prompt-file "
+        "analysis. For prompts with few gaps, this reduces probe count significantly. "
+        "For prompts with many gaps, probe count stays close to the full catalog — "
+        "use it iteratively as you harden your prompt. Requires --prompt-file."
     ),
 )
 @click.option(

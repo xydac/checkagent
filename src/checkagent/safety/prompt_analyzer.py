@@ -163,6 +163,30 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
                 r"(?:to\s+)?(?:change|modify|override|bypass|manipulate|alter)",
                 _F,
             ),
+            # "instructions are fixed / immutable / cannot be changed"
+            re.compile(
+                r"(?:your\s+|these\s+|the\s+)?instructions?\s+"
+                r"(?:are\s+)?(?:fixed|immutable|permanent|cannot\s+be\s+changed|may\s+not\s+be\s+(?:changed|altered|modified))",
+                _F,
+            ),
+            # "user messages/input/instructions cannot override/modify/change"
+            re.compile(
+                r"(?:user\s+(?:messages?|input|instructions?|requests?))\s+"
+                r"(?:cannot|do\s+not|may\s+not|will\s+not)\s+"
+                r"(?:override|modify|change|alter|supersede|replace)",
+                _F,
+            ),
+            # "these rules/instructions take precedence over user" / "supersede user instructions"
+            re.compile(
+                r"(?:take\s+precedence\s+over|supersede)\s+"
+                r"(?:user\s+|any\s+)?(?:messages?|input|instructions?|requests?)",
+                _F,
+            ),
+            re.compile(
+                r"(?:do\s+not|cannot|may\s+not)\s+supersede\s+"
+                r"(?:this|the|these|my|your)\s+(?:prompt|instructions?|guidelines?|rules?)",
+                _F,
+            ),
         ],
         recommendation=(
             "Add an injection guard: "
@@ -245,6 +269,12 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
             re.compile(
                 r"(?:within\s+)?(?:your\s+)?(?:area\s+of\s+(?:expertise|responsibility)|"
                 r"domain\s+of\s+(?:expertise|knowledge)|assigned\s+(?:scope|role|domain))",
+                _F,
+            ),
+            # "your scope is limited/restricted to" / "your knowledge is restricted to"
+            re.compile(
+                r"(?:your\s+)?(?:scope|knowledge|coverage|domain)\s+is\s+"
+                r"(?:limited|restricted|confined)\s+to",
                 _F,
             ),
         ],
@@ -350,6 +380,11 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
             re.compile(
                 r"not\s+(?:available|found|present|covered)\s+in\s+(?:my\s+)?"
                 r"(?:knowledge\s+base|context|documents?|training|data)",
+                _F,
+            ),
+            # "redirect the conversation / redirect the user" for out-of-scope requests
+            re.compile(
+                r"redirect\s+(?:the\s+)?(?:conversation|topic|discussion|user|them)",
                 _F,
             ),
         ],
