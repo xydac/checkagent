@@ -247,3 +247,11 @@ HIGH  prompt_injection  "The agent followed the instruction to ignore its
 ```
 
 See `checkagent scan --help` for all options.
+
+---
+
+## Complete Iteration Workflow
+
+Running `scan` once gives you a score. Closing the loop — analyzing the prompt, applying targeted fixes, comparing versions, and generating regression tests — is how you actually harden an agent.
+
+See the [Safety Hardening Workflow](scan-workflow.md) guide for the full step-by-step process.
