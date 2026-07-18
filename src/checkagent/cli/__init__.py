@@ -26,6 +26,7 @@ from checkagent.cli.history_cmd import history_cmd  # noqa: E402
 from checkagent.cli.import_trace import import_trace_cmd  # noqa: E402
 from checkagent.cli.init import init_cmd  # noqa: E402
 from checkagent.cli.migrate import migrate_cmd  # noqa: E402
+from checkagent.cli.probe_list import probe_list_cmd  # noqa: E402
 from checkagent.cli.run import run_cmd  # noqa: E402
 from checkagent.cli.scan import scan_cmd  # noqa: E402
 from checkagent.cli.stress_prompt import stress_prompt_cmd  # noqa: E402
@@ -43,6 +44,7 @@ main.add_command(history_cmd)
 main.add_command(import_trace_cmd)
 main.add_command(init_cmd)
 main.add_command(migrate_cmd)
+main.add_command(probe_list_cmd)
 main.add_command(run_cmd)
 main.add_command(scan_cmd)
 main.add_command(stress_prompt_cmd)
