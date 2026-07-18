@@ -95,7 +95,10 @@ def build_comparison(record_a: dict, record_b: dict) -> dict:
             "total": sum_b.get("total", 0),
             "date": record_b.get("date", "?"),
         },
+        # score_delta = agent_b_score - agent_a_score (negative means agent_a wins)
         "score_delta": round(score_b - score_a, 4),
+        # margin = absolute score difference (always non-negative)
+        "margin": round(abs(score_b - score_a), 4),
         "categories": categories,
         "only_agent_a": only_a,
         "only_agent_b": only_b,
@@ -197,8 +200,22 @@ def _display_comparison(comparison: dict) -> None:
 
 
 @click.command("compare")
-@click.argument("target_a")
-@click.argument("target_b")
+@click.argument("target_a", required=False, default=None)
+@click.argument("target_b", required=False, default=None)
+@click.option(
+    "--url-a",
+    "url_a",
+    default=None,
+    metavar="URL",
+    help="Compare an HTTP endpoint (alternative to positional TARGET_A).",
+)
+@click.option(
+    "--url-b",
+    "url_b",
+    default=None,
+    metavar="URL",
+    help="Compare an HTTP endpoint (alternative to positional TARGET_B).",
+)
 @click.option(
     "--json", "json_output",
     is_flag=True,
@@ -211,8 +228,10 @@ def _display_comparison(comparison: dict) -> None:
     help="Base directory for .checkagent/history/ (default: cwd).",
 )
 def compare_cmd(
-    target_a: str,
-    target_b: str,
+    target_a: str | None,
+    target_b: str | None,
+    url_a: str | None,
+    url_b: str | None,
     json_output: bool,
     base_dir: str | None,
 ) -> None:
@@ -221,26 +240,38 @@ def compare_cmd(
     Uses the latest scan history for each target.  Run ``checkagent scan``
     on both targets first.
 
-    Examples::
-
+    \b
+    Examples:
         checkagent compare agent_a:fn agent_b:fn
         checkagent compare --url-a http://a/chat --url-b http://b/chat --json
     """
+    resolved_a = url_a or target_a
+    resolved_b = url_b or target_b
+
+    if not resolved_a:
+        raise click.UsageError(
+            "Provide TARGET_A (module:function or URL) or use --url-a http://..."
+        )
+    if not resolved_b:
+        raise click.UsageError(
+            "Provide TARGET_B (module:function or URL) or use --url-b http://..."
+        )
+
     base = Path(base_dir) if base_dir else Path.cwd()
 
-    record_a = _load_latest(target_a, base)
-    record_b = _load_latest(target_b, base)
+    record_a = _load_latest(resolved_a, base)
+    record_b = _load_latest(resolved_b, base)
 
     if record_a is None:
         console.print(
-            f"[red]No scan history for '{target_a}'.[/red]"
-            " Run: checkagent scan " + target_a
+            f"[red]No scan history for '{resolved_a}'.[/red]"
+            " Run: checkagent scan " + resolved_a
         )
         raise SystemExit(1)
     if record_b is None:
         console.print(
-            f"[red]No scan history for '{target_b}'.[/red]"
-            " Run: checkagent scan " + target_b
+            f"[red]No scan history for '{resolved_b}'.[/red]"
+            " Run: checkagent scan " + resolved_b
         )
         raise SystemExit(1)
 

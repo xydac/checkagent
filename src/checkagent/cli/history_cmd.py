@@ -56,6 +56,74 @@ def _trend_summary(records: list) -> str:
     )
 
 
+def _render_category_trends(records: list) -> None:
+    """Show per-category finding counts across scans (newest-first records)."""
+    # Collect all categories across all scans
+    all_cats: dict[str, list[int]] = {}
+    for record in records:
+        findings = record.get("findings", [])
+        cats_in_scan: dict[str, int] = {}
+        for f in findings:
+            cat = f.get("category", "unknown")
+            cats_in_scan[cat] = cats_in_scan.get(cat, 0) + 1
+        for cat in cats_in_scan:
+            if cat not in all_cats:
+                all_cats[cat] = []
+        for cat in all_cats:
+            all_cats[cat].append(cats_in_scan.get(cat, 0))
+
+    if not all_cats:
+        console.print("\n[dim]No findings recorded — no category trend data.[/dim]")
+        return
+
+    console.print()
+    console.print("[bold]Category Trends[/bold] (newest → oldest)")
+    console.print("─" * 50)
+
+    cat_table = Table(show_header=True, header_style="bold dim", show_lines=False)
+    cat_table.add_column("Category", style="white", min_width=22)
+    cat_table.add_column("Trend (newest→oldest)", min_width=18)
+    cat_table.add_column("Now", justify="right", min_width=5)
+    cat_table.add_column("Change", justify="right", min_width=8)
+
+    for cat in sorted(all_cats):
+        counts = all_cats[cat]
+        newest = counts[0]
+        oldest = counts[-1] if len(counts) > 1 else newest
+
+        # Sparkline: each count → bar height (inverted: fewer findings = better)
+        if counts:
+            max_count = max(counts) or 1
+            spark_chars = []
+            for c in reversed(counts):  # oldest → newest for left-to-right reading
+                idx = int((c / max_count) * (len(_SPARK_CHARS) - 1))
+                spark_chars.append(_SPARK_CHARS[idx])
+            spark = "".join(spark_chars)
+        else:
+            spark = ""
+
+        # Change indicator (fewer findings = better = green)
+        if len(counts) < 2:
+            change_str = "[dim]—[/dim]"
+        else:
+            delta = newest - oldest
+            if delta < 0:
+                change_str = f"[green]↓ {abs(delta)} improved[/green]"
+            elif delta > 0:
+                change_str = f"[red]↑ {delta} worse[/red]"
+            else:
+                change_str = "[dim]= stable[/dim]"
+
+        cat_table.add_row(cat, spark, str(newest), change_str)
+
+    console.print(cat_table)
+    console.print(
+        "[dim]Each bar = one scan. Taller bar = more findings in that category "
+        "(lower is better).[/dim]"
+    )
+    console.print()
+
+
 @click.command("history")
 @click.argument("target", required=False, default=None)
 @click.option(
@@ -73,6 +141,13 @@ def _trend_summary(records: list) -> str:
     help="Maximum number of past scans to display.",
 )
 @click.option(
+    "--categories",
+    "show_categories",
+    is_flag=True,
+    default=False,
+    help="Show per-category finding trends across scans.",
+)
+@click.option(
     "--dir",
     "base_dir",
     type=click.Path(file_okay=False),
@@ -80,7 +155,11 @@ def _trend_summary(records: list) -> str:
     help="Project root directory containing .checkagent/. Defaults to current directory.",
 )
 def history_cmd(
-    target: str | None, url_target: str | None, limit: int, base_dir: str | None
+    target: str | None,
+    url_target: str | None,
+    limit: int,
+    show_categories: bool,
+    base_dir: str | None,
 ) -> None:
     """Show scan history for a target.
 
@@ -93,6 +172,7 @@ def history_cmd(
         checkagent history http://localhost:8000/chat
         checkagent history --url http://localhost:8000/chat
         checkagent history sample_agent:sample_agent --limit 5
+        checkagent history my_agent:fn --categories
     """
     from checkagent.cli.history import list_history
 
@@ -161,3 +241,6 @@ def history_cmd(
         f"\n[dim]{len(records)} scan(s) shown. "
         f"Run [bold]checkagent scan {resolved}[/bold] to add a new result.[/dim]"
     )
+
+    if show_categories:
+        _render_category_trends(records)

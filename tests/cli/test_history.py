@@ -547,3 +547,126 @@ class TestSparklineAndTrend:
         result = runner.invoke(history_cmd, ["trend_agent:fn", "--dir", str(tmp_path)])
         assert result.exit_code == 0
         assert "Trend:" in result.output
+
+
+class TestCategoryTrends:
+    """Tests for checkagent history --categories (F-155 follow-up: per-category trends)."""
+
+    def test_categories_flag_no_findings(self, tmp_path):
+        """--categories with no findings shows 'no category trend data'."""
+        import time
+
+        from click.testing import CliRunner
+
+        from checkagent.cli.history import save_scan_result
+        from checkagent.cli.history_cmd import history_cmd
+
+        save_scan_result(
+            "clean_agent:fn",
+            passed=100,
+            failed=0,
+            errors=0,
+            total=100,
+            elapsed=1.0,
+            timestamp=time.time(),
+            base_dir=tmp_path,
+            findings=[],
+        )
+        runner = CliRunner()
+        result = runner.invoke(
+            history_cmd, ["clean_agent:fn", "--dir", str(tmp_path), "--categories"]
+        )
+        assert result.exit_code == 0
+        assert "no category trend data" in result.output.lower()
+
+    def test_categories_flag_shows_breakdown(self, tmp_path):
+        """--categories shows category names and finding counts."""
+        import time
+
+        from click.testing import CliRunner
+
+        from checkagent.cli.history import save_scan_result
+        from checkagent.cli.history_cmd import history_cmd
+
+        findings = [
+            {"category": "prompt_injection", "severity": "high", "probe_id": "p1"},
+            {"category": "prompt_injection", "severity": "high", "probe_id": "p2"},
+            {"category": "pii_leakage", "severity": "medium", "probe_id": "p3"},
+        ]
+        save_scan_result(
+            "my_agent:fn",
+            passed=70,
+            failed=3,
+            errors=0,
+            total=73,
+            elapsed=1.0,
+            timestamp=time.time(),
+            base_dir=tmp_path,
+            findings=findings,
+        )
+        runner = CliRunner()
+        result = runner.invoke(
+            history_cmd, ["my_agent:fn", "--dir", str(tmp_path), "--categories"]
+        )
+        assert result.exit_code == 0
+        assert "Category Trends" in result.output
+        assert "prompt_injection" in result.output
+        assert "pii_leakage" in result.output
+
+    def test_categories_trend_shows_improvement(self, tmp_path):
+        """With multiple scans, --categories shows improvement/regression."""
+        import time
+
+        from click.testing import CliRunner
+
+        from checkagent.cli.history import save_scan_result
+        from checkagent.cli.history_cmd import history_cmd
+
+        findings_old = [
+            {"category": "prompt_injection", "severity": "high", "probe_id": f"p{i}"}
+            for i in range(10)
+        ]
+        findings_new = [
+            {"category": "prompt_injection", "severity": "high", "probe_id": f"p{i}"}
+            for i in range(4)
+        ]
+
+        save_scan_result(
+            "my_agent:fn",
+            passed=90,
+            failed=10,
+            errors=0,
+            total=100,
+            elapsed=1.0,
+            timestamp=time.time() - 100,
+            base_dir=tmp_path,
+            findings=findings_old,
+        )
+        save_scan_result(
+            "my_agent:fn",
+            passed=96,
+            failed=4,
+            errors=0,
+            total=100,
+            elapsed=1.0,
+            timestamp=time.time(),
+            base_dir=tmp_path,
+            findings=findings_new,
+        )
+        runner = CliRunner()
+        result = runner.invoke(
+            history_cmd, ["my_agent:fn", "--dir", str(tmp_path), "--categories"]
+        )
+        assert result.exit_code == 0
+        assert "improved" in result.output
+
+    def test_render_category_trends_function(self):
+        """_render_category_trends handles single-scan and multi-scan records."""
+        from checkagent.cli.history_cmd import _render_category_trends
+
+        records = [
+            {"findings": [{"category": "jailbreak"}, {"category": "jailbreak"}]},
+            {"findings": [{"category": "jailbreak"}]},
+        ]
+        # Should not raise
+        _render_category_trends(records)

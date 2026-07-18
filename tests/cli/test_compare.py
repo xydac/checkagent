@@ -230,3 +230,59 @@ class TestCompareCmd:
         runner = CliRunner()
         result = runner.invoke(compare_cmd, ["--help"])
         assert "Compare safety scan results" in result.output
+
+    def test_url_a_url_b_flags_f155(self, tmp_path: Path) -> None:
+        """F-155: --url-a/--url-b work as alternatives to positional arguments."""
+        _save("http://a/chat", tmp_path, passed=90, failed=10)
+        _save("http://b/chat", tmp_path, passed=80, failed=20)
+
+        runner = CliRunner()
+        result = runner.invoke(compare_cmd, [
+            "--url-a", "http://a/chat",
+            "--url-b", "http://b/chat",
+            "--base-dir", str(tmp_path),
+        ])
+        assert result.exit_code == 0
+        assert "Comparison" in result.output or "Winner" in result.output
+
+    def test_url_a_url_b_json_output(self, tmp_path: Path) -> None:
+        """F-155: --url-a/--url-b with --json produces valid output."""
+        _save("http://a/chat", tmp_path, passed=95, failed=5)
+        _save("http://b/chat", tmp_path, passed=80, failed=20)
+
+        runner = CliRunner()
+        result = runner.invoke(compare_cmd, [
+            "--url-a", "http://a/chat",
+            "--url-b", "http://b/chat",
+            "--base-dir", str(tmp_path),
+            "--json",
+        ])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["winner"] == "agent_a"
+        assert "margin" in data
+
+    def test_missing_both_targets_raises(self, tmp_path: Path) -> None:
+        """F-155: no target_a at all → UsageError with helpful message."""
+        runner = CliRunner()
+        result = runner.invoke(compare_cmd, ["--base-dir", str(tmp_path)])
+        assert result.exit_code != 0
+        assert "TARGET_A" in result.output or "url-a" in result.output
+
+    def test_margin_field_f156(self) -> None:
+        """F-156: margin field is always non-negative, representing absolute score diff."""
+        a = {
+            "target": "a:fn",
+            "summary": {"score": 1.0, "passed": 100, "failed": 0, "total": 100},
+        }
+        b = {
+            "target": "b:fn",
+            "summary": {"score": 0.03, "passed": 3, "failed": 97, "total": 100},
+        }
+        result = build_comparison(a, b)
+        # score_delta = b - a = 0.03 - 1.0 (negative when a wins)
+        assert result["score_delta"] < 0
+        # margin is always positive
+        assert result["margin"] > 0
+        assert result["margin"] == pytest.approx(abs(result["score_delta"]))
+        assert result["winner"] == "agent_a"
