@@ -123,7 +123,11 @@ def probe_list_cmd(
         }
 
     if not categories:
-        valid = sorted(_PROBE_SETS.keys())
+        # Show both short key and display name so users can use either form
+        valid = sorted(
+            f"{_CATEGORY_DISPLAY.get(k, k)} ({k})"
+            for k in _PROBE_SETS
+        )
         raise click.UsageError(
             f"Unknown category '{filter_category}'. "
             f"Valid categories: {', '.join(valid)}"
@@ -173,7 +177,7 @@ def probe_list_cmd(
         console.print()
         console.print(f"[bold]{label}[/bold]")
         console.print("─" * 60)
-        for key, info in categories.items():
+        for _key, info in categories.items():
             if info["examples"]:
                 count_note = f" ({info['count']} total)" if show_verbose else ""
                 console.print(f"\n[cyan]{info['name']}[/cyan]{count_note}")
