@@ -10,6 +10,7 @@ import pytest
 from checkagent.cli.history import (
     _target_id,
     compute_delta,
+    format_category_delta,
     format_delta_line,
     list_history,
     load_previous_result,
@@ -167,6 +168,95 @@ class TestComputeDelta:
         prev = self._make_previous(70, 100)
         delta = compute_delta(80, 100, prev)
         assert delta["previous_date"] == "2026-04-27"
+
+    def test_category_delta_not_present_without_breakdown(self):
+        prev = self._make_previous(70, 100)
+        delta = compute_delta(80, 100, prev)
+        assert "category_delta" not in delta
+
+    def test_category_delta_fixed_findings(self):
+        prev = self._make_previous(70, 100)
+        prev["findings"] = [
+            {"category": "injection"},
+            {"category": "injection"},
+            {"category": "pii"},
+        ]
+        curr_breakdown = {"injection": 1, "pii": 1}
+        delta = compute_delta(80, 100, prev, current_category_breakdown=curr_breakdown)
+        assert "category_delta" in delta
+        assert delta["category_delta"]["injection"] == {"prev": 2, "curr": 1, "delta": -1}
+        assert delta["category_delta"]["pii"] == {"prev": 1, "curr": 1, "delta": 0}
+
+    def test_category_delta_new_category(self):
+        prev = self._make_previous(80, 100)
+        prev["findings"] = [{"category": "injection"}]
+        curr_breakdown = {"injection": 1, "jailbreak": 2}
+        delta = compute_delta(80, 100, prev, current_category_breakdown=curr_breakdown)
+        assert delta["category_delta"]["jailbreak"] == {"prev": 0, "curr": 2, "delta": 2}
+
+    def test_category_delta_cleared_category(self):
+        prev = self._make_previous(70, 100)
+        prev["findings"] = [{"category": "injection"}, {"category": "injection"}]
+        curr_breakdown: dict[str, int] = {}
+        delta = compute_delta(80, 100, prev, current_category_breakdown=curr_breakdown)
+        assert delta["category_delta"]["injection"] == {"prev": 2, "curr": 0, "delta": -2}
+
+    def test_category_delta_no_findings_in_previous(self):
+        prev = self._make_previous(80, 100)
+        curr_breakdown = {"injection": 3}
+        delta = compute_delta(80, 100, prev, current_category_breakdown=curr_breakdown)
+        assert delta["category_delta"]["injection"]["prev"] == 0
+        assert delta["category_delta"]["injection"]["curr"] == 3
+
+
+class TestFormatCategoryDelta:
+    def _make_delta_with_cats(self, cats: dict) -> dict:
+        return {
+            "score_delta": 0.1,
+            "previous_score": 0.7,
+            "current_score": 0.8,
+            "previous_date": "2026-04-27",
+            "previous_failed": 0,
+            "previous_passed": 0,
+            "previous_total": 0,
+            "category_delta": {
+                k: {"prev": v[0], "curr": v[1], "delta": v[1] - v[0]}
+                for k, v in cats.items()
+            },
+        }
+
+    def test_empty_when_no_category_delta(self):
+        delta = {"score_delta": 0.1, "previous_score": 0.7, "current_score": 0.8,
+                 "previous_date": "2026-04-27", "previous_failed": 0,
+                 "previous_passed": 0, "previous_total": 0}
+        assert format_category_delta(delta) == ""
+
+    def test_fixed_shows_green_down_arrow(self):
+        delta = self._make_delta_with_cats({"injection": (3, 1)})
+        output = format_category_delta(delta)
+        assert "↓2 fixed" in output
+        assert "green" in output
+
+    def test_new_shows_red_up_arrow(self):
+        delta = self._make_delta_with_cats({"jailbreak": (0, 2)})
+        output = format_category_delta(delta)
+        assert "↑2 new" in output
+        assert "red" in output
+
+    def test_unchanged_shows_dim(self):
+        delta = self._make_delta_with_cats({"pii": (1, 1)})
+        output = format_category_delta(delta)
+        assert "= unchanged" in output
+
+    def test_shows_prev_to_curr_counts(self):
+        delta = self._make_delta_with_cats({"injection": (5, 3)})
+        output = format_category_delta(delta)
+        assert "5 → 3" in output
+
+    def test_uses_display_name(self):
+        delta = self._make_delta_with_cats({"injection": (2, 1)})
+        output = format_category_delta(delta)
+        assert "prompt_injection" in output
 
 
 class TestFormatDeltaLine:

@@ -1998,6 +1998,7 @@ def scan_cmd(
     # Load history before output so delta can be included in --json mode
     from checkagent.cli.history import (
         compute_delta,
+        format_category_delta,
         format_delta_line,
         load_previous_result,
         save_scan_result,
@@ -2055,13 +2056,26 @@ def scan_cmd(
                 ),
             }
         if _scan_previous is not None:
-            _delta = compute_delta(passed, total, _scan_previous)
+            _json_cat_breakdown = {
+                cat: len(items)
+                for cat, items in findings_by_category.items()
+                if items
+            }
+            _delta = compute_delta(
+                passed,
+                total,
+                _scan_previous,
+                current_category_breakdown=_json_cat_breakdown,
+            )
             report["history"] = {
                 "previous_date": _delta["previous_date"],
                 "previous_score": _delta["previous_score"],
                 "current_score": _delta["current_score"],
                 "score_delta": _delta["score_delta"],
+                "margin": abs(_delta["score_delta"]),
             }
+            if "category_delta" in _delta:
+                report["history"]["category_delta"] = _delta["category_delta"]
         if show_diff:
             if _scan_previous is not None and "findings" in _scan_previous:
                 from checkagent.cli.diff import compute_diff as _compute_diff
@@ -2245,8 +2259,21 @@ def scan_cmd(
             evaluator=llm_judge if llm_judge else "regex",
         )
         if _scan_previous is not None and not json_output:
-            _rich_delta = compute_delta(passed, total, _scan_previous)
+            _curr_cat_breakdown = {
+                cat: len(items)
+                for cat, items in findings_by_category.items()
+                if items
+            }
+            _rich_delta = compute_delta(
+                passed,
+                total,
+                _scan_previous,
+                current_category_breakdown=_curr_cat_breakdown,
+            )
             out_console.print(format_delta_line(_rich_delta))
+            _cat_lines = format_category_delta(_rich_delta)
+            if _cat_lines:
+                out_console.print(_cat_lines)
     except OSError:
         pass  # history write failures must never break the scan exit code
 

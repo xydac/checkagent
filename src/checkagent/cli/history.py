@@ -135,6 +135,8 @@ def compute_delta(
     current_passed: int,
     current_total: int,
     previous: dict[str, Any],
+    *,
+    current_category_breakdown: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     """Compute the delta between the current scan and a previous result."""
     prev_summary = previous.get("summary", {})
@@ -147,7 +149,7 @@ def compute_delta(
 
     prev_failed = prev_summary.get("failed", 0)
 
-    return {
+    result: dict[str, Any] = {
         "previous_date": previous.get("date", "?"),
         "previous_score": prev_score,
         "current_score": round(current_score, 4),
@@ -156,6 +158,25 @@ def compute_delta(
         "previous_passed": prev_passed,
         "previous_total": prev_total,
     }
+
+    if current_category_breakdown is not None:
+        # Compute per-category finding counts from stored previous findings
+        prev_cat: dict[str, int] = {}
+        for f in previous.get("findings", []):
+            cat = f.get("category", "unknown")
+            prev_cat[cat] = prev_cat.get(cat, 0) + 1
+
+        all_cats = sorted(
+            set(list(current_category_breakdown.keys()) + list(prev_cat.keys()))
+        )
+        cat_delta: dict[str, dict[str, int]] = {}
+        for cat in all_cats:
+            curr_n = current_category_breakdown.get(cat, 0)
+            prev_n = prev_cat.get(cat, 0)
+            cat_delta[cat] = {"prev": prev_n, "curr": curr_n, "delta": curr_n - prev_n}
+        result["category_delta"] = cat_delta
+
+    return result
 
 
 def format_delta_line(delta: dict[str, Any]) -> str:
@@ -182,6 +203,43 @@ def format_delta_line(delta: dict[str, Any]) -> str:
         f"[{style}]{arrow} {change} from last scan[/{style}]"
         f" [dim](was {prev_pct}% on {prev_date})[/dim]"
     )
+
+
+def format_category_delta(delta: dict[str, Any]) -> str:
+    """Format per-category finding counts as a compact Rich markup table.
+
+    Returns empty string if no category_delta in *delta*.
+    """
+    cat_delta = delta.get("category_delta")
+    if not cat_delta:
+        return ""
+
+    _DISPLAY = {
+        "injection": "prompt_injection",
+        "jailbreak": "jailbreak",
+        "pii": "pii_leakage",
+        "scope": "scope_boundary",
+        "data_enumeration": "data_enumeration",
+        "groundedness": "groundedness",
+    }
+
+    rows: list[str] = []
+    for cat, counts in sorted(cat_delta.items()):
+        prev_n = counts["prev"]
+        curr_n = counts["curr"]
+        d = counts["delta"]
+        name = _DISPLAY.get(cat, cat)
+        if d < 0:
+            indicator = f"[green]↓{abs(d)} fixed[/green]"
+        elif d > 0:
+            indicator = f"[red]↑{d} new[/red]"
+        else:
+            indicator = "[dim]= unchanged[/dim]"
+        rows.append(
+            f"  [dim]{name:<22}[/dim] {prev_n} → {curr_n}  {indicator}"
+        )
+
+    return "\n".join(rows)
 
 
 def list_history(
