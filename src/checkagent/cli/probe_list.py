@@ -10,6 +10,7 @@ import json as json_mod
 import click
 from rich import box
 from rich.console import Console
+from rich.markup import escape as _escape
 from rich.table import Table
 
 console = Console()
@@ -57,7 +58,14 @@ _CATEGORY_DISPLAY: dict[str, str] = {
     "show_examples",
     is_flag=True,
     default=False,
-    help="Show example probe inputs for each category.",
+    help="Show 3 example probe inputs per category.",
+)
+@click.option(
+    "--verbose",
+    "show_verbose",
+    is_flag=True,
+    default=False,
+    help="Show all probe inputs (full text). Useful for security audits.",
 )
 @click.option(
     "--json",
@@ -69,18 +77,21 @@ _CATEGORY_DISPLAY: dict[str, str] = {
 def probe_list_cmd(
     filter_category: str | None,
     show_examples: bool,
+    show_verbose: bool,
     json_output: bool,
 ) -> None:
     """List all built-in safety probe categories and templates.
 
     Shows what CheckAgent tests during a scan, organized by category and
-    mapped to the OWASP LLM Top 10. Use --examples to see sample probe inputs.
+    mapped to the OWASP LLM Top 10. Use --examples to see sample probe inputs,
+    or --verbose to see the complete probe text for security audits.
 
     \b
     Examples:
         checkagent probe-list
         checkagent probe-list --category injection
         checkagent probe-list --examples
+        checkagent probe-list --verbose --category pii
         checkagent probe-list --json
     """
     from checkagent.cli.scan import _PROBE_SETS  # noqa: PLC0415
@@ -91,12 +102,24 @@ def probe_list_cmd(
         display = _CATEGORY_DISPLAY.get(key, key)
         if filter_category and filter_category not in (key, display):
             continue
+
+        if show_verbose:
+            example_inputs = [p.input for p in probes]
+        elif show_examples:
+            example_inputs = [p.input for p in probes[:3]]
+        else:
+            example_inputs = []
+
         categories[key] = {
             "name": display,
             "count": len(probes),
             "description": _CATEGORY_DESCRIPTIONS.get(key, ""),
             "owasp": _OWASP_MAP.get(key, ""),
-            "examples": [p.input for p in probes[:3]] if show_examples else [],
+            "examples": example_inputs,
+            "probes": [
+                {"input": p.input, "description": p.description}
+                for p in probes
+            ] if json_output and show_verbose else [],
         }
 
     if not categories:
@@ -108,10 +131,19 @@ def probe_list_cmd(
 
     if json_output:
         total = sum(c["count"] for c in categories.values())
-        click.echo(json_mod.dumps({
-            "total_probes": total,
-            "categories": list(categories.values()),
-        }, indent=2))
+        out: dict = {"total_probes": total, "categories": []}
+        for info in categories.values():
+            entry: dict = {
+                "name": info["name"],
+                "count": info["count"],
+                "description": info["description"],
+                "owasp": info["owasp"],
+                "examples": info["examples"],
+            }
+            if show_verbose:
+                entry["probes"] = info["probes"]
+            out["categories"].append(entry)
+        click.echo(json_mod.dumps(out, indent=2))
         return
 
     # Terminal output
@@ -136,16 +168,22 @@ def probe_list_cmd(
 
     console.print(table)
 
-    if show_examples:
+    if show_verbose or show_examples:
+        label = "All Probe Inputs" if show_verbose else "Example Probe Inputs"
         console.print()
-        console.print("[bold]Example Probe Inputs[/bold]")
+        console.print(f"[bold]{label}[/bold]")
         console.print("─" * 60)
-        for info in categories.values():
+        for key, info in categories.items():
             if info["examples"]:
-                console.print(f"\n[cyan]{info['name']}[/cyan]")
-                for ex in info["examples"]:
-                    preview = ex[:80] + ("…" if len(ex) > 80 else "")
-                    console.print(f"  [dim]•[/dim] {preview}")
+                count_note = f" ({info['count']} total)" if show_verbose else ""
+                console.print(f"\n[cyan]{info['name']}[/cyan]{count_note}")
+                for idx, ex in enumerate(info["examples"], 1):
+                    if show_verbose:
+                        # Show full text with line number for security audits
+                        console.print(f"  [dim]{idx:3}.[/dim] {_escape(ex)}")
+                    else:
+                        preview = ex[:80] + ("…" if len(ex) > 80 else "")
+                        console.print(f"  [dim]•[/dim] {_escape(preview)}")
 
     console.print()
     console.print(

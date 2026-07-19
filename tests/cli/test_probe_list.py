@@ -95,3 +95,45 @@ class TestProbeListCmd:
         assert len(data["categories"]) == 1
         assert data["categories"][0]["name"] == "jailbreak"
         assert data["categories"][0]["count"] > 0
+
+
+class TestProbeListVerbose:
+    def test_verbose_shows_all_probes(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(probe_list_cmd, ["--verbose", "--category", "injection"])
+        assert result.exit_code == 0
+        # Should show "All Probe Inputs" heading
+        assert "All Probe Inputs" in result.output
+
+    def test_verbose_shows_line_numbers(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(probe_list_cmd, ["--verbose", "--category", "injection"])
+        assert result.exit_code == 0
+        # Line numbers like "  1." should appear
+        assert "1." in result.output
+
+    def test_verbose_shows_count_note(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(probe_list_cmd, ["--verbose", "--category", "injection"])
+        assert result.exit_code == 0
+        # Total count annotation "(N total)" should appear
+        assert "total" in result.output
+
+    def test_verbose_json_includes_all_probes(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(probe_list_cmd, ["--verbose", "--json", "--category", "injection"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        cat = data["categories"][0]
+        # probes key with full input + description
+        assert "probes" in cat
+        assert len(cat["probes"]) == cat["count"]
+        assert "input" in cat["probes"][0]
+        assert "description" in cat["probes"][0]
+
+    def test_verbose_more_probes_than_examples(self) -> None:
+        runner = CliRunner()
+        r_verbose = runner.invoke(probe_list_cmd, ["--verbose", "--category", "injection"])
+        r_examples = runner.invoke(probe_list_cmd, ["--examples", "--category", "injection"])
+        # --verbose should show more text (all probes, not just 3)
+        assert len(r_verbose.output) > len(r_examples.output)
