@@ -214,7 +214,7 @@ def format_category_delta(delta: dict[str, Any]) -> str:
     if not cat_delta:
         return ""
 
-    _DISPLAY = {
+    _display = {
         "injection": "prompt_injection",
         "jailbreak": "jailbreak",
         "pii": "pii_leakage",
@@ -228,7 +228,7 @@ def format_category_delta(delta: dict[str, Any]) -> str:
         prev_n = counts["prev"]
         curr_n = counts["curr"]
         d = counts["delta"]
-        name = _DISPLAY.get(cat, cat)
+        name = _display.get(cat, cat)
         if d < 0:
             indicator = f"[green]↓{abs(d)} fixed[/green]"
         elif d > 0:
