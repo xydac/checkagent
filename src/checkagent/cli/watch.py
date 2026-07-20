@@ -274,12 +274,42 @@ def _resolve_module_file(target: str) -> Path | None:
     return None
 
 
+def _category_counts(scan_data: dict) -> dict[str, int]:
+    """Count findings per category from scan JSON output."""
+    counts: dict[str, int] = {}
+    for f in scan_data.get("findings", []):
+        cat = f.get("category", "unknown")
+        counts[cat] = counts.get(cat, 0) + 1
+    return counts
+
+
+def _render_category_delta(
+    prev_counts: dict[str, int], curr_counts: dict[str, int]
+) -> list[str]:
+    """Render per-category finding change between two scans. Returns Rich-markup lines."""
+    all_cats = sorted(set(list(prev_counts) + list(curr_counts)))
+    rows: list[str] = []
+    for cat in all_cats:
+        prev_n = prev_counts.get(cat, 0)
+        curr_n = curr_counts.get(cat, 0)
+        d = curr_n - prev_n
+        if d < 0:
+            indicator = f"[green]↓{abs(d)} fixed[/green]"
+        elif d > 0:
+            indicator = f"[red]↑{d} new[/red]"
+        else:
+            indicator = "[dim]= unchanged[/dim]"
+        rows.append(f"  [dim]{cat:<22}[/dim] {prev_n} → {curr_n}  {indicator}")
+    return rows
+
+
 def _render_scan_panel(
     target: str,
     source_file: Path | None,
     scan_data: dict | None,
     elapsed: float | None,
     error: str | None,
+    prev_counts: dict[str, int] | None = None,
 ) -> Panel:
     """Build a Rich Panel showing agent scan results."""
     lines: list[str] = []
@@ -290,7 +320,6 @@ def _render_scan_panel(
 
     if error:
         lines.append(f"[red]Error: {error}[/red]")
-        body = "\n".join(lines)
         ts = time.strftime("%H:%M:%S")
         lines.append("")
         lines.append(f"[dim]Last checked at {ts}. Ctrl+C to stop.[/dim]")
@@ -342,6 +371,16 @@ def _render_scan_panel(
             lines.append(f"  [dim]… and {len(findings) - 4} more[/dim]")
     else:
         lines.append("  [green]No findings — all probes passed.[/green]")
+
+    # Per-category delta vs previous scan (only shown on rescan)
+    if prev_counts is not None:
+        curr_counts = _category_counts(scan_data)
+        if curr_counts != prev_counts or prev_counts:
+            delta_rows = _render_category_delta(prev_counts, curr_counts)
+            if delta_rows:
+                lines.append("")
+                lines.append("[bold]Change from last scan:[/bold]")
+                lines.extend(delta_rows)
 
     lines.append("")
     ts = time.strftime("%H:%M:%S")
@@ -427,11 +466,16 @@ def _watch_agent(target: str, interval: float) -> None:
                     title="[bold]checkagent watch[/bold]",
                     border_style="dim",
                 ))
+                # Snapshot category counts from the previous scan before overwriting
+                counts_before = _category_counts(last_data) if last_data is not None else None
                 t0 = time.time()
                 data, error = _run_scan(target)
                 elapsed = time.time() - t0
                 last_data = data
-                panel = _render_scan_panel(target, source_file, data, elapsed, error)
+                # Pass prev_counts only on rescan (not on first scan)
+                panel = _render_scan_panel(
+                    target, source_file, data, elapsed, error, prev_counts=counts_before
+                )
                 live.update(panel)
             elif last_data is not None:
                 # Re-render to keep footer timestamp fresh (optional — skip for performance)

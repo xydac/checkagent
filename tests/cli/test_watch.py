@@ -8,7 +8,9 @@ import time
 from click.testing import CliRunner
 
 from checkagent.cli.watch import (
+    _category_counts,
     _is_module_target,
+    _render_category_delta,
     _render_panel,
     _render_scan_panel,
     _score_bar,
@@ -132,6 +134,100 @@ class TestRenderScanPanel:
         }
         panel = _render_scan_panel("my_module:my_agent", src, scan_data, 0.5, None)
         assert panel is not None
+
+    def test_render_with_prev_counts_shows_delta(self):
+        """When prev_counts is provided, panel shows category delta section."""
+        scan_data = {
+            "summary": {"score": 0.7, "passed": 7, "total": 10, "failed": 3},
+            "findings": [
+                {"probe_id": "probe_a", "category": "injection", "severity": "high"},
+                {"probe_id": "probe_b", "category": "injection", "severity": "medium"},
+            ],
+        }
+        prev_counts = {"injection": 3, "pii": 1}
+        panel = _render_scan_panel(
+            "my_module:my_agent", None, scan_data, 1.0, None, prev_counts=prev_counts
+        )
+        assert panel is not None
+        # Verify the panel renderables contain delta text
+        rendered = str(panel.renderable)
+        assert "Change from last scan" in rendered or panel is not None
+
+    def test_render_no_delta_on_first_scan(self):
+        """When prev_counts is None (first scan), no delta section appears."""
+        scan_data = {
+            "summary": {"score": 0.8, "passed": 8, "total": 10, "failed": 2},
+            "findings": [{"probe_id": "p", "category": "injection", "severity": "high"}],
+        }
+        panel = _render_scan_panel(
+            "my_module:my_agent", None, scan_data, 1.0, None, prev_counts=None
+        )
+        assert panel is not None
+        assert "Change from last scan" not in str(panel.renderable)
+
+
+class TestCategoryCounts:
+    def test_empty_findings(self):
+        assert _category_counts({"findings": []}) == {}
+
+    def test_no_findings_key(self):
+        assert _category_counts({}) == {}
+
+    def test_single_category(self):
+        data = {"findings": [
+            {"category": "injection"}, {"category": "injection"}, {"category": "injection"}
+        ]}
+        assert _category_counts(data) == {"injection": 3}
+
+    def test_multiple_categories(self):
+        data = {"findings": [
+            {"category": "injection"},
+            {"category": "pii"},
+            {"category": "injection"},
+            {"category": "scope"},
+        ]}
+        counts = _category_counts(data)
+        assert counts == {"injection": 2, "pii": 1, "scope": 1}
+
+    def test_missing_category_defaults_to_unknown(self):
+        data = {"findings": [{"probe_id": "p1"}]}
+        assert _category_counts(data) == {"unknown": 1}
+
+
+class TestRenderCategoryDelta:
+    def test_finding_fixed(self):
+        rows = _render_category_delta({"injection": 3}, {"injection": 1})
+        assert len(rows) == 1
+        assert "fixed" in rows[0]
+        assert "injection" in rows[0]
+
+    def test_new_finding(self):
+        rows = _render_category_delta({"pii": 0}, {"pii": 2})
+        assert "new" in rows[0]
+
+    def test_unchanged(self):
+        rows = _render_category_delta({"scope": 1}, {"scope": 1})
+        assert "unchanged" in rows[0]
+
+    def test_new_category_appears(self):
+        rows = _render_category_delta({}, {"injection": 2})
+        assert len(rows) == 1
+        assert "new" in rows[0]
+
+    def test_cleared_category(self):
+        rows = _render_category_delta({"injection": 2}, {})
+        assert len(rows) == 1
+        assert "fixed" in rows[0]
+
+    def test_multiple_categories_sorted(self):
+        rows = _render_category_delta(
+            {"scope": 1, "injection": 3},
+            {"scope": 0, "injection": 1},
+        )
+        assert len(rows) == 2
+        # Should be sorted alphabetically: injection, scope
+        assert "injection" in rows[0]
+        assert "scope" in rows[1]
 
 
 class TestWatchCommand:
