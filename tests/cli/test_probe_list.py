@@ -137,3 +137,29 @@ class TestProbeListVerbose:
         r_examples = runner.invoke(probe_list_cmd, ["--examples", "--category", "injection"])
         # --verbose should show more text (all probes, not just 3)
         assert len(r_verbose.output) > len(r_examples.output)
+
+    def test_verbose_examples_json_no_duplication(self) -> None:
+        """F-160: --verbose --examples --json should not duplicate all probes in examples field."""
+        runner = CliRunner()
+        result = runner.invoke(
+            probe_list_cmd, ["--verbose", "--examples", "--json", "--category", "injection"]
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        cat = data["categories"][0]
+        # probes has the full set
+        assert len(cat["probes"]) == cat["count"]
+        # examples is capped at 3 (not duplicated with probes)
+        assert len(cat["examples"]) <= 3
+
+    def test_verbose_json_examples_still_populated_with_examples_flag(self) -> None:
+        """--verbose --examples --json: examples field has up to 3 entries (not empty)."""
+        runner = CliRunner()
+        result = runner.invoke(
+            probe_list_cmd, ["--verbose", "--examples", "--json", "--category", "injection"]
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        cat = data["categories"][0]
+        # examples should have some entries (not 0) since --examples was passed
+        assert len(cat["examples"]) > 0

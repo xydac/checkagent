@@ -142,7 +142,9 @@ def probe_list_cmd(
                 "count": info["count"],
                 "description": info["description"],
                 "owasp": info["owasp"],
-                "examples": info["examples"],
+                # When --verbose is active, full data is in `probes`; cap examples to 3
+                # to avoid duplication (F-160: combined flags previously repeated all probes).
+                "examples": info["examples"][:3] if show_verbose else info["examples"],
             }
             if show_verbose:
                 entry["probes"] = info["probes"]
