@@ -203,6 +203,40 @@ class TestComputeDiff:
         assert diff["counts"]["new"] == 0
         assert diff["counts"]["fixed"] == 3
 
+    def test_category_delta_present(self, baseline_scan, current_scan_regression):
+        diff = compute_diff(baseline_scan, current_scan_regression)
+        assert "category_delta" in diff
+
+    def test_category_delta_regression(self, baseline_scan, current_scan_regression):
+        diff = compute_diff(baseline_scan, current_scan_regression)
+        cat = diff["category_delta"]
+        # pii was in baseline but not current — fixed
+        assert cat["pii"]["baseline"] == 1
+        assert cat["pii"]["current"] == 0
+        assert cat["pii"]["delta"] == -1
+        # jailbreak is new in current
+        assert cat["jailbreak"]["baseline"] == 0
+        assert cat["jailbreak"]["current"] == 1
+        assert cat["jailbreak"]["delta"] == 1
+        # injection is unchanged
+        assert cat["injection"]["delta"] == 0
+
+    def test_category_delta_empty_both(self):
+        empty = {
+            "target": "x:y",
+            "summary": {"total": 10, "passed": 10, "failed": 0, "errors": 0, "score": 1.0},
+            "findings": [],
+        }
+        diff = compute_diff(empty, empty)
+        assert diff["category_delta"] == {}
+
+    def test_category_delta_all_fixed(self, baseline_scan, current_scan_improved):
+        diff = compute_diff(baseline_scan, current_scan_improved)
+        cat = diff["category_delta"]
+        for entry in cat.values():
+            assert entry["current"] == 0
+            assert entry["delta"] < 0
+
 
 # ---------------------------------------------------------------------------
 # CLI integration tests

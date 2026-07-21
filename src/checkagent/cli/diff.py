@@ -72,6 +72,25 @@ def compute_diff(
     curr_score = curr_summary.get("score", 0.0)
     score_delta = curr_score - base_score
 
+    # Compute per-category finding counts from findings dicts
+    base_cat: dict[str, int] = {}
+    for f in base_findings.values():
+        cat = f.get("category", "unknown")
+        base_cat[cat] = base_cat.get(cat, 0) + 1
+    curr_cat: dict[str, int] = {}
+    for f in curr_findings.values():
+        cat = f.get("category", "unknown")
+        curr_cat[cat] = curr_cat.get(cat, 0) + 1
+    all_cats = sorted(set(list(base_cat.keys()) + list(curr_cat.keys())))
+    category_delta = {
+        cat: {
+            "baseline": base_cat.get(cat, 0),
+            "current": curr_cat.get(cat, 0),
+            "delta": curr_cat.get(cat, 0) - base_cat.get(cat, 0),
+        }
+        for cat in all_cats
+    }
+
     base_stability = baseline.get("stability")
     curr_stability = current.get("stability")
     stability: dict[str, Any] | None = None
@@ -111,6 +130,7 @@ def compute_diff(
             "unchanged": len(unchanged_findings),
         },
         "regression": len(new_findings) > 0,
+        "category_delta": category_delta,
     }
 
 
