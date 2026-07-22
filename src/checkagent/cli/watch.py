@@ -506,7 +506,10 @@ def _is_module_target(arg: str) -> bool:
     "llm_model",
     default=None,
     metavar="MODEL",
-    help="(Prompt file mode only) Use an LLM for semantic verification.",
+    help=(
+        "(Prompt file mode only) Use an LLM for semantic verification. "
+        "Use 'claude-code' for zero-config judging via your local Claude Code install."
+    ),
 )
 @click.option(
     "--interval",
