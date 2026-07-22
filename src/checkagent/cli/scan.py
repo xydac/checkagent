@@ -1412,8 +1412,9 @@ def _generate_test_file(
     metavar="MODEL",
     help=(
         "Use an LLM to judge each probe response instead of regex. "
-        "Accepts any OpenAI or Anthropic model name, e.g. 'gpt-4o-mini' or "
-        "'claude-haiku-4-5-20251001'. Requires OPENAI_API_KEY or ANTHROPIC_API_KEY."
+        "Use 'claude-code' to leverage your local Claude Code installation "
+        "(no API key required). "
+        "Also accepts: 'gpt-4o-mini' (OpenAI), 'claude-haiku-4-5-20251001' (Anthropic)."
     ),
 )
 @click.option(

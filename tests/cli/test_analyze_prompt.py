@@ -462,6 +462,42 @@ class TestAnalyzePromptLLMFlag:
         assert data["llm_warning"] is not None
         assert "OPENAI_API_KEY" in data["llm_warning"]
 
+    def test_llm_claude_code_accepted_as_valid_model(self, monkeypatch):
+        """'claude-code' is accepted by detect_provider without API key."""
+        self._mock_llm_verified(monkeypatch)
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["analyze-prompt", "--llm", "claude-code", WEAK_PROMPT]
+        )
+        # Should not fail with BadParameter — claude-code is a recognised provider
+        assert "Cannot detect provider" not in result.output
+
+    def test_llm_claude_code_needs_no_api_key(self, monkeypatch):
+        """'claude-code' never triggers the 'LLM verification skipped' warning."""
+        self._mock_llm_verified(monkeypatch)
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["analyze-prompt", "--llm", "claude-code", WEAK_PROMPT]
+        )
+        assert "LLM verification skipped" not in result.output
+
+    def test_llm_help_mentions_claude_code(self):
+        runner = CliRunner()
+        result = runner.invoke(main, ["analyze-prompt", "--help"])
+        assert "claude-code" in result.output
+
+    def test_llm_claude_code_score_improves_after_verification(self, monkeypatch):
+        """Score increases when LLM verifies controls via claude-code."""
+        self._mock_llm_verified(monkeypatch)
+        runner = CliRunner()
+        result = runner.invoke(
+            main, ["analyze-prompt", "--json", "--llm", "claude-code", WEAK_PROMPT]
+        )
+        data = __import__("json").loads(result.output)
+        assert data["llm_model"] == "claude-code"
+        # All checks should be LLM-verified since mock returns True for all
+        assert data["llm_verified_count"] > 0
+
 
 class TestAnalyzePromptFix:
     """Tests for the --fix flag that generates hardened prompts."""

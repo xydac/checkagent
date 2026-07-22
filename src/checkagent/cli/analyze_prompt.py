@@ -387,7 +387,9 @@ def analyze_prompt(prompt: str) -> PromptAnalysisResult:
     help=(
         "Use an LLM for semantic verification of failing checks. "
         "More accurate than pattern matching for non-canonical phrasing. "
-        "Examples: gpt-4o-mini, claude-haiku-4-5-20251001"
+        "Use 'claude-code' to leverage your local Claude Code installation "
+        "(no API key required). "
+        "Examples: claude-code, gpt-4o-mini, claude-haiku-4-5-20251001"
     ),
 )
 @click.option(
@@ -429,7 +431,8 @@ def analyze_prompt_cmd(
     present or missing.
 
     This is a zero-setup, LLM-free check — no API key required.
-    Add --llm gpt-4o-mini for semantic verification of ambiguous prompts.
+    Add --llm claude-code to use your local Claude Code install for semantic
+    verification (zero API key setup). Or: --llm gpt-4o-mini, --llm claude-haiku-4-5-20251001.
     """
     # Resolve prompt text
     prompt_text: str
