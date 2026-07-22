@@ -277,6 +277,36 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
                 r"(?:limited|restricted|confined)\s+to",
                 _F,
             ),
+            # "respond only to X inquiries" / "handle only X requests" (only after verb)
+            re.compile(
+                r"(?:respond|handle|process|answer|assist|help)\s+only\s+(?:to\s+|with\s+)?"
+                r"(?:[\w-]+\s+){0,4}(?:inquiries|requests?|questions?|topics?|matters?)",
+                _F,
+            ),
+            # "handles X only" / "is for X only" (trailing only)
+            re.compile(
+                r"(?:handles?|covers?|addresses?|is\s+for)\s+(?:\w+\s+){1,4}only\b",
+                _F,
+            ),
+            # "requests/questions unrelated to X" (unrelated without "not related to")
+            re.compile(
+                r"(?:requests?|questions?|topics?|issues?)\s+"
+                r"(?:that\s+(?:are\s+)?)?unrelated\s+to",
+                _F,
+            ),
+            # "redirect/refer/return non-X requests/questions"
+            re.compile(
+                r"(?:redirect|refer|return|send)\s+(?:all\s+|any\s+)?(?:non-\w+\s+|other\s+)?"
+                r"(?:requests?|questions?|inquiries?|topics?)",
+                _F,
+            ),
+            # "do not process/handle requests that are not X"
+            re.compile(
+                r"(?:do\s+not|must\s+not|cannot|never)\s+"
+                r"(?:process|handle|respond\s+to|answer)\s+"
+                r"(?:requests?|questions?|topics?)\s+(?:that\s+)?(?:are\s+)?(?:not|unrelated)",
+                _F,
+            ),
         ],
         recommendation=(
             "Define scope boundaries: "
@@ -307,6 +337,26 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
             re.compile(r"system\s+prompt\s+(?:is\s+)?confidential", _F),
             re.compile(
                 r"(?:never|do\s+not)\s+(?:reveal|disclose)\s+(?:this\s+|the\s+)?(?:system\s+)?prompt",
+                _F,
+            ),
+            # "must not share/expose/reveal" (uses 'must not' instead of 'do not')
+            re.compile(
+                r"(?:must\s+not|should\s+not|may\s+not)\s+"
+                r"(?:share|expose|reveal|disclose|repeat|discuss|mention|show)"
+                r".{0,60}(?:system\s+)?(?:prompt|instructions?|configuration|guidelines?)",
+                _F,
+            ),
+            # "do not expose internal guidelines" / "do not share internal instructions"
+            re.compile(
+                r"(?:never|do\s+not|don't)\s+(?:expose|share|reveal|disclose)\s+"
+                r"(?:internal|private|confidential|proprietary)\s+"
+                r"(?:guidelines?|instructions?|prompt|rules?|configuration)",
+                _F,
+            ),
+            # "these guidelines are internal and confidential"
+            re.compile(
+                r"(?:these?\s+|this\s+|the\s+)?(?:guidelines?|instructions?|prompt|rules?)\s+"
+                r"(?:are\s+|is\s+)?(?:internal|confidential|private|proprietary)",
                 _F,
             ),
         ],
@@ -380,6 +430,24 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
             re.compile(
                 r"not\s+(?:available|found|present|covered)\s+in\s+(?:my\s+)?"
                 r"(?:knowledge\s+base|context|documents?|training|data)",
+                _F,
+            ),
+            # "be honest about your limitations" / "acknowledge when you cannot help"
+            re.compile(
+                r"(?:be\s+honest|be\s+transparent)\s+"
+                r"(?:about\s+)?(?:your\s+)?(?:limitations?|inability|what\s+you\s+cannot)",
+                _F,
+            ),
+            # "acknowledge when a request is outside your capabilities"
+            re.compile(
+                r"acknowledge\s+when\s+(?:a\s+)?(?:request|question|topic)\s+is\s+"
+                r"(?:outside|beyond|not\s+within)\s+(?:your\s+)?(?:capabilities|scope|knowledge|abilities?)",
+                _F,
+            ),
+            # "if you cannot answer, say so" / "if unable to help, be clear"
+            re.compile(
+                r"if\s+(?:you\s+)?(?:cannot|can't|are\s+unable|don't\s+know)\s+"
+                r"(?:answer|help|respond|assist)",
                 _F,
             ),
             # "redirect the conversation / redirect the user" for out-of-scope requests
