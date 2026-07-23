@@ -548,3 +548,52 @@ class TestAnalyzePromptFix:
         assert "hardened_prompt" in data
         assert "score" in data
         assert "checks" in data
+
+
+class TestExtractJsonFromLlm:
+    """Tests for the _extract_json_from_llm helper (F-161 fix)."""
+
+    def _fn(self, raw: str) -> dict:
+        from checkagent.cli.analyze_prompt import _extract_json_from_llm
+        return _extract_json_from_llm(raw)
+
+    def test_clean_json(self):
+        data = self._fn('{"present": true, "evidence": "found it"}')
+        assert data["present"] is True
+        assert data["evidence"] == "found it"
+
+    def test_false_clean_json(self):
+        data = self._fn('{"present": false, "evidence": ""}')
+        assert data["present"] is False
+
+    def test_json_code_fence(self):
+        raw = '```json\n{"present": true, "evidence": "inline check"}\n```'
+        data = self._fn(raw)
+        assert data["present"] is True
+
+    def test_bare_code_fence(self):
+        raw = '```\n{"present": false, "evidence": ""}\n```'
+        data = self._fn(raw)
+        assert data["present"] is False
+
+    def test_preamble_then_json(self):
+        raw = 'Sure, here is the analysis:\n{"present": true, "evidence": "focuses only on"}'
+        data = self._fn(raw)
+        assert data["present"] is True
+
+    def test_json_with_trailing_text(self):
+        raw = '{"present": true, "evidence": "found"}\n\nLet me know if you need more.'
+        data = self._fn(raw)
+        assert data["present"] is True
+
+    def test_raises_on_no_json(self):
+        import json  # noqa: PLC0415
+
+        import pytest  # noqa: PLC0415
+
+        with pytest.raises(json.JSONDecodeError):
+            self._fn("This is not JSON at all.")
+
+    def test_leading_whitespace(self):
+        data = self._fn('\n\n  {"present": true, "evidence": "ok"}  \n')
+        assert data["present"] is True

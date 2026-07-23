@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import sys
 
 import click
@@ -51,6 +52,39 @@ Example: "Focus only on customer service questions" satisfies scope_boundary
 even without the words 'must not' or 'restricted to'."""
 
 
+def _extract_json_from_llm(raw: str) -> dict:
+    """Extract a JSON object from an LLM response, tolerating code fences and preamble.
+
+    Tries in order:
+    1. Direct JSON parse of the stripped response
+    2. Strip markdown code fences, then parse
+    3. Regex scan for the first {...} object containing "present"
+    """
+    raw = raw.strip()
+
+    # Direct parse
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+
+    # Strip code fences (```json ... ``` or ``` ... ```)
+    fenced = raw
+    if fenced.startswith("```"):
+        fenced = fenced.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+    try:
+        return json.loads(fenced)
+    except json.JSONDecodeError:
+        pass
+
+    # Regex: find the first JSON object that contains a "present" key
+    match = re.search(r'\{[^{}]*"present"\s*:[^{}]*\}', raw, re.DOTALL)
+    if match:
+        return json.loads(match.group(0))
+
+    raise json.JSONDecodeError("No JSON object with 'present' found", raw, 0)
+
+
 async def _verify_one_check(
     prompt_text: str,
     check: PromptCheck,
@@ -58,7 +92,9 @@ async def _verify_one_check(
 ) -> tuple[bool, str]:
     """Ask an LLM whether *check* is satisfied by *prompt_text*.
 
-    Returns (present, evidence).  Falls back to (False, "") on any error.
+    Returns (present, evidence).  Falls back to (False, "") on LLM/network errors;
+    returns (False, "<reason>") when the response is malformed so callers can
+    distinguish "LLM said no" from "LLM errored".
     """
     from checkagent.core.llm_call import call_llm
 
@@ -67,21 +103,20 @@ async def _verify_one_check(
         f"  Name: {check.name}\n"
         f"  Description: {check.description}\n\n"
         f"System prompt:\n---\n{prompt_text[:2000]}\n---\n\n"
-        f"Is this control present? Reply only with JSON."
+        f'Reply ONLY with this JSON (no extra text, no code fences):\n'
+        f'{{"present": true_or_false, "evidence": "brief quote or description"}}'
     )
     try:
-        raw = await call_llm(model, _LLM_SYSTEM, user, max_tokens=120, temperature=0)
-        raw = raw.strip()
-        # Strip markdown code fences if the model ignores our instruction
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        data = json.loads(raw)
+        raw = await call_llm(model, _LLM_SYSTEM, user, max_tokens=150, temperature=0)
+    except Exception:  # noqa: BLE001
+        return False, ""
+
+    try:
+        data = _extract_json_from_llm(raw)
         present = bool(data.get("present", False))
         evidence = str(data.get("evidence", ""))[:120]
         return present, evidence
-    except Exception:  # noqa: BLE001
+    except (json.JSONDecodeError, ValueError):
         return False, ""
 
 
