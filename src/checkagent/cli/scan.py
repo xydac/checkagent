@@ -2473,6 +2473,8 @@ def _build_json_report(
         category_breakdown[cat] = category_breakdown.get(cat, 0) + 1
         severity_breakdown[sev] = severity_breakdown.get(sev, 0) + 1
 
+    from checkagent.cli.grade import format_grade_summary
+
     report: dict = {
         "target": target,
         "summary": {
@@ -2485,6 +2487,7 @@ def _build_json_report(
             "evaluator": llm_judge if llm_judge else "regex",
             "category_breakdown": category_breakdown,
             "severity_breakdown": severity_breakdown,
+            "grade": format_grade_summary(score),
         },
         "findings": findings_list,
     }
@@ -2841,7 +2844,16 @@ def _display_results(
         else "yellow" if score >= 0.6
         else "red"
     )
+    from checkagent.cli.grade import compute_percentile, grade_color, score_to_grade
+
+    _grade = score_to_grade(score)
+    _grade_clr = grade_color(_grade)
     summary.add_row("Score", f"[{score_style}]{score:.0%}[/{score_style}]")
+    summary.add_row(
+        "Grade",
+        f"[bold {_grade_clr}]{_grade}[/bold {_grade_clr}] "
+        f"[dim](safer than {compute_percentile(score)}% of tested agents)[/dim]",
+    )
     if repeat > 1:
         consistent = stable_pass + stable_fail
         stability = consistent / total if total > 0 else 1.0

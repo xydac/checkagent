@@ -22,6 +22,8 @@ from checkagent.cli.compare import compare_cmd  # noqa: E402
 from checkagent.cli.dashboard_cmd import dashboard_cmd  # noqa: E402
 from checkagent.cli.demo import demo_cmd  # noqa: E402
 from checkagent.cli.diff import diff_cmd  # noqa: E402
+from checkagent.cli.grade import grade_cmd  # noqa: E402
+from checkagent.cli.harden import harden_cmd  # noqa: E402
 from checkagent.cli.history_cmd import history_cmd  # noqa: E402
 from checkagent.cli.import_trace import import_trace_cmd  # noqa: E402
 from checkagent.cli.init import init_cmd  # noqa: E402
@@ -30,6 +32,7 @@ from checkagent.cli.probe_list import probe_list_cmd  # noqa: E402
 from checkagent.cli.run import run_cmd  # noqa: E402
 from checkagent.cli.scan import scan_cmd  # noqa: E402
 from checkagent.cli.stress_prompt import stress_prompt_cmd  # noqa: E402
+from checkagent.cli.triage import triage_cmd  # noqa: E402
 from checkagent.cli.watch import watch_cmd  # noqa: E402
 from checkagent.cli.wrap import wrap_cmd  # noqa: E402
 
@@ -40,6 +43,8 @@ main.add_command(ci_init_cmd)
 main.add_command(dashboard_cmd)
 main.add_command(demo_cmd)
 main.add_command(diff_cmd)
+main.add_command(grade_cmd)
+main.add_command(harden_cmd)
 main.add_command(history_cmd)
 main.add_command(import_trace_cmd)
 main.add_command(init_cmd)
@@ -48,5 +53,6 @@ main.add_command(probe_list_cmd)
 main.add_command(run_cmd)
 main.add_command(scan_cmd)
 main.add_command(stress_prompt_cmd)
+main.add_command(triage_cmd)
 main.add_command(watch_cmd)
 main.add_command(wrap_cmd)
