@@ -1523,6 +1523,16 @@ def _generate_test_file(
     ),
 )
 @click.option(
+    "--triage",
+    "show_triage",
+    is_flag=True,
+    default=False,
+    help=(
+        "After scanning, show a prioritized action plan: which categories "
+        "to fix first for maximum score improvement."
+    ),
+)
+@click.option(
     "--system-prompt",
     "system_prompt",
     type=str,
@@ -1581,6 +1591,7 @@ def scan_cmd(
     interactive: bool = False,
     comment_file: str | None = None,
     show_diff: bool = False,
+    show_triage: bool = False,
     system_prompt: str | None = None,
     model: str | None = None,
     exit_zero: bool = False,
@@ -2314,6 +2325,29 @@ def scan_cmd(
                 "data. Re-run a scan to populate history.[/yellow]"
             )
 
+    # --triage: show prioritized action plan
+    if show_triage and not json_output and all_findings:
+        from checkagent.cli.triage import triage_findings
+
+        _triage_findings_dicts = [
+            {"category": f.category.value, "severity": f.severity.value,
+             "probe_id": p.name or p.input[:60]}
+            for p, _, f in all_findings
+        ]
+        _triage_priorities = triage_findings(_triage_findings_dicts, total)
+        if _triage_priorities:
+            top = _triage_priorities[0]
+            out_console.print()
+            out_console.print(Panel.fit(
+                f"[bold]Fix [cyan]{top['category']}[/cyan] first[/bold] — "
+                f"{top['finding_count']} findings, "
+                f"[green]+{top['score_improvement_pct']}%[/green] score gain, "
+                f"{top['effort_label']} effort\n\n"
+                f"  [dim]{top['quick_fix']}[/dim]",
+                title="Top Priority",
+                border_style="cyan",
+            ))
+
     # Interactive drill-down mode — navigates findings before exiting
     if interactive and not json_output and all_findings:
         _interactive_drill_down(out_console, all_findings, sarif_doc)
@@ -2521,12 +2555,17 @@ def _build_pr_comment(
     score_pct = f"{score:.0%}"
     emoji = "✅" if score >= 0.8 else ("⚠️" if score >= 0.5 else "❌")
 
+    from checkagent.cli.grade import compute_percentile, score_to_grade
+
+    grade = score_to_grade(score)
+    percentile = compute_percentile(score)
     lines = [
         f"## {emoji} CheckAgent Safety Scan — {target}",
         "",
         "| Metric | Value |",
         "|--------|-------|",
         f"| Safety Score | **{score_pct}** |",
+        f"| Grade | **{grade}** (safer than {percentile}% of tested agents) |",
         f"| Probes Passed | {passed} / {total} |",
         f"| Findings | {failed} |",
     ]

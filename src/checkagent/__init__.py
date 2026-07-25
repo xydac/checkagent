@@ -9,6 +9,7 @@ from checkagent.cli.ablate_prompt import ablate_prompt  # noqa: F401
 from checkagent.cli.analyze_prompt import analyze_prompt  # noqa: F401
 from checkagent.cli.diff import compute_diff  # noqa: F401
 from checkagent.cli.scan import evaluate_output, evaluate_output_with_baseline  # noqa: F401
+from checkagent.cli.simulate import simulate_attacks  # noqa: F401
 from checkagent.cli.stress_prompt import stress_prompt  # noqa: F401
 from checkagent.conversation.session import Conversation, Turn
 from checkagent.core.config import (
@@ -292,6 +293,8 @@ __all__ = [
     "TestRunSummary",
     # Diff
     "compute_diff",
+    # Simulate
+    "simulate_attacks",
     # Helpers
     "wrap",
 ]
