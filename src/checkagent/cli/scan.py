@@ -1534,6 +1534,16 @@ def _generate_test_file(
     ),
 )
 @click.option(
+    "--simulate",
+    "show_simulate",
+    is_flag=True,
+    default=False,
+    help=(
+        "After scanning, show multi-step attack chain analysis. "
+        "Constructs realistic attack scenarios from found vulnerabilities."
+    ),
+)
+@click.option(
     "--system-prompt",
     "system_prompt",
     type=str,
@@ -1593,6 +1603,7 @@ def scan_cmd(
     comment_file: str | None = None,
     show_diff: bool = False,
     show_triage: bool = False,
+    show_simulate: bool = False,
     system_prompt: str | None = None,
     model: str | None = None,
     exit_zero: bool = False,
@@ -2125,6 +2136,19 @@ def scan_cmd(
                 report["diff_available"] = True
             else:
                 report["diff_available"] = False
+        if show_simulate and all_findings:
+            from checkagent.cli.simulate import simulate_attacks
+            _sim_data = [
+                {
+                    "category": f.category.value,
+                    "severity": f.severity.value,
+                    "probe_id": p.name or p.input[:60],
+                }
+                for p, _, f in all_findings
+            ]
+            report["simulation"] = simulate_attacks(
+                {"findings": _sim_data},
+            )
         # Evaluate scan gates and embed in JSON output
         _json_score = passed / total if total > 0 else 0.0
         _json_cfg = load_config()
@@ -2360,6 +2384,60 @@ def scan_cmd(
                 title="Top Priority",
                 border_style="cyan",
             ))
+
+    # Attack chain simulation
+    if show_simulate and not json_output and all_findings:
+        from checkagent.cli.simulate import simulate_attacks
+
+        _sim_findings = [
+            {
+                "category": f.category.value,
+                "severity": f.severity.value,
+                "probe_id": p.name or p.input[:60],
+            }
+            for p, _, f in all_findings
+        ]
+        sim_result = simulate_attacks({"findings": _sim_findings})
+        if sim_result["chains"]:
+            risk = sim_result["risk_level"]
+            risk_color = {
+                "critical": "bold red", "high": "red",
+                "medium": "yellow", "low": "green",
+            }.get(risk, "white")
+            out_console.print()
+            out_console.print(Panel.fit(
+                f"  Risk: [{risk_color}]{risk.upper()}"
+                f"[/{risk_color}]  |  "
+                f"Chains: [bold]{sim_result['chain_count']}"
+                f"[/bold]  |  "
+                f"Near misses: [bold]"
+                f"{len(sim_result['near_misses'])}[/bold]",
+                title="Attack Simulation",
+                border_style="red"
+                if risk in ("critical", "high") else "yellow",
+            ))
+            for idx, chain in enumerate(
+                sim_result["chains"][:3], 1
+            ):
+                out_console.print(
+                    f"  [bold]{idx}.[/bold] "
+                    f"{chain['name']} "
+                    f"[dim]({chain['impact']})[/dim]"
+                )
+            if sim_result["chain_count"] > 3:
+                out_console.print(
+                    f"  [dim]... and "
+                    f"{sim_result['chain_count'] - 3} more"
+                    f" — run checkagent simulate for details"
+                    f"[/dim]"
+                )
+        elif sim_result["near_misses"]:
+            out_console.print()
+            out_console.print(
+                f"[yellow]No complete attack chains, but "
+                f"{len(sim_result['near_misses'])} "
+                f"near misses[/yellow]"
+            )
 
     # Interactive drill-down mode — navigates findings before exiting
     if interactive and not json_output and all_findings:

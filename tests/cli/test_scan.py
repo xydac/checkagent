@@ -2914,6 +2914,53 @@ class TestScanReportFlag:
         assert report_path.exists()
 
 
+class TestScanSimulateFlag:
+    """Tests for ``checkagent scan --simulate`` attack chain integration."""
+
+    def test_simulate_terminal_output(self, tmp_path, monkeypatch):
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "scan_test_agents:unsafe_agent",
+            "--category", "injection",
+            "--simulate",
+            "--exit-zero",
+        ])
+        assert result.exit_code == 0
+
+    def test_simulate_json_output(self, tmp_path, monkeypatch):
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "scan_test_agents:unsafe_agent",
+            "--category", "injection",
+            "--simulate",
+            "--json",
+            "--exit-zero",
+        ])
+        assert result.exit_code == 0
+        import json
+        data = json.loads(result.output)
+        if data.get("summary", {}).get("failed", 0) > 0:
+            assert "simulation" in data
+
+    def test_simulate_clean_scan(self, tmp_path, monkeypatch):
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "scan_test_agents:safe_agent",
+            "--category", "injection",
+            "--simulate",
+        ])
+        assert result.exit_code == 0
+
+
 class TestScanReportFormats:
     """Tests for multi-format compliance reports (.html, .md, .json)."""
 
