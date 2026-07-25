@@ -2914,6 +2914,70 @@ class TestScanReportFlag:
         assert report_path.exists()
 
 
+class TestScanReportFormats:
+    """Tests for multi-format compliance reports (.html, .md, .json)."""
+
+    def test_markdown_report(self, tmp_path, monkeypatch):
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        report_path = tmp_path / "report.md"
+        runner = CliRunner()
+        runner.invoke(scan_cmd, [
+            "scan_test_agents:safe_agent",
+            "--category", "injection",
+            "--report", str(report_path),
+        ])
+        assert report_path.exists()
+        md = report_path.read_text()
+        assert "# Safety Compliance Report" in md
+        assert "| Metric" in md
+
+    def test_markdown_report_message(self, tmp_path, monkeypatch):
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        report_path = tmp_path / "report.md"
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "scan_test_agents:safe_agent",
+            "--category", "injection",
+            "--report", str(report_path),
+        ])
+        assert "Markdown" in result.output
+
+    def test_json_report(self, tmp_path, monkeypatch):
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        report_path = tmp_path / "report.json"
+        runner = CliRunner()
+        runner.invoke(scan_cmd, [
+            "scan_test_agents:safe_agent",
+            "--category", "injection",
+            "--report", str(report_path),
+        ])
+        assert report_path.exists()
+        import json
+        data = json.loads(report_path.read_text())
+        assert "report_type" in data
+
+    def test_html_default_for_unknown_ext(self, tmp_path, monkeypatch):
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+
+        report_path = tmp_path / "report.txt"
+        runner = CliRunner()
+        runner.invoke(scan_cmd, [
+            "scan_test_agents:safe_agent",
+            "--category", "injection",
+            "--report", str(report_path),
+        ])
+        assert report_path.exists()
+        content = report_path.read_text()
+        assert "<html" in content.lower() or "<!doctype" in content.lower()
+
+
 # ---------------------------------------------------------------------------
 # F-106: Auto-detected diagnostic must go to stderr, not stdout
 # ---------------------------------------------------------------------------

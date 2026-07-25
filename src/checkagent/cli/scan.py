@@ -1487,7 +1487,8 @@ def _generate_test_file(
     type=click.Path(dir_okay=False),
     default=None,
     metavar="FILE",
-    help="Write an HTML compliance report to FILE (e.g. --report report.html).",
+    help="Write compliance report to FILE. Format from extension: "
+         ".html (default), .md (Markdown), .json.",
 )
 @click.option(
     "--interactive", "-i",
@@ -2204,6 +2205,8 @@ def scan_cmd(
         from checkagent.safety.compliance import (
             generate_compliance_report,
             render_compliance_html,
+            render_compliance_json,
+            render_compliance_markdown,
         )
         from checkagent.safety.evaluator import SafetyResult
 
@@ -2235,12 +2238,22 @@ def scan_cmd(
             model_version=f"checkagent {_ca.__version__}",
             raw_findings=_report_raw_findings,
         )
-        html = render_compliance_html(compliance)
         report_path = Path(report_file)
-        report_path.write_text(html, encoding="utf-8")
+        suffix = report_path.suffix.lower()
+        if suffix == ".md":
+            report_content = render_compliance_markdown(compliance)
+        elif suffix == ".json":
+            report_content = render_compliance_json(compliance)
+        else:
+            report_content = render_compliance_html(compliance)
+        report_path.write_text(report_content, encoding="utf-8")
         if not json_output:
+            fmt_label = {
+                ".md": "Markdown", ".json": "JSON",
+            }.get(suffix, "HTML")
             out_console.print(
-                f"\n[green]Compliance report written → [bold]{report_path}[/bold][/green]"
+                f"\n[green]{fmt_label} compliance report "
+                f"written → [bold]{report_path}[/bold][/green]"
             )
 
     # Build findings list for history persistence
