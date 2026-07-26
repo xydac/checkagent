@@ -2266,6 +2266,18 @@ def scan_cmd(
         suffix = report_path.suffix.lower()
         if suffix == ".md":
             report_content = render_compliance_markdown(compliance)
+            if all_findings:
+                from checkagent.cli.simulate import (  # noqa: PLC0415
+                    render_attack_chains_markdown,
+                    simulate_attacks,
+                )
+                _scan_data = {
+                    "findings": [
+                        {"category": f.category.value, "probe_id": p.name or p.input[:60]}
+                        for p, _out, f in all_findings
+                    ]
+                }
+                report_content += render_attack_chains_markdown(simulate_attacks(_scan_data))
         elif suffix == ".json":
             report_content = render_compliance_json(compliance)
         else:

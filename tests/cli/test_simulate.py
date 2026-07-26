@@ -241,3 +241,45 @@ class TestSimulateCLI:
         result = runner.invoke(simulate_cmd, [str(f)])
         assert result.exit_code == 0
         assert "Near Misses" in result.output
+
+
+# -- Tests for render_attack_chains_markdown --
+
+class TestRenderAttackChainsMarkdown:
+    def _make_simulation(self, categories: set) -> dict:
+        from checkagent.cli.simulate import simulate_attacks
+        scan_data = {"findings": [{"category": c} for c in categories]}
+        return simulate_attacks(scan_data)
+
+    def test_no_chains_message(self):
+        from checkagent.cli.simulate import render_attack_chains_markdown
+        sim = self._make_simulation(set())
+        md = render_attack_chains_markdown(sim)
+        assert "## Attack Chain Analysis" in md
+        assert "No complete attack chains" in md
+
+    def test_chains_appear_in_output(self):
+        from checkagent.cli.simulate import render_attack_chains_markdown
+        sim = self._make_simulation({"system_prompt_leak", "prompt_injection"})
+        md = render_attack_chains_markdown(sim)
+        assert "## Attack Chain Analysis" in md
+        assert "Prompt Exfiltration" in md
+
+    def test_near_miss_section_appears(self):
+        from checkagent.cli.simulate import render_attack_chains_markdown
+        sim = self._make_simulation({"system_prompt_leak"})
+        md = render_attack_chains_markdown(sim)
+        assert "Near-Miss Warnings" in md
+        assert "prompt_injection" in md
+
+    def test_risk_level_shown(self):
+        from checkagent.cli.simulate import render_attack_chains_markdown
+        sim = self._make_simulation({"system_prompt_leak", "prompt_injection"})
+        md = render_attack_chains_markdown(sim)
+        assert "Overall Risk Level" in md
+
+    def test_owasp_shown_for_chains(self):
+        from checkagent.cli.simulate import render_attack_chains_markdown
+        sim = self._make_simulation({"system_prompt_leak", "prompt_injection"})
+        md = render_attack_chains_markdown(sim)
+        assert "OWASP" in md
