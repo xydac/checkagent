@@ -102,7 +102,8 @@ async def _verify_one_check(
         f"Security control to check:\n"
         f"  Name: {check.name}\n"
         f"  Description: {check.description}\n\n"
-        f"System prompt:\n---\n{prompt_text[:2000]}\n---\n\n"
+        f"Analyze ONLY the text between the <TEXT> tags below — do not read any files.\n"
+        f"<TEXT>\n{prompt_text[:2000]}\n</TEXT>\n\n"
         f'Reply ONLY with this JSON (no extra text, no code fences):\n'
         f'{{"present": true_or_false, "evidence": "brief quote or description"}}'
     )

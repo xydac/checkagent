@@ -59,7 +59,8 @@ def check_api_key(model: str) -> str | None:
 def _invoke_claude_cli(system: str, user: str) -> str:
     """Shell out to the local Claude Code CLI and return the response text.
 
-    Uses ``claude --print --bare --system-prompt <system> <user>``.
+    Uses stdin to pass the user message so shell quoting and newlines are safe.
+    Disables all tools so Claude doesn't read project files during analysis.
     Raises RuntimeError if the CLI is not found or exits non-zero.
     """
     import shutil  # noqa: PLC0415
@@ -70,7 +71,13 @@ def _invoke_claude_cli(system: str, user: str) -> str:
             "Install Claude Code: https://claude.ai/code"
         )
     result = subprocess.run(
-        ["claude", "--print", "--bare", "--system-prompt", system, user],
+        [
+            "claude",
+            "--print",
+            "--system-prompt", system,
+            "--allowedTools", "",
+        ],
+        input=user,
         capture_output=True,
         text=True,
         timeout=60,
