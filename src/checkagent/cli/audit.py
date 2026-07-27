@@ -365,6 +365,27 @@ def audit_cmd(
     if not findings:
         console.print("\n[bold green]Agent passed all safety probes![/bold green]")
 
+    # ── Share card ────────────────────────────────────────────────────────
+    # One-liner users can paste into PR comments, Slack, or social media.
+    if findings and triage:
+        top_fix = triage[0]["category"]
+        chain_note = (
+            f", {simulation.get('chain_count', 0)} attack chains exploitable"
+            if simulation.get("chain_count", 0) > 0
+            else ""
+        )
+        share_line = (
+            f"CheckAgent audit: **{grade}** ({score:.0%}){chain_note}. "
+            f"Fix `{top_fix}` first → +{triage[0]['score_improvement_pct']}%."
+        )
+        console.print()
+        console.print(Panel.fit(
+            f"[dim]Paste in your PR / Slack:[/dim]\n"
+            f"[bold]{share_line}[/bold]",
+            title="Share",
+            border_style="dim",
+        ))
+
     # ── Report export ─────────────────────────────────────────────────────
     if report_file:
         rpath = Path(report_file)
