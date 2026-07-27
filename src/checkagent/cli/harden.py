@@ -83,6 +83,35 @@ _CONTROLS: dict[str, dict[str, str]] = {
 }
 
 
+def _extract_system_prompt_from_python(source: str) -> str | None:
+    """Extract a SYSTEM_PROMPT (or SYSTEM_PROMPT_*) string constant from Python source.
+
+    Handles triple-quoted and single-quoted string assignments. Returns None if
+    no such constant is found so the caller can fall back to hardening the whole file.
+    """
+    import ast
+
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return None
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign):
+            continue
+        for target in node.targets:
+            if not isinstance(target, ast.Name):
+                continue
+            name = target.id
+            if (
+                (name == "SYSTEM_PROMPT" or name.startswith("SYSTEM_PROMPT_"))
+                and isinstance(node.value, ast.Constant)
+                and isinstance(node.value.value, str)
+            ):
+                return node.value.value
+    return None
+
+
 def _run_analyze(prompt_text: str) -> tuple[float, list[str]]:
     """Run analyze-prompt logic to find missing checks.
 
@@ -213,9 +242,26 @@ def harden_cmd(
     adding protection against prompt injection, PII leakage, scope
     violations, and other OWASP LLM Top 10 risks.
     """
-    prompt_text = Path(prompt_file).read_text(encoding="utf-8")
+    raw = Path(prompt_file).read_text(encoding="utf-8")
+
+    # For Python source files, extract the SYSTEM_PROMPT constant rather than
+    # hardening the entire source (which would add security directives to code).
+    is_python = Path(prompt_file).suffix == ".py"
+    extracted_prompt = None
+    if is_python:
+        extracted_prompt = _extract_system_prompt_from_python(raw)
+
+    prompt_text = extracted_prompt if extracted_prompt is not None else raw
 
     result = harden_prompt(prompt_text, target_score=target_score)
+
+    # For Python files, patch the hardened prompt back into the source.
+    if is_python and extracted_prompt is not None:
+        hardened_in_source = raw.replace(
+            extracted_prompt, result["hardened_prompt"], 1
+        )
+        result["hardened_prompt"] = hardened_in_source
+        result["extracted_from_python"] = True
 
     if json_output:
         click.echo(json.dumps(result, indent=2))
@@ -267,6 +313,21 @@ def harden_cmd(
             f"[green]Hardened prompt written → [bold]{output_file}[/bold][/green]\n"
         )
     else:
+        # For Python files, show only the extracted prompt in the display
+        # (the full patched source is available via --output).
+        display_text = result["hardened_prompt"]
+        if result.get("extracted_from_python") and extracted_prompt is not None:
+            display_text = result["hardened_prompt"].replace(
+                extracted_prompt, result.get("_hardened_prompt_only", display_text), 1
+            )
+            console.print(
+                "[dim]Showing hardened SYSTEM_PROMPT "
+                "(use --output to write the full patched .py file)[/dim]"
+            )
+            # Find and display just the hardened prompt portion
+            hardened_text = _extract_system_prompt_from_python(result["hardened_prompt"])
+            display_text = hardened_text or result["hardened_prompt"]
+
         console.print("[bold]Hardened prompt:[/bold]")
-        console.print(Panel(result["hardened_prompt"], border_style="dim"))
+        console.print(Panel(display_text, border_style="dim"))
         console.print()
