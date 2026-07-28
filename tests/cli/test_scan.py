@@ -4213,3 +4213,45 @@ class TestSystemPromptErrorMessage:
         )
         output = captured.getvalue()
         assert "importable" in output
+
+
+class TestShareCard:
+    """Share card appears in terminal output for scans with findings."""
+
+    def test_share_card_shown_when_findings(self, tmp_path, monkeypatch):
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "scan_test_agents:unsafe_agent",
+            "--category", "injection",
+            "--timeout", "2",
+        ])
+        assert result.exit_code == 1
+        assert "Copy to PR" in result.output
+        assert "Grade" in result.output
+        assert "finding" in result.output
+
+    def test_share_card_not_shown_when_safe(self, tmp_path, monkeypatch):
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "scan_test_agents:safe_agent",
+            "--category", "injection",
+            "--timeout", "2",
+        ])
+        assert result.exit_code == 0
+        assert "Copy to PR" not in result.output
+
+    def test_share_card_not_shown_in_json_mode(self, tmp_path, monkeypatch):
+        _write_agent_module(tmp_path)
+        monkeypatch.syspath_prepend(str(tmp_path))
+        runner = CliRunner()
+        result = runner.invoke(scan_cmd, [
+            "scan_test_agents:unsafe_agent",
+            "--category", "injection",
+            "--timeout", "2",
+            "--json",
+        ])
+        assert "Copy to PR" not in result.output

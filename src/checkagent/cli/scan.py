@@ -2173,6 +2173,28 @@ def scan_cmd(
             is_system_prompt_mode=system_prompt is not None,
         )
 
+    # Share card — paste-ready one-liner for PRs, Slack, GitHub comments
+    if not json_output and all_findings:
+        from checkagent.cli.grade import score_to_grade  # noqa: PLC0415
+
+        _scan_score = passed / total if total > 0 else 0.0
+        _grade = score_to_grade(_scan_score)
+        _n = len(all_findings)
+        _top_cats = sorted({f.category.value for _, _, f in all_findings})[:2]
+        _cats_str = " | ".join(c.replace("_", " ") for c in _top_cats)
+        _share_line = (
+            f"checkagent scan {display_target} "
+            f"→ Grade {_grade} ({_scan_score:.0%}) | {_n} finding(s)"
+        )
+        if _cats_str:
+            _share_line += f" | {_cats_str}"
+        out_console.print(Panel.fit(
+            f"[dim]{_share_line}[/dim]",
+            title="[dim]Copy to PR · Slack · GitHub comment[/dim]",
+            border_style="dim",
+        ))
+        out_console.print()
+
     # Show LLM judge cost estimate
     if llm_judge and not json_output:
         cost_per_probe = _JUDGE_COST_PER_PROBE.get(llm_judge, _JUDGE_COST_DEFAULT)
