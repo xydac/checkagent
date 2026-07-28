@@ -242,7 +242,7 @@ def harden_cmd(
     adding protection against prompt injection, PII leakage, scope
     violations, and other OWASP LLM Top 10 risks.
     """
-    raw = Path(prompt_file).read_text(encoding="utf-8")
+    raw = Path(prompt_file).read_text(encoding="utf-8", errors="replace")
 
     # For Python source files, extract the SYSTEM_PROMPT constant rather than
     # hardening the entire source (which would add security directives to code).
