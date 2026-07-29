@@ -29,6 +29,8 @@ def _run_scan_json(
     category: str | None,
     timeout: float,
     repeat: int,
+    llm_judge: str | None = None,
+    agent_description: str | None = None,
 ) -> dict:
     """Run scan and return JSON result dict."""
     import shutil
@@ -56,6 +58,12 @@ def _run_scan_json(
     if repeat > 1:
         cmd += ["--repeat", str(repeat)]
 
+    if llm_judge:
+        cmd += ["--llm-judge", llm_judge]
+
+    if agent_description:
+        cmd += ["--agent-description", agent_description]
+
     proc = subprocess.run(cmd, capture_output=True, text=True)
 
     if not proc.stdout.strip():
@@ -82,12 +90,19 @@ def run_audit(
     category: str | None = None,
     timeout: float = 10.0,
     repeat: int = 1,
+    llm_judge: str | None = None,
+    agent_description: str | None = None,
 ) -> dict:
     """Run full audit pipeline: scan → triage → simulate.
 
-    Returns a structured dict with scan data, triage, and simulation results.
+    Returns a structured dict with scan data, triage, simulation results,
+    and a ``share_card`` string suitable for pasting into PR comments or Slack.
     """
-    scan_data = _run_scan_json(target, url, category, timeout, repeat)
+    scan_data = _run_scan_json(
+        target, url, category, timeout, repeat,
+        llm_judge=llm_judge,
+        agent_description=agent_description,
+    )
 
     findings = scan_data.get("findings", [])
     total = scan_data.get("summary", {}).get("total", 0)
@@ -95,10 +110,24 @@ def run_audit(
     triage = triage_findings(findings, total) if findings else []
     simulation = simulate_attacks(scan_data)
 
+    share_card: str | None = None
+    if findings and triage:
+        from checkagent.cli.grade import score_to_grade
+        score = scan_data.get("summary", {}).get("score", 0.0)
+        grade = score_to_grade(score)
+        chain_count = simulation.get("chain_count", 0)
+        chain_note = f", {chain_count} attack chains exploitable" if chain_count else ""
+        top = triage[0]
+        share_card = (
+            f"CheckAgent audit: **{grade}** ({score:.0%}){chain_note}. "
+            f"Fix `{top['category']}` first → +{top['score_improvement_pct']}%."
+        )
+
     return {
         "scan": scan_data,
         "triage": triage,
         "simulation": simulation,
+        "share_card": share_card,
     }
 
 
@@ -189,6 +218,10 @@ def _render_audit_markdown(audit: dict, target_label: str) -> str:
               help="Probe timeout in seconds (default: 10).")
 @click.option("--repeat", type=int, default=1,
               help="Run each probe N times for stability scoring.")
+@click.option("--llm-judge", "llm_judge", type=str, default=None,
+              help="Use an LLM to judge probe results (e.g. gpt-4o-mini, claude-3-haiku).")
+@click.option("--agent-description", "agent_description", type=str, default=None,
+              help="Agent role description; improves LLM judge accuracy.")
 @click.option("--report", "report_file", type=click.Path(), default=None,
               help="Write audit report to file (.md, .json).")
 @click.option("--json", "json_output", is_flag=True,
@@ -199,6 +232,8 @@ def audit_cmd(
     category: str | None,
     timeout: float,
     repeat: int,
+    llm_judge: str | None,
+    agent_description: str | None,
     report_file: str | None,
     json_output: bool,
 ) -> None:
@@ -211,6 +246,7 @@ def audit_cmd(
     Examples:
       checkagent audit my_agent:run
       checkagent audit --url http://localhost:8000/chat
+      checkagent audit my_agent:run --llm-judge gpt-4o-mini --agent-description "HR assistant"
       checkagent audit my_agent:run --report audit.md
     """
     if not target and not url:
@@ -220,7 +256,10 @@ def audit_cmd(
     target_label = url or target
 
     if json_output:
-        audit = run_audit(target, url, category=category, timeout=timeout, repeat=repeat)
+        audit = run_audit(
+            target, url, category=category, timeout=timeout, repeat=repeat,
+            llm_judge=llm_judge, agent_description=agent_description,
+        )
         click.echo(json.dumps(audit, indent=2))
         return
 
@@ -246,7 +285,10 @@ def audit_cmd(
     console.print()
 
     try:
-        audit = run_audit(target, url, category=category, timeout=timeout, repeat=repeat)
+        audit = run_audit(
+            target, url, category=category, timeout=timeout, repeat=repeat,
+            llm_judge=llm_judge, agent_description=agent_description,
+        )
     except SystemExit:
         raise
 
@@ -366,18 +408,8 @@ def audit_cmd(
         console.print("\n[bold green]Agent passed all safety probes![/bold green]")
 
     # ── Share card ────────────────────────────────────────────────────────
-    # One-liner users can paste into PR comments, Slack, or social media.
-    if findings and triage:
-        top_fix = triage[0]["category"]
-        chain_note = (
-            f", {simulation.get('chain_count', 0)} attack chains exploitable"
-            if simulation.get("chain_count", 0) > 0
-            else ""
-        )
-        share_line = (
-            f"CheckAgent audit: **{grade}** ({score:.0%}){chain_note}. "
-            f"Fix `{top_fix}` first → +{triage[0]['score_improvement_pct']}%."
-        )
+    share_line = audit.get("share_card")
+    if share_line:
         console.print()
         console.print(Panel.fit(
             f"[dim]Paste in your PR / Slack:[/dim]\n"

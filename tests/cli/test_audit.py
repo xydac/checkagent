@@ -89,7 +89,7 @@ class TestAuditCmdCli:
 
     def _mock_audit(self, scan: dict):
         """Patch _run_scan_json to return a fixed scan result."""
-        def _fake_run(target, url, category, timeout, repeat):
+        def _fake_run(target, url, category, timeout, repeat, **kwargs):
             return scan
         return patch("checkagent.cli.audit._run_scan_json", side_effect=_fake_run)
 
@@ -165,7 +165,7 @@ class TestAuditCmdCli:
     def test_url_flag_passes_through(self):
         captured = {}
 
-        def _capture(target, url, category, timeout, repeat):
+        def _capture(target, url, category, timeout, repeat, **kwargs):
             captured["url"] = url
             captured["target"] = target
             return _CLEAN_SCAN
@@ -181,7 +181,7 @@ class TestAuditCmdCli:
     def test_repeat_flag_passes_through(self):
         captured = {}
 
-        def _capture(target, url, category, timeout, repeat):
+        def _capture(target, url, category, timeout, repeat, **kwargs):
             captured["repeat"] = repeat
             return _CLEAN_SCAN
 
@@ -197,3 +197,39 @@ class TestAuditCmdCli:
             result = self.runner.invoke(audit_cmd, ["my_module:agent"])
         assert result.exit_code == 0
         assert "Attack Chain" in result.output
+
+    def test_json_output_includes_share_card(self):
+        with self._mock_audit(_FINDINGS_SCAN):
+            result = self.runner.invoke(audit_cmd, ["my_module:agent", "--json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "share_card" in data
+        assert data["share_card"] is not None
+        assert "CheckAgent audit:" in data["share_card"]
+
+    def test_json_output_share_card_none_on_clean(self):
+        with self._mock_audit(_CLEAN_SCAN):
+            result = self.runner.invoke(audit_cmd, ["my_module:agent", "--json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "share_card" in data
+        assert data["share_card"] is None
+
+    def test_llm_judge_flag_passes_through(self):
+        captured = {}
+
+        def _capture(target, url, category, timeout, repeat, **kwargs):
+            captured["llm_judge"] = kwargs.get("llm_judge")
+            captured["agent_description"] = kwargs.get("agent_description")
+            return _CLEAN_SCAN
+
+        with patch("checkagent.cli.audit._run_scan_json", side_effect=_capture):
+            result = self.runner.invoke(
+                audit_cmd, [
+                    "my_module:agent", "--llm-judge", "gpt-4o-mini",
+                    "--agent-description", "HR assistant bot",
+                ]
+            )
+        assert result.exit_code == 0
+        assert captured["llm_judge"] == "gpt-4o-mini"
+        assert captured["agent_description"] == "HR assistant bot"
