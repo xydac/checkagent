@@ -7,10 +7,14 @@ from checkagent.ci.quality_gate import QualityGateEntry
 from checkagent.ci.reporter import TestRunSummary
 from checkagent.cli.ablate_prompt import ablate_prompt  # noqa: F401
 from checkagent.cli.analyze_prompt import analyze_prompt  # noqa: F401
+from checkagent.cli.audit import run_audit  # noqa: F401
 from checkagent.cli.diff import compute_diff  # noqa: F401
+from checkagent.cli.grade import compute_percentile, grade_color, score_to_grade  # noqa: F401
+from checkagent.cli.harden import harden_prompt  # noqa: F401
 from checkagent.cli.scan import evaluate_output, evaluate_output_with_baseline  # noqa: F401
 from checkagent.cli.simulate import simulate_attacks  # noqa: F401
 from checkagent.cli.stress_prompt import stress_prompt  # noqa: F401
+from checkagent.cli.triage import triage_findings  # noqa: F401
 from checkagent.conversation.session import Conversation, Turn
 from checkagent.core.config import (
     BudgetConfig,
@@ -273,6 +277,13 @@ __all__ = [
     "ablate_prompt",
     "analyze_prompt",
     "stress_prompt",
+    # Audit pipeline
+    "run_audit",
+    "triage_findings",
+    "harden_prompt",
+    "score_to_grade",
+    "compute_percentile",
+    "grade_color",
     # Streaming
     "StreamCollector",
     # Trace import

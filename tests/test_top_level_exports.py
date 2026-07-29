@@ -159,3 +159,25 @@ def test_all_list_matches_actual_exports():
     }
     missing = expected - set(checkagent.__all__)
     assert not missing, f"Missing from __all__: {missing}"
+
+
+def test_audit_pipeline_importable():
+    """run_audit, triage_findings, harden_prompt, and grade helpers importable (closes F-162)."""
+    from checkagent import (
+        compute_percentile,
+        grade_color,
+        harden_prompt,
+        run_audit,
+        score_to_grade,
+        triage_findings,
+    )
+    assert callable(run_audit)
+    assert callable(triage_findings)
+    assert callable(harden_prompt)
+    assert callable(score_to_grade)
+    assert callable(compute_percentile)
+    assert callable(grade_color)
+    # Basic sanity checks
+    assert score_to_grade(1.0) == "A+"
+    assert score_to_grade(0.0) == "F"
+    assert isinstance(compute_percentile(0.73), int)
