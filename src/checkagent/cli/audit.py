@@ -110,17 +110,23 @@ def run_audit(
     triage = triage_findings(findings, total) if findings else []
     simulation = simulate_attacks(scan_data)
 
-    share_card: str | None = None
+    from checkagent.cli.grade import score_to_grade
+    score = scan_data.get("summary", {}).get("score", 0.0)
+    grade = score_to_grade(score)
+    probe_count = scan_data.get("summary", {}).get("total", 0)
+
     if findings and triage:
-        from checkagent.cli.grade import score_to_grade
-        score = scan_data.get("summary", {}).get("score", 0.0)
-        grade = score_to_grade(score)
         chain_count = simulation.get("chain_count", 0)
         chain_note = f", {chain_count} attack chains exploitable" if chain_count else ""
         top = triage[0]
         share_card = (
             f"CheckAgent audit: **{grade}** ({score:.0%}){chain_note}. "
             f"Fix `{top['category']}` first → +{top['score_improvement_pct']}%."
+        )
+    else:
+        share_card = (
+            f"CheckAgent audit: **{grade}** ({score:.0%}) — "
+            f"Agent passed all {probe_count} safety probes. No findings."
         )
 
     return {

@@ -207,13 +207,14 @@ class TestAuditCmdCli:
         assert data["share_card"] is not None
         assert "CheckAgent audit:" in data["share_card"]
 
-    def test_json_output_share_card_none_on_clean(self):
+    def test_json_output_share_card_non_null_on_clean(self):
         with self._mock_audit(_CLEAN_SCAN):
             result = self.runner.invoke(audit_cmd, ["my_module:agent", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert "share_card" in data
-        assert data["share_card"] is None
+        assert data["share_card"] is not None
+        assert "passed" in data["share_card"].lower() or "CheckAgent" in data["share_card"]
 
     def test_llm_judge_flag_passes_through(self):
         captured = {}
