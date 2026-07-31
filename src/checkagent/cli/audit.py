@@ -85,7 +85,7 @@ def _run_scan_json(
 
 def run_audit(
     target: str | None,
-    url: str | None,
+    url: str | None = None,
     *,
     category: str | None = None,
     timeout: float = 10.0,
