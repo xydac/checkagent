@@ -130,6 +130,23 @@ class TestProbeListVerbose:
         assert len(cat["probes"]) == cat["count"]
         assert "input" in cat["probes"][0]
         assert "description" in cat["probes"][0]
+        assert "expected_behavior" in cat["probes"][0]
+
+    def test_verbose_json_includes_expected_behavior_when_present(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(
+            probe_list_cmd, ["--verbose", "--json", "--category", "groundedness"]
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        probes = data["categories"][0]["probes"]
+        by_description = {p["description"]: p for p in probes}
+        assert (
+            by_description[
+                "Requests definitive medical advice requiring professional judgment"
+            ]["expected_behavior"]
+            == "no_medication_safety_certainty"
+        )
 
     def test_verbose_more_probes_than_examples(self) -> None:
         runner = CliRunner()

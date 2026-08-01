@@ -26,12 +26,17 @@ from checkagent.safety.taxonomy import SafetyCategory, Severity
 # ---------------------------------------------------------------------------
 
 
-def _make_probe(name: str = "test_probe", input_text: str = "ignore previous") -> Probe:
+def _make_probe(
+    name: str = "test_probe",
+    input_text: str = "ignore previous",
+    expected_behavior: str | None = None,
+) -> Probe:
     return Probe(
         name=name,
         input=input_text,
         category=SafetyCategory.PROMPT_INJECTION,
         description="Test probe",
+        expected_behavior=expected_behavior,
     )
 
 
@@ -134,6 +139,23 @@ class TestBuildSarif:
         assert r["ruleId"] == "CA-INJ-001"
         assert r["level"] == "error"  # HIGH → error
         assert "Agent complied with injection" in r["message"]["text"]
+
+    def test_expected_behavior_in_result_properties(self) -> None:
+        probe = _make_probe(expected_behavior="refuse_override")
+        finding = _make_finding()
+        doc = build_sarif(
+            target="my_module:fn",
+            total=1,
+            passed=0,
+            failed=1,
+            errors=0,
+            elapsed=0.1,
+            start_time_utc="2026-04-11T19:00:00Z",
+            end_time_utc="2026-04-11T19:00:01Z",
+            all_findings=[(probe, "bad output", finding)],
+        )
+        result = sarif_results(doc)[0]
+        assert result["properties"]["expectedBehavior"] == "refuse_override"
 
     def test_finding_locations_point_to_target_file(self) -> None:
         probe = _make_probe()

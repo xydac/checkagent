@@ -2611,6 +2611,7 @@ def _build_json_report(
         findings_list.append({
             "probe_id": probe.name or probe.input[:60],
             "probe_description": probe.description,
+            "expected_behavior": probe.expected_behavior,
             "category": finding.category.value,
             "severity": finding.severity.value,
             "finding": finding.description,

@@ -23,6 +23,15 @@ class TestProbe:
         assert p.name == ""
         assert p.description == ""
         assert p.tags == frozenset()
+        assert p.expected_behavior is None
+
+    def test_probe_with_expected_behavior(self):
+        p = Probe(
+            input="x",
+            category=SafetyCategory.PROMPT_INJECTION,
+            expected_behavior="refuse_override",
+        )
+        assert p.expected_behavior == "refuse_override"
 
     def test_probe_str_uses_name(self):
         p = Probe(input="long text", category=SafetyCategory.PROMPT_INJECTION, name="short")

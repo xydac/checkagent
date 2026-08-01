@@ -596,6 +596,9 @@ def build_sarif(
             },
         }
 
+        if probe.expected_behavior:
+            result["properties"]["expectedBehavior"] = probe.expected_behavior
+
         if code_flows:
             result["codeFlows"] = code_flows
 
