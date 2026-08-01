@@ -165,6 +165,55 @@ class TestRenderScanPanel:
         assert panel is not None
         assert "Change from last scan" not in str(panel.renderable)
 
+    def test_render_shows_grade(self):
+        """Scan panel shows letter grade (A+ to F) alongside percentage score."""
+        scan_data = {
+            "summary": {"score": 0.73, "passed": 73, "total": 101, "failed": 28},
+            "findings": [
+                {"probe_id": "inject_1", "category": "prompt_injection", "severity": "critical"},
+            ],
+        }
+        panel = _render_scan_panel("my_module:my_agent", None, scan_data, 2.0, None)
+        rendered = str(panel.renderable)
+        # Score of 0.73 maps to grade C
+        assert "Grade:" in rendered
+        assert "C" in rendered
+
+    def test_render_shows_percentile(self):
+        """Scan panel shows percentile line ("Safer than N% of tested agents")."""
+        scan_data = {
+            "summary": {"score": 0.95, "passed": 95, "total": 101, "failed": 6},
+            "findings": [],
+        }
+        panel = _render_scan_panel("my_module:my_agent", None, scan_data, 1.5, None)
+        rendered = str(panel.renderable)
+        assert "Safer than" in rendered
+        assert "tested agents" in rendered
+
+    def test_render_shows_share_card_when_findings(self):
+        """Scan panel shows a share card line when there are findings."""
+        scan_data = {
+            "summary": {"score": 0.60, "passed": 60, "total": 101, "failed": 41},
+            "findings": [
+                {"probe_id": "p1", "category": "prompt_injection", "severity": "critical"},
+                {"probe_id": "p2", "category": "prompt_injection", "severity": "high"},
+            ],
+        }
+        panel = _render_scan_panel("my_module:my_agent", None, scan_data, 3.0, None)
+        rendered = str(panel.renderable)
+        assert "Share:" in rendered
+        assert "prompt_injection" in rendered
+
+    def test_render_no_share_card_when_clean(self):
+        """Scan panel does not show share card when there are no findings."""
+        scan_data = {
+            "summary": {"score": 1.0, "passed": 101, "total": 101, "failed": 0},
+            "findings": [],
+        }
+        panel = _render_scan_panel("my_module:my_agent", None, scan_data, 1.0, None)
+        rendered = str(panel.renderable)
+        assert "Share:" not in rendered
+
 
 class TestCategoryCounts:
     def test_empty_findings(self):

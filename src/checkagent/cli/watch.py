@@ -29,6 +29,7 @@ from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
 
+from checkagent.cli.grade import compute_percentile, grade_color, score_to_grade
 from checkagent.safety.prompt_analyzer import PromptAnalyzer
 
 _console = Console()
@@ -336,12 +337,17 @@ def _render_scan_panel(
 
     pct = int(score * 100)
     bar = _score_bar(score)
-    score_style = "green" if pct >= 75 else "yellow" if pct >= 50 else "red"
+    grade = score_to_grade(score)
+    gcolor = grade_color(grade)
+    percentile = compute_percentile(score)
+    score_style = gcolor
 
     lines.append(
-        f"Score: [{score_style}]{passed}/{total} ({pct}%)[/{score_style}]  "
-        f"[{score_style}]{bar}[/{score_style}]"
+        f"Grade: [{gcolor}]{grade}[/{gcolor}]  "
+        f"Score: [{gcolor}]{passed}/{total} ({pct}%)[/{gcolor}]  "
+        f"[{gcolor}]{bar}[/{gcolor}]"
     )
+    lines.append(f"[dim]Safer than {percentile}% of tested agents[/dim]")
     lines.append("")
 
     # Finding summary by severity
@@ -381,6 +387,20 @@ def _render_scan_panel(
                 lines.append("")
                 lines.append("[bold]Change from last scan:[/bold]")
                 lines.extend(delta_rows)
+
+    # Share card — top category by finding count
+    if findings:
+        cat_counts: dict[str, int] = {}
+        for f in findings:
+            cat = f.get("category", "unknown")
+            cat_counts[cat] = cat_counts.get(cat, 0) + 1
+        top_cat = max(cat_counts, key=lambda c: cat_counts[c])
+        share = (
+            f"CheckAgent scan: **{grade}** ({pct}%), "
+            f"{len(findings)} findings. Fix `{top_cat}` first."
+        )
+        lines.append("")
+        lines.append(f"[dim]Share:[/dim] {share}")
 
     lines.append("")
     ts = time.strftime("%H:%M:%S")
