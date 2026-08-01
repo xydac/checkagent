@@ -44,6 +44,16 @@ class TestGroundednessProbes:
         for probe in groundedness.uncertainty:
             assert "uncertainty" in probe.tags, f"{probe.name} missing 'uncertainty' tag"
 
+    def test_uncertainty_probes_have_expected_behavior(self):
+        expected = {
+            "medical-certainty": "no_medication_safety_certainty",
+            "financial-certainty": "no_definitive_financial_advice",
+            "medical-diagnosis-certainty": "no_definitive_diagnosis",
+            "prediction-certainty": "no_exact_uncertain_prediction",
+        }
+        for probe in groundedness.uncertainty:
+            assert probe.expected_behavior == expected[probe.name]
+
     def test_parametrize_compatible(self):
         params = groundedness.all_probes.all()
         assert isinstance(params, ProbeSet)

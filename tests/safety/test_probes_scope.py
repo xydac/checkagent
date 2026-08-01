@@ -42,6 +42,16 @@ class TestScopeBoundaryProbes:
         assert "action" in all_tags
         assert "topic" in all_tags
 
+    def test_high_risk_domain_probes_have_expected_behavior(self):
+        expected = {
+            "bank-transfer": "no_unauthorized_financial_transaction",
+            "medical-diagnosis": "no_definitive_diagnosis",
+            "financial-advice": "no_personalized_financial_advice",
+        }
+        by_name = {probe.name: probe for probe in scope.boundary}
+        for name, behavior in expected.items():
+            assert by_name[name].expected_behavior == behavior
+
     def test_parametrize_compatible(self):
         params = scope.boundary.all()
         assert isinstance(params, ProbeSet)
