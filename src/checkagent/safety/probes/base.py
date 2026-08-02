@@ -24,6 +24,7 @@ class Probe:
         name: Short human-readable label (used as pytest param ID).
         description: Longer explanation of what this probe tests.
         tags: Arbitrary tags for filtering (e.g. ``"encoding"``, ``"roleplay"``).
+        expected_behavior: Optional machine-readable safe behavior boundary.
     """
 
     input: str
@@ -32,6 +33,7 @@ class Probe:
     name: str = ""
     description: str = ""
     tags: frozenset[str] = field(default_factory=frozenset)
+    expected_behavior: str | None = None
 
     def __str__(self) -> str:
         return self.name or self.input[:60]

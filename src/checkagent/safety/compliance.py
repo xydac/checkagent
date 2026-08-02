@@ -75,7 +75,8 @@ class ComplianceReport:
         total_findings: Total safety findings across all evaluators.
         raw_findings: Per-probe finding details for HTML report rendering.
             Each dict has keys: probe_id, probe_description, category, severity,
-            finding, probe_input, response, remediation (list[str]).
+            finding, probe_input, response, remediation (list[str]), and
+            optionally expected_behavior.
     """
 
     agent_version: str = ""
@@ -465,6 +466,7 @@ def render_compliance_html(report: ComplianceReport) -> str:
             cat_val = f.get("category", "")
             probe_id = _html.escape(f.get("probe_id", ""))
             probe_desc = _html.escape(f.get("probe_description", ""))
+            expected_behavior = _html.escape(str(f.get("expected_behavior") or ""))
             finding_text = _html.escape(f.get("finding", ""))
             probe_input = _html.escape(f.get("probe_input", ""))
             response = _html.escape(str(f.get("response", "") or ""))
@@ -480,6 +482,12 @@ def render_compliance_html(report: ComplianceReport) -> str:
             )
             if probe_desc:
                 h.append(f'<div class="finding-desc">{probe_desc}</div>')
+            if expected_behavior:
+                h.append(
+                    '<div class="finding-desc">'
+                    f"Expected behavior: <code>{expected_behavior}</code>"
+                    "</div>"
+                )
             h.append(f'<div class="finding-text">{finding_text}</div>')
             h.append(
                 '<details class="probe-detail">'

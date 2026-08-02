@@ -117,7 +117,11 @@ def probe_list_cmd(
             "owasp": _OWASP_MAP.get(key, ""),
             "examples": example_inputs,
             "probes": [
-                {"input": p.input, "description": p.description}
+                {
+                    "input": p.input,
+                    "description": p.description,
+                    "expected_behavior": p.expected_behavior,
+                }
                 for p in probes
             ] if json_output and show_verbose else [],
         }
