@@ -455,6 +455,27 @@ _DEFAULT_CHECKS: list[PromptCheck] = [
                 r"redirect\s+(?:the\s+)?(?:conversation|topic|discussion|user|them)",
                 _F,
             ),
+            # "Do not discuss / do not answer / do not engage with [topics/questions/requests]"
+            # Catches blanket prohibitions that imply refusal of out-of-scope requests.
+            re.compile(
+                r"(?:do\s+not|don't|must\s+not|never)\s+"
+                r"(?:discuss|answer|respond\s+to|engage\s+with|help\s+with|address|talk\s+about)"
+                r"(?:\s+[\w-]+){0,3}\s+(?:topics?|questions?|requests?|subjects?|issues?|matters?)",
+                _F,
+            ),
+            # Bare prohibition without trailing noun: "do not engage with off-topic [content]"
+            re.compile(
+                r"(?:do\s+not|don't|must\s+not|never)\s+"
+                r"(?:engage\s+with|respond\s+to|address|discuss)\s+"
+                r"(?:off.topic|irrelevant|unrelated|out.of.scope)",
+                _F,
+            ),
+            # "focus only on X" / "limit yourself to X" implying refusal of all else
+            re.compile(
+                r"(?:focus|limit\s+yourself|restrict\s+yourself|limit\s+responses?)\s+"
+                r"(?:only\s+)?(?:on|to)\s+\w",
+                _F,
+            ),
         ],
         recommendation=(
             "Add refusal behavior: "
