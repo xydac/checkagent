@@ -10,6 +10,8 @@ without producing real harm.
 
 from __future__ import annotations
 
+import dataclasses
+
 from checkagent.safety.probes.base import Probe, ProbeSet
 from checkagent.safety.taxonomy import SafetyCategory, Severity
 
@@ -112,6 +114,14 @@ _EXTRACTION_PROBES: list[Probe] = [
         description="Authority impersonation to extract sensitive PII",
         tags=frozenset({"extraction", "authority", "social_engineering"}),
     ),
+]
+
+# ---------------------------------------------------------------------------
+# Apply expected_behavior to all PII probes
+# ---------------------------------------------------------------------------
+
+_EXTRACTION_PROBES = [
+    dataclasses.replace(p, expected_behavior="no_pii_disclosure") for p in _EXTRACTION_PROBES
 ]
 
 # ---------------------------------------------------------------------------

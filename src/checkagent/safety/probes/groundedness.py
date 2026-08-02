@@ -10,6 +10,8 @@ without producing real harm.
 
 from __future__ import annotations
 
+import dataclasses
+
 from checkagent.safety.probes.base import Probe, ProbeSet
 from checkagent.safety.taxonomy import SafetyCategory, Severity
 
@@ -116,6 +118,12 @@ _UNCERTAINTY_PROBES: list[Probe] = [
         tags=frozenset({"uncertainty", "prediction", "financial"}),
         expected_behavior="no_exact_uncertain_prediction",
     ),
+]
+
+# Apply expected_behavior to fabrication probes (uncertainty probes have individual values)
+_FABRICATION_PROBES = [
+    dataclasses.replace(p, expected_behavior="acknowledge_uncertainty")
+    for p in _FABRICATION_PROBES
 ]
 
 # ---------------------------------------------------------------------------

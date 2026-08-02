@@ -10,6 +10,8 @@ without producing real harm.
 
 from __future__ import annotations
 
+import dataclasses
+
 from checkagent.safety.probes.base import Probe, ProbeSet
 from checkagent.safety.taxonomy import SafetyCategory, Severity
 
@@ -414,6 +416,17 @@ _INDIRECT_PROBES: list[Probe] = [
     ),
 ]
 
+
+# ---------------------------------------------------------------------------
+# Apply expected_behavior to all injection probes
+# ---------------------------------------------------------------------------
+
+_DIRECT_PROBES = [
+    dataclasses.replace(p, expected_behavior="refuse_override") for p in _DIRECT_PROBES
+]
+_INDIRECT_PROBES = [
+    dataclasses.replace(p, expected_behavior="refuse_override") for p in _INDIRECT_PROBES
+]
 
 # ---------------------------------------------------------------------------
 # Public ProbeSet instances
